@@ -1,0 +1,265 @@
+/* ============ THEME TOKENS ============ */
+:root {
+  --sidebar-w: 250px;
+  --radius-lg: 12px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+  --shadow-1: 0 6px 18px rgba(2, 6, 23, .08);
+  --shadow-2: 0 10px 30px rgba(2, 6, 23, .12);
+  --primary: #1677ff;
+  --primary-2: #4096ff;
+  --primary-3: #e6f4ff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --success: #52c41a;
+  --warning: #faad14;
+  --warning-2: #fff7e6;
+  --warning-3: #ffe58f;
+  --bg1: #f5f7fb;
+  --bg2: #eef3fb;
+}
+
+/* ============ PAGE LAYOUT ============ */
+.receipt-management-container{
+  margin-left: var(--sidebar-w);
+  padding: 20px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--bg1), var(--bg2));
+  position: relative;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1200px){
+  .receipt-management-container{ margin-left: 200px; }
+}
+@media (max-width: 992px){
+  .receipt-management-container{ margin-left: 0; padding: 16px; }
+}
+@media (max-width: 768px){
+  .receipt-management-container{ padding: 12px 14px; }
+}
+
+/* ============ HEADER BAR ============ */
+.receipt-header{
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  margin-bottom: 16px;
+}
+
+.search-section{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.search-section .ant-select,
+.search-section .ant-input,
+.search-section .ant-picker{
+  border-radius: var(--radius-sm);
+  transition: all .2s ease;
+}
+.search-section .ant-select:hover,
+.search-section .ant-input:hover,
+.search-section .ant-picker:hover{
+  border-color: var(--primary-2);
+  box-shadow: 0 0 0 2px rgba(64,150,255,.18);
+}
+
+/* ============ BUTTONS ============ */
+.ant-btn{
+  border-radius: 10px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.ant-btn:hover{ transform: translateY(-1px); }
+
+.ant-btn-primary{
+  background: linear-gradient(135deg, var(--primary-2), var(--primary));
+  border: none;
+  box-shadow: 0 6px 16px rgba(22,119,255,.35);
+}
+.ant-btn-primary:hover{
+  filter: brightness(1.03);
+  box-shadow: 0 8px 22px rgba(22,119,255,.4);
+}
+
+/* ============ TABLE CARD ============ */
+.table-container{
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  padding: 16px;
+}
+.ant-table{
+  border-radius: 10px;
+  overflow: hidden;
+}
+.ant-table-thead > tr > th{
+  background: linear-gradient(180deg, #f0f7ff, #e6f4ff) !important;
+  color: var(--primary);
+  font-weight: 700;
+  border-bottom: 2px solid var(--primary-2);
+  text-align: center;
+}
+.ant-table-tbody > tr > td{
+  padding: 12px;
+  font-size: 13px;
+}
+.ant-table-tbody > tr:hover > td{
+  background: #f6fbff !important;
+}
+
+/* ============ MODALS ============ */
+/* Style chung */
+.ant-modal .ant-modal-content{
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+}
+.ant-modal .ant-modal-header{
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom: none;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, var(--primary-2), var(--primary));
+}
+.ant-modal .ant-modal-title{ color:#fff; font-weight:700; }
+.ant-modal .ant-modal-close{ color:#fff; }
+
+/* CHỈ ÁP DỤNG CHO MODAL NHẬP HÀNG:
+   Thêm className="receipt-modal" ở Modal tạo phiếu nhập */
+.receipt-modal .ant-modal-wrap{
+  /* đẩy modal lệch sang phải nhẹ mà không phá layout */
+  padding-left: 24px;
+}
+@media (min-width: 1200px){
+  .receipt-modal .ant-modal-wrap{ padding-left: 40px; }
+}
+
+/* Body */
+.ant-modal .ant-modal-body{ padding: 20px; }
+
+/* Footer mặc định (nếu dùng) – khoá nút về bên phải */
+.ant-modal .ant-modal-footer{
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 8px;
+}
+
+/* ============ FORM ============ */
+.ant-form-item-label > label{ font-weight: 600; color: #1f2937; }
+
+.ant-input,
+.ant-select-selector{
+  border-radius: var(--radius-sm);
+}
+.ant-input:focus,
+.ant-select-focused .ant-select-selector{
+  border-color: var(--primary-2);
+  box-shadow: 0 0 0 2px rgba(64,150,255,.18);
+}
+
+/* Hàng sản phẩm */
+.form-item-row{
+  display: grid;
+  grid-template-columns: 180px 1fr 140px 160px auto;
+  gap: 12px;
+  align-items: end;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: var(--radius-sm);
+  border-left: 4px solid var(--primary);
+  margin-bottom: 12px;
+}
+@media (max-width: 992px){
+  .form-item-row{
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+}
+
+/* Nhóm nút % lợi nhuận */
+.profit-buttons{
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+}
+.profit-buttons .ant-btn{
+  background: #52c41a;
+  color:#fff;
+  border:none;
+  height: 32px;
+}
+.profit-buttons .ant-btn:hover{ background:#73d13d; }
+
+/* Tổng tiền */
+.total-display{
+  background: linear-gradient(135deg,#f6ffed,#d9f7be) !important;
+  border: 2px solid var(--success) !important;
+  color:#2f8a10 !important;
+  font-weight: 700 !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 10px !important;
+}
+
+/* ============ LOW-STOCK ALERT (đẹp & gọn) ============ */
+.lowstock-alert{
+  background: var(--warning-2);
+  border: 1px solid var(--warning-3);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  box-shadow: 0 2px 10px rgba(250, 173, 20, .08);
+}
+.lowstock-alert .ant-alert-icon{ color: var(--warning); }
+
+.lowstock-actions{
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+@media (min-width: 768px){
+  .lowstock-alert{ display: flex; align-items: center; }
+  .lowstock-alert .ant-alert-content{ flex: 1 1 auto; }
+  .lowstock-actions{ margin-left: auto; }
+}
+.lowstock-alert .ant-btn-default:hover{
+  color: var(--warning);
+  border-color: var(--warning-3);
+  background: #fff;
+}
+.lowstock-alert .ant-btn-primary{
+  background: linear-gradient(180deg, var(--primary-2), var(--primary));
+  border-color: var(--primary);
+}
+
+/* Bảng chi tiết sau alert */
+.lowstock-table{
+  margin-top: 8px;
+  background: #fff;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+/* ============ ANIMATIONS & UTILITIES ============ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.receipt-header, .table-container{ animation: fadeIn .4s ease; }
+
+/* helper */
+.text-right{ text-align: right; }
+.text-center{ text-align: center; }

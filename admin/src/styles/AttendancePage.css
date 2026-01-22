@@ -1,0 +1,179 @@
+.attendance-page {
+  /* Keep layout left-aligned inside the main content area and clear the left sidebar.
+     If your sidebar width differs, tweak the margin-left value. */
+  padding: 20px;
+  display: flex;
+  justify-content: flex-start; /* align content to the left of the content area */
+  gap: 16px;
+  font-size: 13px;
+  font-family: Arial, Helvetica, sans-serif;
+  margin-left: 220px; /* clear sidebar */
+  transition: margin-left 220ms ease;
+  box-sizing: border-box;
+}
+
+/* Thu nhỏ vùng chọn tháng/năm */
+.attendance-page .react-select__control,
+.attendance-page select {
+  min-height: 24px;
+  height: 24px;
+  font-size: 13px;
+  padding: 0 2px;
+  max-width: 100px;
+  margin-bottom: 6px;
+}
+
+.attendance-page .react-select__value-container {
+  padding: 0 2px;
+}
+
+/* Danh sách nhân viên (left column) */
+.attendance-page > div:first-child {
+  min-width: 240px; /* match component inline minWidth (260) more closely */
+  max-width: 320px;
+}
+
+/* Lịch chấm công + form tính lương (right column) */
+.attendance-page > div:last-child {
+  flex: 1 1 auto; /* allow right column to grow */
+  min-width: 600px; /* keep a reasonable minimum */
+}
+
+/* On small screens remove left shift and allow stacked layout */
+@media (max-width: 768px) {
+  .attendance-page {
+    margin-left: 0;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .attendance-page > div:first-child,
+  .attendance-page > div:last-child {
+    max-width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 8px 6px;
+  text-align: center;
+}
+
+th {
+  background-color: #f5f5f5;
+  font-size: 15px;
+}
+
+td {
+  cursor: pointer;
+  min-width: 35px;
+  max-width: 60px;
+}
+
+td:hover {
+  opacity: 0.8;
+}
+/* Move the month calendar (the first table inside the right column) to the right
+   so the 30-day calendar visually sits at the right edge of the content column.
+   We target only the first table in the right column to avoid affecting salary table. */
+
+/* Calendar should use full width of right column so empty cells still appear large */
+.attendance-page > div:last-child > table:first-of-type,
+.attendance-page > div:last-child > table {
+  width: 100%;
+  table-layout: fixed; /* distribute space evenly across columns */
+}
+
+/* If calendar becomes too wide for the column, scale down cells slightly */
+.attendance-page > div:last-child > table td {
+  min-width: 64px; /* make day cells larger for better visibility */
+  padding: 12px 8px;
+}
+/* ...existing code... */
+
+/* Bảng lương đẹp mắt */
+.salary-info-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  background: #f8fafc;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px #0001;
+}
+
+.salary-info-table th,
+.salary-info-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e3e3e3;
+  text-align: left;
+  font-size: 15px;
+}
+
+.salary-info-table th {
+  background: #1976d2;
+  color: #fff;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.salary-info-table tr:last-child td {
+  border-bottom: none;
+}
+
+.salary-info-table .salary-total {
+  color: #1976d2;
+  font-weight: bold;
+  font-size: 17px;
+}
+
+.salary-info-table .salary-status {
+  font-style: italic;
+  color: #388e3c;
+  font-weight: 500;
+}
+
+/* Larger, clearer action buttons for attendance */
+.status-buttons button,
+.salary-btn,
+.save-btn {
+  padding: 10px 14px;
+  font-size: 15px;
+  border-radius: 6px;
+  border: 2px solid #2222;
+  cursor: pointer;
+}
+
+.status-buttons button:hover,
+.salary-btn:hover,
+.save-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+
+.salary-btn {
+  padding: 12px 18px;
+  font-size: 16px;
+}
+
+.save-btn {
+  padding: 12px 18px;
+  font-size: 16px;
+}
+
+/* Responsive cho bảng lương */
+@media (max-width: 600px) {
+  .salary-info-table th,
+  .salary-info-table td {
+    font-size: 13px;
+    padding: 7px 6px;
+  }
+}
