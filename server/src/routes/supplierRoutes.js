@@ -2,6 +2,7 @@ import express from 'express';
 import supplierController from '../controllers/supplierController.js';
 import { authenticateToken } from '../utils/generateToken.js';
 import { checkPermission } from '../middlewares/rbacMiddleware.js';
+import { FEATURES, PERMISSIONS } from '../constants/permissions.js';
 
 const router = express.Router();
 
@@ -9,15 +10,14 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // ======================= SUPPLIER CRUD =======================
-// Feature 14: 'Nhà cung cấp'
-router.get('/suppliers', checkPermission(14, 'Xem'), supplierController.getAllSuppliers);
-router.get('/suppliers/:id', checkPermission(14, 'Xem'), supplierController.getSupplierById);
-router.post('/suppliers', checkPermission(14, 'Them'), supplierController.createSupplier);
-router.put('/suppliers/:id', checkPermission(14, 'Sua'), supplierController.updateSupplier);
-router.delete('/suppliers/:id', checkPermission(14, 'Xoa'), supplierController.deleteSupplier);
+router.get('/suppliers', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.VIEW), supplierController.getAllSuppliers);
+router.get('/suppliers/:id', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.VIEW), supplierController.getSupplierById);
+router.post('/suppliers', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.CREATE), supplierController.createSupplier);
+router.put('/suppliers/:id', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.UPDATE), supplierController.updateSupplier);
+router.delete('/suppliers/:id', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.DELETE), supplierController.deleteSupplier);
 
 // ======================= SUPPLIER DEBTS =======================
-router.get('/suppliers/:id/debts', checkPermission(14, 'Xem'), supplierController.getSupplierDebts);
-router.post('/debts/pay', checkPermission(14, 'Them'), supplierController.recordDebtPayment);
+router.get('/suppliers/:id/debts', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.VIEW), supplierController.getSupplierDebts);
+router.post('/debts/pay', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.CREATE), supplierController.recordDebtPayment);
 
 export default router;

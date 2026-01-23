@@ -4,12 +4,15 @@ import LoginRoutes from './LoginRoutes.js';
 import roleRoutes from './roleRoutes.js';
 import Receipt from './receipt.js';
 import reportRoutes from './reportRoutes.js';
+import permissionRoutes from './permissionRoutes.js';
 import hrRoutes from './hrRoutes.js';
 import salesRoutes from './salesRoutes.js';
 import supplierRoutes from './supplierRoutes.js';
 import financeRoutes from './financeRoutes.js';
 import returnRoutes from './returnRoutes.js';
 import attendanceRoutes from './attendanceRoutes.js';
+import customerRoutes from './customerRoutes.js';
+import branchRoutes from './branchRoutes.js';
 
 export const initRoutes = (app) => {
   // Root path - Server status
@@ -21,8 +24,8 @@ export const initRoutes = (app) => {
       modules: {
         system: ['/api/login', '/api/accounts', '/api/roles', '/api/reports', '/api/audit-logs'],
         hr: ['/api/hr', '/api/attendance'],
-        warehouse: ['/api/product', '/api/receipt', '/api/suppliers'],
-        sales: ['/api/sales', '/api/returns'],
+        warehouse: ['/api/product', '/api/receipt', '/api/suppliers', '/api/branches'],
+        sales: ['/api/sales', '/api/returns', '/api/customers'],
         finance: ['/api/finance']
       }
     });
@@ -32,6 +35,7 @@ export const initRoutes = (app) => {
   app.use('/api/login', LoginRoutes);
   app.use('/api/accounts', accountRoutes);
   app.use('/api/roles', roleRoutes);
+  app.use('/api/permissions', permissionRoutes);
   app.use('/api/reports', reportRoutes);
 
   // HR Management
@@ -47,6 +51,10 @@ export const initRoutes = (app) => {
   // Sales & POS
   app.use('/api/sales', salesRoutes);
   app.use('/api/returns', returnRoutes);
+  app.use('/api/customers', customerRoutes);
+
+  // Branch Management
+  app.use('/api/branches', branchRoutes);
 
   // Finance Management
   app.use('/api/finance', financeRoutes);

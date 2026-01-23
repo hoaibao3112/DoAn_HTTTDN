@@ -36,9 +36,9 @@ export const PermissionProvider = ({ children }) => {
   };
 
   useEffect(() => {
-  fetchPermissions();
-  // eslint-disable-next-line
-}, []);
+    fetchPermissions();
+    // eslint-disable-next-line
+  }, []);
 
   // Normalize strings: remove diacritics, lowercase, trim
   const normalize = (s) => {
@@ -48,6 +48,8 @@ export const PermissionProvider = ({ children }) => {
         .normalize('NFD')
         .replace(/\p{Diacritic}/gu, '')
         .toLowerCase()
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'd')
         .trim();
     } catch (e) {
       // fallback for older environments without Unicode property escapes
@@ -55,24 +57,70 @@ export const PermissionProvider = ({ children }) => {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'd')
         .trim();
     }
   };
 
   const hasPermission = (functionName, action) => {
+    if (!permissions || permissions.length === 0) return false;
+
     const fnNorm = normalize(functionName);
-    const actNorm = normalize(action);
+
+    // Map friendly action names to database column names
+    const actionMapping = {
+      'xem': 'Xem',
+      'doc': 'Xem',
+      'them': 'Them',
+      'sua': 'Sua',
+      'xoa': 'Xoa',
+      'xuat_file': 'XuatFile',
+      'xuat': 'XuatFile',
+      'duyet': 'Duyet'
+    };
+
+    const targetColumn = actionMapping[normalize(action)];
+    if (!targetColumn) {
+      console.warn(`Unknown action: ${action}`);
+      return false;
+    }
 
     const result = permissions.some((perm) => {
-      const ten = normalize(perm.TenCN);
-      const hanh = normalize(perm.HanhDong);
-      // Strict match for action to avoid false positives (use exact equality)
-      const actionMatches = hanh === actNorm;
-      return ten === fnNorm && actionMatches;
+      const tenCnNorm = normalize(perm.TenCN);
+      // Check if normalized function name matches OR is a sub-string (flexible)
+      const matchesFunction = tenCnNorm === fnNorm || tenCnNorm.includes(fnNorm) || fnNorm.includes(tenCnNorm);
+
+      if (matchesFunction) {
+        return !!perm[targetColumn];
+      }
+      return false;
     });
 
-    console.log(`Checking permission: ${functionName} - ${action} => ${result}`);
+    console.log(`Checking permission: [${functionName}] - [${action}] (${targetColumn}) => ${result}`);
     return result;
+  };
+
+  // Check permission by numeric feature id (MaCN). This is more reliable than matching names.
+  const hasPermissionById = (featureId, action) => {
+    if (!permissions || permissions.length === 0) return false;
+    const actionMapping = {
+      'xem': 'Xem',
+      'doc': 'Xem',
+      'them': 'Them',
+      'sua': 'Sua',
+      'xoa': 'Xoa',
+      'xuat_file': 'XuatFile',
+      'xuat': 'XuatFile',
+      'duyet': 'Duyet'
+    };
+    const targetColumn = actionMapping[normalize(action)];
+    if (!targetColumn) return false;
+    const idNum = Number(featureId);
+    if (Number.isNaN(idNum)) return false;
+    const perm = permissions.find(p => Number(p.MaCN) === idNum);
+    if (!perm) return false;
+    return !!perm[targetColumn];
   };
 
   const refreshPermissions = async () => {
@@ -86,7 +134,7 @@ export const PermissionProvider = ({ children }) => {
 
   return (
     <PermissionContext.Provider
-      value={{ permissions, setPermissions, hasPermission, loading, refreshPermissions }}
+      value={{ permissions, setPermissions, hasPermission, hasPermissionById, loading, refreshPermissions }}
     >
       {children}
     </PermissionContext.Provider>

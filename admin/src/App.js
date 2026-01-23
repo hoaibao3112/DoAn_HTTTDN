@@ -42,10 +42,13 @@ const RestrictedRoute = ({ component: Component, permission }) => {
   if (loading) {
     return <div>Loading permissions...</div>;
   }
-  return hasPermission(permission, 'Đọc') ? (
+  return hasPermission(permission, 'Xem') ? (
     <Component />
   ) : (
-    <div>Bạn không có quyền truy cập trang này: {permission}</div>
+    <div style={{ padding: '20px', color: 'white', background: 'rgba(0,0,0,0.5)', borderRadius: '8px', margin: '20px' }}>
+      <h2>Bạn không có quyền truy cập</h2>
+      <p>Chức năng: <strong>{permission}</strong></p>
+    </div>
   );
 };
 
@@ -68,7 +71,7 @@ const App = () => {
         element={
           <PrivateRoute
             component={() => (
-              <RestrictedRoute component={ProductManagement} permission="Sản phẩm" />
+              <RestrictedRoute component={ProductManagement} permission="Danh sách sản phẩm" />
             )}
           />
         }
@@ -88,7 +91,7 @@ const App = () => {
         element={
           <PrivateRoute
             component={() => (
-              <RestrictedRoute component={UserManagement} permission="Nhân viên" />
+              <RestrictedRoute component={UserManagement} permission="Danh sách nhân viên" />
             )}
           />
         }
@@ -108,7 +111,7 @@ const App = () => {
         element={
           <PrivateRoute
             component={() => (
-              <RestrictedRoute component={InvoiceManagement} permission="Hóa đơn" />
+              <RestrictedRoute component={InvoiceManagement} permission="Quản lý hóa đơn" />
             )}
           />
         }
@@ -138,7 +141,7 @@ const App = () => {
         element={
           <PrivateRoute
             component={() => (
-              <RestrictedRoute component={Client} permission="Khách hàng" />
+              <RestrictedRoute component={Client} permission="Quản lý khách hàng" />
             )}
           />
         }
@@ -170,7 +173,7 @@ const App = () => {
         element={
           <PrivateRoute
             component={() => (
-              <RestrictedRoute component={Statistical} permission="Thống kê" />
+              <RestrictedRoute component={Statistical} permission="Báo cáo thống kê" />
             )}
           />
         }
@@ -225,7 +228,7 @@ const App = () => {
         element={
           <PrivateRoute
             component={() => (
-              <RestrictedRoute component={ReturnManagement} permission="Trả Hàng" />
+              <RestrictedRoute component={ReturnManagement} permission="Trả hàng" />
             )}
           />
         }

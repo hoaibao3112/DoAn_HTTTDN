@@ -2,6 +2,7 @@ import express from 'express';
 import warehouseController from '../controllers/warehouseController.js';
 import { authenticateToken } from '../utils/generateToken.js';
 import { checkPermission } from '../middlewares/rbacMiddleware.js';
+import { FEATURES, PERMISSIONS } from '../constants/permissions.js';
 
 const router = express.Router();
 
@@ -9,28 +10,63 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // ======================= PRODUCT MANAGEMENT =======================
-// Feature 13: 'Danh sách sản phẩm'
-router.get('/products', checkPermission(13, 'Xem'), warehouseController.getAllProducts);
-router.post('/products', checkPermission(13, 'Them'), warehouseController.upsertProduct);
-router.put('/products', checkPermission(13, 'Sua'), warehouseController.upsertProduct);
+router.get('/products',
+    checkPermission(FEATURES.PRODUCTS, PERMISSIONS.VIEW),
+    warehouseController.getAllProducts
+);
+
+router.post('/products',
+    checkPermission(FEATURES.PRODUCTS, PERMISSIONS.CREATE),
+    warehouseController.upsertProduct
+);
+
+router.put('/products',
+    checkPermission(FEATURES.PRODUCTS, PERMISSIONS.UPDATE),
+    warehouseController.upsertProduct
+);
 
 // ======================= PURCHASE ORDERS =======================
-// Feature 15: 'Phiếu nhập'
-router.get('/purchase-orders', checkPermission(15, 'Xem'), warehouseController.getAllPurchaseOrders);
-router.get('/purchase-orders/:id', checkPermission(15, 'Xem'), warehouseController.getPurchaseOrderById);
-router.post('/purchase-orders', checkPermission(15, 'Them'), warehouseController.createPurchaseOrder);
+router.get('/purchase-orders',
+    checkPermission(FEATURES.PURCHASE_ORDERS, PERMISSIONS.VIEW),
+    warehouseController.getAllPurchaseOrders
+);
+
+router.get('/purchase-orders/:id',
+    checkPermission(FEATURES.PURCHASE_ORDERS, PERMISSIONS.VIEW),
+    warehouseController.getPurchaseOrderById
+);
+
+router.post('/purchase-orders',
+    checkPermission(FEATURES.PURCHASE_ORDERS, PERMISSIONS.CREATE),
+    warehouseController.createPurchaseOrder
+);
 
 // ======================= STOCK MANAGEMENT =======================
-// Feature 16: 'Tồn kho'
-router.get('/stock', checkPermission(16, 'Xem'), warehouseController.getStockByBranch);
-router.get('/stock/alerts', checkPermission(16, 'Xem'), warehouseController.getLowStockAlerts);
+router.get('/stock',
+    checkPermission(FEATURES.STOCK, PERMISSIONS.VIEW),
+    warehouseController.getStockByBranch
+);
+
+router.get('/stock/alerts',
+    checkPermission(FEATURES.STOCK, PERMISSIONS.VIEW),
+    warehouseController.getLowStockAlerts
+);
 
 // ======================= STOCK TRANSFER =======================
-router.post('/transfers', checkPermission(16, 'Them'), warehouseController.transferStock);
-router.put('/transfers/:id/approve', checkPermission(16, 'Duyet'), warehouseController.approveTransfer);
+router.post('/transfers',
+    checkPermission(FEATURES.STOCK, PERMISSIONS.CREATE),
+    warehouseController.transferStock
+);
+
+router.put('/transfers/:id/approve',
+    checkPermission(FEATURES.STOCK, PERMISSIONS.APPROVE),
+    warehouseController.approveTransfer
+);
 
 // ======================= INVENTORY CHECK =======================
-// Feature 17: 'Kiểm kê'
-router.post('/inventory-check', checkPermission(17, 'Them'), warehouseController.performInventoryCheck);
+router.post('/inventory-check',
+    checkPermission(FEATURES.INVENTORY_CHECK, PERMISSIONS.CREATE),
+    warehouseController.performInventoryCheck
+);
 
 export default router;

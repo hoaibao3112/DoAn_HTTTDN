@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/connectDatabase.js';
 import { authenticateToken } from '../utils/generateToken.js';
 import { checkPermission } from '../middlewares/rbacMiddleware.js';
+import { FEATURES, PERMISSIONS } from '../constants/permissions.js';
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ router.use(authenticateToken);
 // ======================= MODULE 1.3: AUDIT LOGS =======================
 
 // View audit logs (Feature 4 in chucnang: 'Nhật ký hoạt động')
-router.get('/audit-logs', checkPermission(4, 'Xem'), async (req, res) => {
+router.get('/audit-logs', checkPermission(FEATURES.AUDIT_LOGS, PERMISSIONS.VIEW), async (req, res) => {
   const { page = 1, pageSize = 20, Action, Table } = req.query;
   const offset = (page - 1) * pageSize;
 
@@ -56,7 +57,7 @@ router.get('/audit-logs', checkPermission(4, 'Xem'), async (req, res) => {
 // ======================= MODULE 1.4: ADMINISTRATIVE REPORTS =======================
 
 // Revenue by Month (from v_doanh_thu_thang)
-router.get('/revenue/monthly', checkPermission(24, 'Xem'), async (req, res) => {
+router.get('/revenue/monthly', checkPermission(FEATURES.REVENUE_REPORT, PERMISSIONS.VIEW), async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM v_doanh_thu_thang');
     res.json({ success: true, data: rows });
@@ -66,7 +67,7 @@ router.get('/revenue/monthly', checkPermission(24, 'Xem'), async (req, res) => {
 });
 
 // Profit by Month (from v_loi_nhuan)
-router.get('/profit/monthly', checkPermission(25, 'Xem'), async (req, res) => {
+router.get('/profit/monthly', checkPermission(FEATURES.PROFIT_REPORT, PERMISSIONS.VIEW), async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM v_loi_nhuan');
     res.json({ success: true, data: rows });
@@ -76,7 +77,7 @@ router.get('/profit/monthly', checkPermission(25, 'Xem'), async (req, res) => {
 });
 
 // Best Selling Products (from v_san_pham_ban_chay)
-router.get('/best-sellers', checkPermission(23, 'Xem'), async (req, res) => {
+router.get('/best-sellers', checkPermission(FEATURES.REPORTS, PERMISSIONS.VIEW), async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM v_san_pham_ban_chay LIMIT 20');
     res.json({ success: true, data: rows });
@@ -86,7 +87,7 @@ router.get('/best-sellers', checkPermission(23, 'Xem'), async (req, res) => {
 });
 
 // Branch Stock Report (Module 3 requirement for Admin)
-router.get('/stock/branches', checkPermission(26, 'Xem'), async (req, res) => {
+router.get('/stock/branches', checkPermission(FEATURES.STOCK_REPORT, PERMISSIONS.VIEW), async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT ch.TenCH, sp.TenSP, tk.SoLuongTon, tk.SoLuongToiThieu 

@@ -18,12 +18,14 @@ router.post('/', async (req, res) => {
 
   try {
     // 1. Tìm tài khoản theo tên đăng nhập
+    console.log(`Login attempt for user: ${TenTK}`);
     const [accounts] = await pool.query(
       'SELECT MaTK, TenTK, MatKhau, MaNQ, TinhTrang FROM taikhoan WHERE TenTK = ?',
       [TenTK]
     );
 
     if (accounts.length === 0) {
+      console.log(`User ${TenTK} not found in database`);
       return res.status(401).json({
         success: false,
         message: 'Tài khoản không tồn tại'
@@ -41,7 +43,10 @@ router.post('/', async (req, res) => {
     }
 
     // 2. Kiểm tra mật khẩu
+    console.log(`Comparing password for user: ${account.TenTK}`);
+    console.log(`Stored hash: ${account.MatKhau}`);
     const passwordMatch = await bcrypt.compare(MatKhau, account.MatKhau);
+    console.log(`Password match result: ${passwordMatch}`);
 
     if (!passwordMatch) {
       // Log failed attempt (optional but good for security)

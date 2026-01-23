@@ -2,6 +2,7 @@ import express from 'express';
 import hrController from '../controllers/hrController.js';
 import { authenticateToken } from '../utils/generateToken.js';
 import { checkPermission } from '../middlewares/rbacMiddleware.js';
+import { FEATURES, PERMISSIONS } from '../constants/permissions.js';
 
 const router = express.Router();
 
@@ -10,33 +11,61 @@ router.use(authenticateToken);
 
 // ======================= MODULE 2.1: EMPLOYEE SELF-SERVICE =======================
 
-// Profile
+// Profile - Không cần check permission vì mỗi user chỉ xem/sửa profile của mình
 router.get('/profile', hrController.getProfile);
 router.put('/profile', hrController.updateProfile);
 
-// Leave Requests (Self)
+// Leave Requests (Self) - Nhân viên tự nộp đơn xin nghỉ
 router.post('/xin-nghi-phep', hrController.submitLeave);
 router.get('/my-leave', hrController.getMyLeave);
 
-// Salary (Self)
+// Salary (Self) - Nhân viên xem lương của mình
 router.get('/my-salary', hrController.getMySalary);
 
 // ======================= MODULE 2.2: HR MANAGER =======================
 
-// Employee Management (Feature 6: 'Danh sách nhân viên')
-router.get('/employees', checkPermission(6, 'Xem'), hrController.getAllEmployees);
-router.post('/employees', checkPermission(6, 'Them'), hrController.addEmployee);
-router.put('/employees/:id', checkPermission(6, 'Sua'), hrController.updateEmployee);
-router.delete('/employees/:id', checkPermission(6, 'Xoa'), hrController.deleteEmployee);
+// Employee Management
+router.get('/employees',
+    checkPermission(FEATURES.EMPLOYEES, PERMISSIONS.VIEW),
+    hrController.getAllEmployees
+);
+
+router.post('/employees',
+    checkPermission(FEATURES.EMPLOYEES, PERMISSIONS.CREATE),
+    hrController.addEmployee
+);
+
+router.put('/employees/:id',
+    checkPermission(FEATURES.EMPLOYEES, PERMISSIONS.UPDATE),
+    hrController.updateEmployee
+);
+
+router.delete('/employees/:id',
+    checkPermission(FEATURES.EMPLOYEES, PERMISSIONS.DELETE),
+    hrController.deleteEmployee
+);
 
 // Position & Salary Changes (History)
-router.post('/change-position', checkPermission(6, 'Sua'), hrController.changePosition);
+router.post('/change-position',
+    checkPermission(FEATURES.EMPLOYEES, PERMISSIONS.UPDATE),
+    hrController.changePosition
+);
 
-// Leave Approval (Feature 9: 'Xin nghỉ phép' - but for admin it's approval)
-router.get('/leave-requests', checkPermission(9, 'Xem'), hrController.getAllLeaveRequests);
-router.put('/leave-requests/:id/approve', checkPermission(9, 'Duyet'), hrController.approveLeave);
+// Leave Approval
+router.get('/leave-requests',
+    checkPermission(FEATURES.LEAVE, PERMISSIONS.VIEW),
+    hrController.getAllLeaveRequests
+);
 
-// Salary Calculation (Feature 10: 'Tính lương')
-router.post('/salary/calculate', checkPermission(10, 'Them'), hrController.calculateMonthlySalary);
+router.put('/leave-requests/:id/approve',
+    checkPermission(FEATURES.LEAVE, PERMISSIONS.APPROVE),
+    hrController.approveLeave
+);
+
+// Salary Calculation
+router.post('/salary/calculate',
+    checkPermission(FEATURES.SALARY, PERMISSIONS.CREATE),
+    hrController.calculateMonthlySalary
+);
 
 export default router;

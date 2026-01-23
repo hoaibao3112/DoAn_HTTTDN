@@ -4,6 +4,7 @@ import { authenticateToken } from '../utils/generateToken.js';
 import { checkPermission } from '../middlewares/rbacMiddleware.js';
 import { logActivity } from '../utils/auditLogger.js';
 import bcrypt from 'bcryptjs';
+import { FEATURES, PERMISSIONS } from '../constants/permissions.js';
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // 1. Get all accounts (Admin/Manager with 'Xem' permission on feature 2)
-router.get('/', checkPermission(2, 'Xem'), async (req, res) => {
+router.get('/', checkPermission(FEATURES.USERS, PERMISSIONS.VIEW), async (req, res) => {
   try {
     const [accounts] = await pool.query(
       `SELECT MaTK, TenTK, Email, TinhTrang, MaNQ, NgayTao FROM taikhoan`
@@ -23,7 +24,7 @@ router.get('/', checkPermission(2, 'Xem'), async (req, res) => {
 });
 
 // 2. Create new account (Admin with 'Them' permission)
-router.post('/', checkPermission(2, 'Them'), async (req, res) => {
+router.post('/', checkPermission(FEATURES.USERS, PERMISSIONS.CREATE), async (req, res) => {
   const { TenTK, MatKhau, Email, MaNQ } = req.body;
 
   if (!TenTK || !MatKhau) {
@@ -59,7 +60,7 @@ router.post('/', checkPermission(2, 'Them'), async (req, res) => {
 });
 
 // 3. Update account / Inactivate (Admin with 'Sua' permission)
-router.put('/:id', checkPermission(2, 'Sua'), async (req, res) => {
+router.put('/:id', checkPermission(FEATURES.USERS, PERMISSIONS.UPDATE), async (req, res) => {
   const { id } = req.params;
   const { Email, MaNQ, TinhTrang } = req.body;
 
@@ -89,7 +90,7 @@ router.put('/:id', checkPermission(2, 'Sua'), async (req, res) => {
 });
 
 // 4. Admin Reset Password
-router.put('/:id/reset-password', checkPermission(2, 'Sua'), async (req, res) => {
+router.put('/:id/reset-password', checkPermission(FEATURES.USERS, PERMISSIONS.UPDATE), async (req, res) => {
   const { id } = req.params;
   const { newPassword } = req.body;
 

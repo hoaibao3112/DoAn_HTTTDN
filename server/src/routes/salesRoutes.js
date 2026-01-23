@@ -3,17 +3,18 @@ import salesController from '../controllers/salesController.js';
 import { authenticateToken } from '../utils/generateToken.js';
 import { checkPermission } from '../middlewares/rbacMiddleware.js';
 import pool from '../config/connectDatabase.js';
+import { FEATURES, PERMISSIONS } from '../constants/permissions.js';
 
 const router = express.Router();
 
 router.use(authenticateToken);
 
 // ======================= 4.1 POS SESSIONS =======================
-router.post('/sessions/open', checkPermission(15, 'Them'), salesController.openSession);
-router.post('/sessions/close', checkPermission(15, 'Sua'), salesController.closeSession);
+router.post('/sessions/open', checkPermission(FEATURES.POS, PERMISSIONS.CREATE), salesController.openSession);
+router.post('/sessions/close', checkPermission(FEATURES.POS, PERMISSIONS.UPDATE), salesController.closeSession);
 
 // ======================= 4.2 INVOICING =======================
-router.post('/invoices', checkPermission(16, 'Them'), salesController.createInvoice);
+router.post('/invoices', checkPermission(FEATURES.INVOICES, PERMISSIONS.CREATE), salesController.createInvoice);
 
 // ======================= 4.2 CUSTOMER MANAGEMENT (Sales Context) =======================
 router.get('/customers/search', async (req, res) => {

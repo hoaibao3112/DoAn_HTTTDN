@@ -24,26 +24,27 @@ const Sidebar = () => {
   }, [isOpen]);
   const navigate = useNavigate();
   const location = useLocation();
-  const { hasPermission, permissions } = useContext(PermissionContext);
+  const { permissions, hasPermissionById } = useContext(PermissionContext);
 
+  // Permission IDs (MaCN) mapped to menu items to avoid fuzzy name matching
   const menuItems = [
     { to: '/admin', icon: 'dashboard', text: 'Trang Chủ', permission: null },
-    { to: '/admin/products', icon: 'inventory_2', text: 'Quản lý sản phẩm', permission: 'Sản phẩm' },
-    { to: '/admin/account', icon: 'people', text: 'Quản lý tài khoản', permission: 'Tài khoản' },
-    { to: '/admin/category', icon: 'category', text: 'Quản lý thể loại', permission: 'Thể loại' },
-    { to: '/admin/users', icon: 'badge', text: 'Quản lý nhân viên', permission: 'Nhân viên' },
-    { to: '/admin/invoices', icon: 'receipt_long', text: 'Quản lý hóa đơn', permission: 'Hóa đơn' },
-    { to: '/admin/company', icon: 'business', text: 'Quản lý nhà cung cấp', permission: 'Nhà cung cấp' },
-    { to: '/admin/roles', icon: 'admin_panel_settings', text: 'Quản lý quyền', permission: 'Phân quyền' },
-    { to: '/admin/authorities', icon: 'person', text: 'Quản lý tác giả', permission: 'Tác Giả' },
-    { to: '/admin/client', icon: 'groups', text: 'Quản lý khách hàng', permission: 'Khách hàng' },
-    { to: '/admin/statistical', icon: 'analytics', text: 'Thống kê', permission: 'Thống kê' },
-    { to: '/admin/receipt', icon: 'receipt', text: 'Quản lý phiếu nhập', permission: 'Phiếu nhập' },
-    { to: '/admin/khuyenmai', icon: 'local_offer', text: 'Quản lý khuyến mãi', permission: 'Khuyến mãi' },
-    { to: '/admin/salary', icon: 'payments', text: 'Tính lương', permission: 'Tính Lương' },
-    { to: '/admin/leave', icon: 'event_busy', text: 'Xin nghỉ phép', permission: 'Nghĩ Phép' },
-    { to: '/admin/attendance', icon: 'check_circle', text: 'Chấm công', permission: 'Chấm công' },
-    { to: '/admin/returns', icon: 'assignment_return', text: 'Quản lý trả hàng', permission: 'Trả Hàng' }
+    { to: '/admin/products', icon: 'inventory_2', text: 'Quản lý sản phẩm', permissionId: 13 },
+    { to: '/admin/account', icon: 'people', text: 'Quản lý tài khoản', permissionId: 2 },
+    { to: '/admin/category', icon: 'category', text: 'Quản lý thể loại', permissionId: 28 },
+    { to: '/admin/users', icon: 'badge', text: 'Quản lý nhân viên', permissionId: 6 },
+    { to: '/admin/invoices', icon: 'receipt_long', text: 'Quản lý hóa đơn', permissionId: 20 },
+    { to: '/admin/company', icon: 'business', text: 'Quản lý nhà cung cấp', permissionId: 14 },
+    { to: '/admin/roles', icon: 'admin_panel_settings', text: 'Quản lý quyền', permissionId: 3 },
+    { to: '/admin/authorities', icon: 'person', text: 'Quản lý tác giả', permissionId: 29 },
+    { to: '/admin/client', icon: 'groups', text: 'Quản lý khách hàng', permissionId: 21 },
+    { to: '/admin/statistical', icon: 'analytics', text: 'Thống kê', permissionId: 23 },
+    { to: '/admin/receipt', icon: 'receipt', text: 'Quản lý phiếu nhập', permissionId: 15 },
+    { to: '/admin/khuyenmai', icon: 'local_offer', text: 'Quản lý khuyến mãi', permissionId: 30 },
+    { to: '/admin/salary', icon: 'payments', text: 'Tính lương', permissionId: 10 },
+    { to: '/admin/leave', icon: 'event_busy', text: 'Xin nghỉ phép', permissionId: 9 },
+    { to: '/admin/attendance', icon: 'check_circle', text: 'Chấm công', permissionId: 7 },
+    { to: '/admin/returns', icon: 'assignment_return', text: 'Quản lý trả hàng', permissionId: 22 }
   ];
 
   // Normalize function (same as PermissionContext) to compare names safely
@@ -68,8 +69,12 @@ const Sidebar = () => {
   // - it has no permission requirement OR
   // - there exists at least one active permission (any action) for that function
   const filteredMenuItems = menuItems.filter((item) => {
-    if (!item.permission) return true;
-    const fn = normalize(item.permission);
+    if (!item.permissionId && !item.permission) return true;
+    // Prefer checking by numeric MaCN if provided
+    if (item.permissionId && typeof hasPermissionById === 'function') {
+      return hasPermissionById(item.permissionId, 'xem');
+    }
+    const fn = normalize(item.permission || '');
     return permissions.some((perm) => normalize(perm.TenCN) === fn);
   });
 

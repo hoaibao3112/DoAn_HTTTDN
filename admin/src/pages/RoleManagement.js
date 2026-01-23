@@ -1,21 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Button, Input, message, Table, Modal, Space, Select, Form, Tag } from 'antd';
+import { Button, Input, message, Table, Modal, Space, Form, Tag, Checkbox, Card } from 'antd';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
 
 const { Search } = Input;
 const { confirm } = Modal;
-const { Option } = Select;
 
 const RoleManagement = () => {
-  // State declarations
   const [roles, setRoles] = useState([]);
   const [functions, setFunctions] = useState([]);
   const [newRole, setNewRole] = useState({
     TenNQ: '',
     MoTa: '',
     TinhTrang: 1,
-    chiTietQuyen: [{ MaCN: '', HanhDong: '' }],
+    permissions: [],
   });
   const [editingRole, setEditingRole] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,8 +41,6 @@ const RoleManagement = () => {
           pageSize: response.data.data.pagination.pageSize,
           total: response.data.data.pagination.total,
         });
-      } else {
-        throw new Error('Dữ liệu nhóm quyền không hợp lệ');
       }
     } catch (error) {
       console.error('Lỗi khi lấy danh sách nhóm quyền:', error);
@@ -60,8 +56,6 @@ const RoleManagement = () => {
       const response = await axios.get(`${API_URL}/functions`);
       if (Array.isArray(response.data)) {
         setFunctions(response.data);
-      } else {
-        throw new Error('Dữ liệu chức năng không hợp lệ');
       }
     } catch (error) {
       console.error('Lỗi khi lấy danh sách chức năng:', error);
@@ -86,10 +80,60 @@ const RoleManagement = () => {
     fetchRoles(newPagination.current, newPagination.pageSize, searchTerm);
   };
 
+  // Toggle permission for a feature
+  const togglePermission = (featureId, action, isEditing = false) => {
+    const updatePermissions = (prevPermissions) => {
+      const existingIndex = prevPermissions.findIndex(p => p.MaCN === featureId);
+
+      if (existingIndex >= 0) {
+        // Feature exists, toggle the action
+        const updated = [...prevPermissions];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          [action]: updated[existingIndex][action] ? 0 : 1
+        };
+        return updated;
+      } else {
+        // Feature doesn't exist, add it with this action enabled
+        return [
+          ...prevPermissions,
+          {
+            MaCN: featureId,
+            Xem: action === 'Xem' ? 1 : 0,
+            Them: action === 'Them' ? 1 : 0,
+            Sua: action === 'Sua' ? 1 : 0,
+            Xoa: action === 'Xoa' ? 1 : 0,
+            XuatFile: action === 'XuatFile' ? 1 : 0,
+            Duyet: action === 'Duyet' ? 1 : 0,
+          }
+        ];
+      }
+    };
+
+    if (isEditing) {
+      setEditingRole(prev => ({
+        ...prev,
+        permissions: updatePermissions(prev.permissions)
+      }));
+    } else {
+      setNewRole(prev => ({
+        ...prev,
+        permissions: updatePermissions(prev.permissions)
+      }));
+    }
+  };
+
+  // Check if permission is enabled
+  const hasPermission = (featureId, action, isEditing = false) => {
+    const permissions = isEditing ? editingRole?.permissions : newRole.permissions;
+    const perm = permissions?.find(p => p.MaCN === featureId);
+    return perm?.[action] === 1;
+  };
+
   // Handle add role
   const handleAddRole = async () => {
-    if (!newRole.TenNQ || newRole.chiTietQuyen.some((p) => !p.MaCN || !p.HanhDong)) {
-      message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Tên nhóm quyền và ít nhất một quyền)!');
+    if (!newRole.TenNQ) {
+      message.error('Vui lòng nhập tên nhóm quyền!');
       return;
     }
 
@@ -97,56 +141,52 @@ const RoleManagement = () => {
       const roleToAdd = {
         TenNQ: newRole.TenNQ.trim(),
         MoTa: newRole.MoTa.trim(),
-        chitietquyen: newRole.chiTietQuyen.filter((p) => p.MaCN && p.HanhDong),
+        permissions: newRole.permissions,
       };
 
-      const response = await axios.post(API_URL, roleToAdd);
+      const response = await axios.post(`${API_URL}/save`, roleToAdd);
       if (response.data.success) {
         await fetchRoles(pagination.current, pagination.pageSize, searchTerm);
         setNewRole({
           TenNQ: '',
           MoTa: '',
           TinhTrang: 1,
-          chiTietQuyen: [{ MaCN: '', HanhDong: '' }],
+          permissions: [],
         });
         setIsModalVisible(false);
         message.success('Thêm nhóm quyền thành công!');
-      } else {
-        throw new Error(response.data.error);
       }
     } catch (error) {
       console.error('Lỗi khi thêm nhóm quyền:', error.response || error);
-      message.error(error.response?.data?.error || 'Lỗi khi thêm nhóm quyền!');
+      message.error(error.response?.data?.message || 'Lỗi khi thêm nhóm quyền!');
     }
   };
 
   // Handle update role
   const handleUpdateRole = async () => {
-    if (!editingRole.TenNQ || editingRole.chiTietQuyen.some((p) => !p.MaCN || !p.HanhDong)) {
-      message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Tên nhóm quyền và ít nhất một quyền)!');
+    if (!editingRole.TenNQ) {
+      message.error('Vui lòng nhập tên nhóm quyền!');
       return;
     }
 
     try {
       const roleToUpdate = {
+        MaNQ: editingRole.MaNQ,
         TenNQ: editingRole.TenNQ.trim(),
         MoTa: editingRole.MoTa.trim(),
-        TinhTrang: editingRole.TinhTrang,
-        chitietquyen: editingRole.chiTietQuyen.filter((p) => p.MaCN && p.HanhDong),
+        permissions: editingRole.permissions,
       };
 
-      const response = await axios.put(`${API_URL}/${editingRole.MaNQ}`, roleToUpdate);
+      const response = await axios.post(`${API_URL}/save`, roleToUpdate);
       if (response.data.success) {
         await fetchRoles(pagination.current, pagination.pageSize, searchTerm);
         setEditingRole(null);
         setIsModalVisible(false);
         message.success('Cập nhật nhóm quyền thành công!');
-      } else {
-        throw new Error(response.data.error);
       }
     } catch (error) {
       console.error('Lỗi khi cập nhật nhóm quyền:', error.response || error);
-      message.error(error.response?.data?.error || 'Lỗi khi cập nhật nhóm quyền!');
+      message.error(error.response?.data?.message || 'Lỗi khi cập nhật nhóm quyền!');
     }
   };
 
@@ -165,45 +205,13 @@ const RoleManagement = () => {
           if (response.data.success) {
             await fetchRoles(pagination.current, pagination.pageSize, searchTerm);
             message.success('Xóa nhóm quyền thành công!');
-          } else {
-            throw new Error(response.data.error);
           }
         } catch (error) {
           console.error('Lỗi khi xóa nhóm quyền:', error.response || error);
-          message.error(error.response?.data?.error || 'Xóa nhóm quyền thất bại!');
+          message.error(error.response?.data?.message || 'Xóa nhóm quyền thất bại!');
         }
       },
     });
-  };
-
-  // Add new permission row
-  const addPermissionRow = () => {
-    if (editingRole) {
-      setEditingRole((prev) => ({
-        ...prev,
-        chiTietQuyen: [...prev.chiTietQuyen, { MaCN: '', HanhDong: '' }],
-      }));
-    } else {
-      setNewRole((prev) => ({
-        ...prev,
-        chiTietQuyen: [...prev.chiTietQuyen, { MaCN: '', HanhDong: '' }],
-      }));
-    }
-  };
-
-  // Remove permission row
-  const removePermissionRow = (index) => {
-    if (editingRole) {
-      setEditingRole((prev) => ({
-        ...prev,
-        chiTietQuyen: prev.chiTietQuyen.filter((_, i) => i !== index),
-      }));
-    } else {
-      setNewRole((prev) => ({
-        ...prev,
-        chiTietQuyen: prev.chiTietQuyen.filter((_, i) => i !== index),
-      }));
-    }
   };
 
   // Table columns
@@ -213,7 +221,6 @@ const RoleManagement = () => {
       dataIndex: 'MaNQ',
       key: 'MaNQ',
       width: 120,
-      fixed: 'left',
     },
     {
       title: 'Tên nhóm quyền',
@@ -227,13 +234,6 @@ const RoleManagement = () => {
       key: 'MoTa',
       width: 300,
       render: (text) => text || 'N/A',
-    },
-    {
-      title: 'Số người dùng',
-      dataIndex: 'SoNguoiDung',
-      key: 'SoNguoiDung',
-      width: 120,
-      align: 'center',
     },
     {
       title: 'Trạng thái',
@@ -256,19 +256,15 @@ const RoleManagement = () => {
             icon={<EditOutlined />}
             onClick={async () => {
               try {
-                const response = await axios.get(`${API_URL}/${record.MaNQ}`);
-                if (response.data.success) {
-                  setEditingRole({
-                    ...response.data.data,
-                    TinhTrang: response.data.data.TinhTrang,
-                    chiTietQuyen: response.data.data.chiTietQuyen.length > 0
-                      ? response.data.data.chiTietQuyen
-                      : [{ MaCN: '', HanhDong: '' }],
-                  });
-                  setIsModalVisible(true);
-                } else {
-                  throw new Error(response.data.error);
-                }
+                const response = await axios.get(`${API_URL}/${record.MaNQ}/permissions`);
+                setEditingRole({
+                  MaNQ: record.MaNQ,
+                  TenNQ: record.TenNQ,
+                  MoTa: record.MoTa,
+                  TinhTrang: record.TinhTrang,
+                  permissions: response.data || [],
+                });
+                setIsModalVisible(true);
               } catch (error) {
                 message.error('Lỗi khi tải thông tin nhóm quyền!');
               }
@@ -282,7 +278,6 @@ const RoleManagement = () => {
           />
         </Space>
       ),
-      fixed: 'right',
       width: 150,
     },
   ];
@@ -302,7 +297,7 @@ const RoleManagement = () => {
               TenNQ: '',
               MoTa: '',
               TinhTrang: 1,
-              chiTietQuyen: [{ MaCN: '', HanhDong: '' }],
+              permissions: [],
             });
             setIsModalVisible(true);
           }}
@@ -347,7 +342,7 @@ const RoleManagement = () => {
       {/* Add/Edit Role Modal */}
       <Modal
         title={editingRole ? 'Chỉnh sửa nhóm quyền' : 'Thêm nhóm quyền mới'}
-  open={isModalVisible}
+        open={isModalVisible}
         onCancel={() => {
           setIsModalVisible(false);
           setEditingRole(null);
@@ -370,115 +365,86 @@ const RoleManagement = () => {
             {editingRole ? 'Lưu' : 'Thêm'}
           </Button>,
         ]}
-        width={800}
-  styles={{ body: { padding: '16px' } }}
+        width={900}
+        styles={{ body: { padding: '16px', maxHeight: '70vh', overflow: 'auto' } }}
       >
         <Form layout="vertical">
-          <div className="info-section">
-            <div className="info-grid">
-              <Form.Item label="Tên nhóm quyền" required>
-                <Input
-                  size="small"
-                  value={editingRole ? editingRole.TenNQ : newRole.TenNQ}
-                  onChange={(e) =>
-                    editingRole
-                      ? setEditingRole({ ...editingRole, TenNQ: e.target.value })
-                      : setNewRole({ ...newRole, TenNQ: e.target.value })
-                  }
-                />
-              </Form.Item>
-              <Form.Item label="Mô tả">
-                <Input.TextArea
-                  size="small"
-                  rows={3}
-                  value={editingRole ? editingRole.MoTa : newRole.MoTa}
-                  onChange={(e) =>
-                    editingRole
-                      ? setEditingRole({ ...editingRole, MoTa: e.target.value })
-                      : setNewRole({ ...newRole, MoTa: e.target.value })
-                  }
-                />
-              </Form.Item>
-              <Form.Item label="Trạng thái" required>
-                <Select
-                  size="small"
-                  value={editingRole ? editingRole.TinhTrang : newRole.TinhTrang}
-                  onChange={(value) =>
-                    editingRole
-                      ? setEditingRole({ ...editingRole, TinhTrang: value })
-                      : setNewRole({ ...newRole, TinhTrang: value })
-                  }
-                  style={{ width: '100%' }}
-                >
-                  <Option value={1}>Hoạt động</Option>
-                  <Option value={0}>Ngừng hoạt động</Option>
-                </Select>
-              </Form.Item>
-            </div>
-          </div>
+          <Form.Item label="Tên nhóm quyền" required>
+            <Input
+              size="small"
+              value={editingRole ? editingRole.TenNQ : newRole.TenNQ}
+              onChange={(e) =>
+                editingRole
+                  ? setEditingRole({ ...editingRole, TenNQ: e.target.value })
+                  : setNewRole({ ...newRole, TenNQ: e.target.value })
+              }
+            />
+          </Form.Item>
 
-          <div className="permission-section">
-            <h4>Chi tiết quyền</h4>
-            {(editingRole ? editingRole.chiTietQuyen : newRole.chiTietQuyen).map((perm, index) => (
-              <div key={index} className="permission-row">
-                <Form.Item label="Chức năng" required style={{ flex: 1 }}>
-                  <Select
-                    size="small"
-                    value={perm.MaCN}
-                    onChange={(value) => {
-                      const updatedPermissions = [...(editingRole ? editingRole.chiTietQuyen : newRole.chiTietQuyen)];
-                      updatedPermissions[index].MaCN = value;
-                      if (editingRole) {
-                        setEditingRole({ ...editingRole, chiTietQuyen: updatedPermissions });
-                      } else {
-                        setNewRole({ ...newRole, chiTietQuyen: updatedPermissions });
-                      }
-                    }}
-                    placeholder="Chọn chức năng"
-                  >
-                    {functions.map((func) => (
-                      <Option key={func.MaCN} value={func.MaCN}>
-                        {func.TenCN}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-                <Form.Item label="Hành động" required style={{ flex: 1 }}>
-                  <Select
-                    size="small"
-                    value={perm.HanhDong}
-                    onChange={(value) => {
-                      const updatedPermissions = [...(editingRole ? editingRole.chiTietQuyen : newRole.chiTietQuyen)];
-                      updatedPermissions[index].HanhDong = value;
-                      if (editingRole) {
-                        setEditingRole({ ...editingRole, chiTietQuyen: updatedPermissions });
-                      } else {
-                        setNewRole({ ...newRole, chiTietQuyen: updatedPermissions });
-                      }
-                    }}
-                    placeholder="Chọn hành động"
-                  >
-                    {['Đọc', 'Thêm', 'Xóa', 'Sửa'].map((action) => (
-                      <Option key={action} value={action}>
-                        {action}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-                <Button
+          <Form.Item label="Mô tả">
+            <Input.TextArea
+              size="small"
+              rows={3}
+              value={editingRole ? editingRole.MoTa : newRole.MoTa}
+              onChange={(e) =>
+                editingRole
+                  ? setEditingRole({ ...editingRole, MoTa: e.target.value })
+                  : setNewRole({ ...newRole, MoTa: e.target.value })
+              }
+            />
+          </Form.Item>
+
+          <Form.Item label="Phân quyền chi tiết">
+            <div style={{ maxHeight: '400px', overflow: 'auto', border: '1px solid #d9d9d9', borderRadius: '4px', padding: '12px' }}>
+              {functions.map((func) => (
+                <Card
+                  key={func.MaCN}
                   size="small"
-                  danger
-                  onClick={() => removePermissionRow(index)}
-                  disabled={(editingRole ? editingRole.chiTietQuyen : newRole.chiTietQuyen).length === 1}
+                  title={func.TenCN}
+                  style={{ marginBottom: '12px' }}
                 >
-                  Xóa
-                </Button>
-              </div>
-            ))}
-            <Button type="dashed" onClick={addPermissionRow} style={{ width: '100%', marginTop: '8px' }}>
-              Thêm quyền
-            </Button>
-          </div>
+                  <Space wrap>
+                    <Checkbox
+                      checked={hasPermission(func.MaCN, 'Xem', !!editingRole)}
+                      onChange={() => togglePermission(func.MaCN, 'Xem', !!editingRole)}
+                    >
+                      Xem
+                    </Checkbox>
+                    <Checkbox
+                      checked={hasPermission(func.MaCN, 'Them', !!editingRole)}
+                      onChange={() => togglePermission(func.MaCN, 'Them', !!editingRole)}
+                    >
+                      Thêm
+                    </Checkbox>
+                    <Checkbox
+                      checked={hasPermission(func.MaCN, 'Sua', !!editingRole)}
+                      onChange={() => togglePermission(func.MaCN, 'Sua', !!editingRole)}
+                    >
+                      Sửa
+                    </Checkbox>
+                    <Checkbox
+                      checked={hasPermission(func.MaCN, 'Xoa', !!editingRole)}
+                      onChange={() => togglePermission(func.MaCN, 'Xoa', !!editingRole)}
+                    >
+                      Xóa
+                    </Checkbox>
+                    <Checkbox
+                      checked={hasPermission(func.MaCN, 'XuatFile', !!editingRole)}
+                      onChange={() => togglePermission(func.MaCN, 'XuatFile', !!editingRole)}
+                    >
+                      Xuất file
+                    </Checkbox>
+                    <Checkbox
+                      checked={hasPermission(func.MaCN, 'Duyet', !!editingRole)}
+                      onChange={() => togglePermission(func.MaCN, 'Duyet', !!editingRole)}
+                    >
+                      Duyệt
+                    </Checkbox>
+                  </Space>
+                </Card>
+              ))}
+            </div>
+          </Form.Item>
         </Form>
       </Modal>
     </div>

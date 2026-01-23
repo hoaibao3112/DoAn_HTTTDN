@@ -3,24 +3,69 @@ import pool from '../config/connectDatabase.js';
 import { authenticateToken } from '../utils/generateToken.js';
 import { checkPermission } from '../middlewares/rbacMiddleware.js';
 import { logActivity } from '../utils/auditLogger.js';
+import { FEATURES, PERMISSIONS } from '../constants/permissions.js';
 
 const router = express.Router();
 
 // Middleware to apply to all role routes
 router.use(authenticateToken);
 
+// New: Get permissions for the current user
+router.get('/user/permissions', async (req, res) => {
+  try {
+    const { MaNQ } = req.user;
+    if (!MaNQ) {
+      return res.status(403).json({ success: false, message: 'No role assigned to user' });
+    }
+
+    const [permissions] = await pool.query(
+      `SELECT ct.*, cn.TenCN 
+       FROM phanquyen_chitiet ct 
+       JOIN chucnang cn ON ct.MaCN = cn.MaCN 
+       WHERE ct.MaNQ = ?`,
+      [MaNQ]
+    );
+
+    res.status(200).json({ success: true, data: permissions });
+  } catch (error) {
+    console.error('Error fetching user permissions:', error.message);
+    res.status(500).json({ success: false, message: 'Lỗi khi lấy quyền người dùng', error: error.message });
+  }
+});
+
+// Return active roles (simple list) - used by frontend dropdowns
+router.get('/list/active', authenticateToken, async (req, res) => {
+  try {
+    const [roles] = await pool.query('SELECT MaNQ, TenNQ FROM nhomquyen WHERE TinhTrang = 1');
+    res.status(200).json({ success: true, data: roles });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Lỗi khi lấy danh sách nhóm quyền active', error: error.message });
+  }
+});
+
 // 1. Get all Roles
-router.get('/', checkPermission(3, 'Xem'), async (req, res) => {
+router.get('/', checkPermission(FEATURES.ROLES, PERMISSIONS.VIEW), async (req, res) => {
   try {
     const [roles] = await pool.query('SELECT * FROM nhomquyen');
-    res.status(200).json(roles);
+    // Return in consistent shape expected by frontend
+    return res.status(200).json({
+      success: true,
+      data: {
+        items: roles,
+        pagination: {
+          page: 1,
+          pageSize: roles.length || 0,
+          total: roles.length || 0
+        }
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Lỗi khi lấy danh sách nhóm quyền', error: error.message });
   }
 });
 
 // 2. Get permissions of a specific Role
-router.get('/:id/permissions', checkPermission(3, 'Xem'), async (req, res) => {
+router.get('/:id/permissions', checkPermission(FEATURES.ROLES, PERMISSIONS.VIEW), async (req, res) => {
   const { id } = req.params;
   try {
     const [permissions] = await pool.query(
@@ -36,8 +81,38 @@ router.get('/:id/permissions', checkPermission(3, 'Xem'), async (req, res) => {
   }
 });
 
+// 1.5 Get all functions (chucnang) - used by frontend to map MaCN => TenCN
+router.get('/functions', async (req, res) => {
+  try {
+    const [functions] = await pool.query('SELECT MaCN, TenCN, URL, Icon, MaCha FROM chucnang ORDER BY MaCN');
+    res.status(200).json(functions);
+  } catch (error) {
+    console.error('Error in /api/roles/functions:', error.message);
+    res.status(500).json({ success: false, message: 'Lỗi khi lấy danh sách chức năng', error: error.message });
+  }
+});
+
+// GET single role + its permissions (frontend expects /api/roles/:id)
+router.get('/:id', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [[role]] = await pool.query('SELECT MaNQ, TenNQ, MoTa, TinhTrang FROM nhomquyen WHERE MaNQ = ?', [id]);
+    if (!role) return res.status(404).json({ success: false, message: 'Role not found' });
+    const [permissions] = await pool.query(
+      `SELECT ct.*, cn.TenCN 
+       FROM phanquyen_chitiet ct 
+       JOIN chucnang cn ON ct.MaCN = cn.MaCN 
+       WHERE ct.MaNQ = ?`,
+      [id]
+    );
+    res.status(200).json({ success: true, data: { role, permissions } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Lỗi khi lấy role', error: error.message });
+  }
+});
+
 // 3. Create or Update Role with permissions
-router.post('/save', checkPermission(3, 'Sua'), async (req, res) => {
+router.post('/save', checkPermission(FEATURES.ROLES, PERMISSIONS.UPDATE), async (req, res) => {
   const { MaNQ, TenNQ, MoTa, permissions } = req.body;
 
   const connection = await pool.getConnection();
@@ -93,7 +168,7 @@ router.post('/save', checkPermission(3, 'Sua'), async (req, res) => {
 });
 
 // 4. Soft Delete Role
-router.delete('/:id', checkPermission(3, 'Xoa'), async (req, res) => {
+router.delete('/:id', checkPermission(FEATURES.ROLES, PERMISSIONS.DELETE), async (req, res) => {
   const { id } = req.params;
   try {
     // Check if any user is using this role

@@ -2,7 +2,20 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import axios from 'axios';
 import { PermissionProvider } from './components/PermissionContext';
+
+// Set up axios interceptor to automatically attach token
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 const container = document.getElementById('root');
 const root = createRoot(container);

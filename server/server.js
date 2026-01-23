@@ -9,8 +9,8 @@ import jwt from 'jsonwebtoken';
 import path from 'path';
 import pool from './src/config/connectDatabase.js'; // Assuming db is exported as pool
 import { initRoutes } from './src/routes/index.js';
-// Import the scheduled sync function from attendance admin route
-import { syncMissedAttendancesForDate } from './src/routes/AttendanceAdmin.js';
+// Import the scheduled sync function from utility
+import { syncMissedAttendancesForDate } from './src/utils/attendanceSync.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
 // 1. Load environment config
@@ -59,7 +59,7 @@ app.use(cors({
     console.warn(`CORS blocked: Origin ${origin} not allowed`);
     return callback(new Error('Not allowed by CORS'));
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE','PATCH', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   credentials: true,
   // Allow common headers plus our debug header X-Auth-Key which the frontend attaches.
   // If you later add other custom headers, include them here (or use a function to echo requested headers).
@@ -301,7 +301,7 @@ const scheduleDailyMissedSync = () => {
       // Sync for today at 18:00
       const today = new Date();
       await syncMissedAttendancesForDate(today);
-      console.log('[Attendance Sync] Completed missed attendance sync for', today.toISOString().slice(0,10));
+      console.log('[Attendance Sync] Completed missed attendance sync for', today.toISOString().slice(0, 10));
     } catch (err) {
       console.error('[Attendance Sync] Error during missed attendance sync:', err);
     }
@@ -315,7 +315,7 @@ const scheduleDailyMissedSync = () => {
   }
   const delay = nextRun.getTime() - now.getTime();
 
-  console.log(`[Attendance Sync] Scheduling first run in ${Math.round(delay/1000)}s at ${nextRun.toISOString()}`);
+  console.log(`[Attendance Sync] Scheduling first run in ${Math.round(delay / 1000)}s at ${nextRun.toISOString()}`);
 
   setTimeout(() => {
     runSync();

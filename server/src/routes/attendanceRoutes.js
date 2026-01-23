@@ -2,6 +2,7 @@ import express from 'express';
 import attendanceController from '../controllers/attendanceController.js';
 import { authenticateToken } from '../utils/generateToken.js';
 import { checkPermission } from '../middlewares/rbacMiddleware.js';
+import { FEATURES, PERMISSIONS } from '../constants/permissions.js';
 
 const router = express.Router();
 
@@ -14,13 +15,12 @@ router.post('/checkin', attendanceController.checkIn);
 router.post('/checkout', attendanceController.checkOut);
 
 // ======================= HR MANAGER - ATTENDANCE MANAGEMENT =======================
-// Feature 7: 'Chấm công'
-router.get('/attendance', checkPermission(7, 'Xem'), attendanceController.getAllAttendance);
-router.post('/attendance', checkPermission(7, 'Them'), attendanceController.createAttendance);
-router.put('/attendance/:id', checkPermission(7, 'Sua'), attendanceController.updateAttendance);
-router.delete('/attendance/:id', checkPermission(7, 'Xoa'), attendanceController.deleteAttendance);
+router.get('/attendance', checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.VIEW), attendanceController.getAllAttendance);
+router.post('/attendance', checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.CREATE), attendanceController.createAttendance);
+router.put('/attendance/:id', checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.UPDATE), attendanceController.updateAttendance);
+router.delete('/attendance/:id', checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.DELETE), attendanceController.deleteAttendance);
 
 // ======================= ATTENDANCE REPORTS =======================
-router.get('/attendance/summary', checkPermission(7, 'Xem'), attendanceController.getAttendanceSummary);
+router.get('/attendance/summary', checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.VIEW), attendanceController.getAttendanceSummary);
 
 export default router;

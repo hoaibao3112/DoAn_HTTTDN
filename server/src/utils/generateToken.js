@@ -13,17 +13,17 @@ export function generateToken(makh, userType = 'customer') {
 
   // SỬA: Tăng default từ '2h' lên '4h'
   const expiresIn = process.env.JWT_EXPIRES_IN || '4h';
-  
+
   const token = jwt.sign(payload, process.env.JWT_SECRET || 'your_default_secret_key', {
     expiresIn
   });
-  
+
   // THÊM DEBUG THỜI GIAN
-  console.log('Generated Token:', { 
-    makh, 
-    userType, 
+  console.log('Generated Token:', {
+    makh,
+    userType,
     expiresIn,
-    tokenPreview: token.substring(0, 30) + '...' 
+    tokenPreview: token.substring(0, 30) + '...'
   });
   return token;
 }
@@ -45,12 +45,12 @@ export function generateRefreshToken(makh, userType = 'customer') {
   const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET || 'your_default_refresh_secret_key', {
     expiresIn
   });
-  
-  console.log('Generated Refresh Token:', { 
-    makh, 
-    userType, 
+
+  console.log('Generated Refresh Token:', {
+    makh,
+    userType,
     expiresIn,
-    refreshTokenPreview: refreshToken.substring(0, 30) + '...' 
+    refreshTokenPreview: refreshToken.substring(0, 30) + '...'
   });
   return refreshToken;
 }
@@ -60,7 +60,7 @@ export function authenticateToken(req, res, next) {
   // Bỏ qua xác thực trong môi trường development nếu cần test
   if (process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true') {
     console.warn('🚨 BYPASS_AUTH enabled: Skipping token authentication');
-    req.user = { makh: '19', userType: 'customer' }; 
+    req.user = { makh: '19', userType: 'customer' };
     return next();
   }
 
@@ -77,32 +77,33 @@ export function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_default_secret_key');
-    
+
     // THÊM DEBUG THỜI GIAN CHI TIẾT
     const now = Math.floor(Date.now() / 1000);
     const timeUntilExpiry = decoded.exp - now;
     const hoursLeft = Math.floor(timeUntilExpiry / 3600);
     const minutesLeft = Math.floor((timeUntilExpiry % 3600) / 60);
-    
+
     console.log('✅ Token verified successfully:', {
-      user: decoded.makh,
-      userType: decoded.userType,
+      user: decoded.MaTK || decoded.makh,
+      username: decoded.TenTK,
+      userType: decoded.userType || (decoded.MaNQ ? `staff_role_${decoded.MaNQ}` : 'unknown'),
       issuedAt: new Date(decoded.iat * 1000).toLocaleString('vi-VN'),
       expiresAt: new Date(decoded.exp * 1000).toLocaleString('vi-VN'),
       timeLeft: timeUntilExpiry > 0 ? `${hoursLeft}h ${minutesLeft}m` : 'EXPIRED'
     });
-    
+
     req.user = decoded;
     next();
   } catch (error) {
     console.error('❌ JWT Verify Error:', error.message);
-    
+
     if (error.name === 'TokenExpiredError') {
       const expiredAt = new Date(error.expiredAt).toLocaleString('vi-VN');
       console.error('🕐 Token expired at:', expiredAt);
       console.error('🔄 Please login again to get a new 4h token');
-      
-      return res.status(401).json({ 
+
+      return res.status(401).json({
         error: 'Token đã hết hạn. Vui lòng đăng nhập lại để lấy token 4h mới.',
         expiredAt: expiredAt,
         action: 'login_required'
