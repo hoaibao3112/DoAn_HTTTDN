@@ -1,4 +1,4 @@
-import productRoutes from './productRoutes.js';
+import warehouseRoutes from './warehouseRoutes.js';
 import accountRoutes from './account.js';
 import LoginRoutes from './LoginRoutes.js';
 import roleRoutes from './roleRoutes.js';
@@ -6,6 +6,10 @@ import Receipt from './receipt.js';
 import reportRoutes from './reportRoutes.js';
 import hrRoutes from './hrRoutes.js';
 import salesRoutes from './salesRoutes.js';
+import supplierRoutes from './supplierRoutes.js';
+import financeRoutes from './financeRoutes.js';
+import returnRoutes from './returnRoutes.js';
+import attendanceRoutes from './attendanceRoutes.js';
 
 export const initRoutes = (app) => {
   // Root path - Server status
@@ -16,9 +20,10 @@ export const initRoutes = (app) => {
       version: '2.0.0',
       modules: {
         system: ['/api/login', '/api/accounts', '/api/roles', '/api/reports', '/api/audit-logs'],
-        hr: ['/api/hr'],
-        warehouse: ['/api/product', '/api/receipt'],
-        sales: ['/api/sales']
+        hr: ['/api/hr', '/api/attendance'],
+        warehouse: ['/api/product', '/api/receipt', '/api/suppliers'],
+        sales: ['/api/sales', '/api/returns'],
+        finance: ['/api/finance']
       }
     });
   });
@@ -31,13 +36,20 @@ export const initRoutes = (app) => {
 
   // HR Management
   app.use('/api/hr', hrRoutes);
+  app.use('/api/attendance', attendanceRoutes);
 
   // Warehouse Management
-  app.use('/api/product', productRoutes);
+  app.use('/api/warehouse', warehouseRoutes);
+  app.use('/api/product', warehouseRoutes); // Legacy compatibility
   app.use('/api/receipt', Receipt);
+  app.use('/api/suppliers', supplierRoutes);
 
   // Sales & POS
   app.use('/api/sales', salesRoutes);
+  app.use('/api/returns', returnRoutes);
+
+  // Finance Management
+  app.use('/api/finance', financeRoutes);
 
   // Legacy/Other core features (optional to keep if needed, but per plan we clean up)
   // app.use('/api/category', categoryRoutes); 

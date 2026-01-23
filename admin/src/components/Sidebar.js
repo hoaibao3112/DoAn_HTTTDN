@@ -19,7 +19,7 @@ const Sidebar = () => {
     return () => {
       try {
         document.body.classList.remove('sidebar-open', 'sidebar-closed');
-      } catch {}
+      } catch { }
     };
   }, [isOpen]);
   const navigate = useNavigate();
@@ -40,8 +40,6 @@ const Sidebar = () => {
     { to: '/admin/statistical', icon: 'analytics', text: 'Thống kê', permission: 'Thống kê' },
     { to: '/admin/receipt', icon: 'receipt', text: 'Quản lý phiếu nhập', permission: 'Phiếu nhập' },
     { to: '/admin/khuyenmai', icon: 'local_offer', text: 'Quản lý khuyến mãi', permission: 'Khuyến mãi' },
-    { to: '/admin/refunds', icon: 'undo', text: 'Hoàn tiền đơn hàng', permission: 'Hoàn tiền đơn hàng' },
-  // Profile moved to footer so it stays pinned to the bottom
     { to: '/admin/salary', icon: 'payments', text: 'Tính lương', permission: 'Tính Lương' },
     { to: '/admin/leave', icon: 'event_busy', text: 'Xin nghỉ phép', permission: 'Nghĩ Phép' },
     { to: '/admin/attendance', icon: 'check_circle', text: 'Chấm công', permission: 'Chấm công' },
@@ -114,7 +112,7 @@ const Sidebar = () => {
         {filteredMenuItems.map((item) => {
           // Check if current path matches
           const isActive = location.pathname === item.to;
-          
+
           return (
             <li key={item.to}>
               <NavLink

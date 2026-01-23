@@ -199,6 +199,192 @@ const warehouseController = {
         } finally {
             conn.release();
         }
+    },
+
+    // ======================= STOCK QUERIES =======================
+
+    getStockByBranch: async (req, res) => {
+        const { MaCH, MaSP, search, lowStock, page = 1, pageSize = 50 } = req.query;
+        const offset = (page - 1) * pageSize;
+
+        try {
+            let whereClause = 'WHERE 1=1';
+            const params = [];
+
+            if (MaCH) {
+                whereClause += ' AND tk.MaCH = ?';
+                params.push(MaCH);
+            }
+            if (MaSP) {
+                whereClause += ' AND tk.MaSP = ?';
+                params.push(MaSP);
+            }
+            if (search) {
+                whereClause += ' AND sp.TenSP LIKE ?';
+                params.push(`%${search}%`);
+            }
+            if (lowStock === 'true') {
+                whereClause += ' AND tk.SoLuongTon < tk.SoLuongToiThieu';
+            }
+
+            const [rows] = await pool.query(
+                `SELECT tk.*, sp.TenSP, sp.DonGia, sp.GiaNhap, sp.HinhAnh, 
+                        ch.TenCH, ch.DiaChi as DiaChiCH,
+                        (tk.SoLuongTon * sp.DonGia) as GiaTriTonKho
+                 FROM ton_kho tk
+                 JOIN sanpham sp ON tk.MaSP = sp.MaSP
+                 JOIN cua_hang ch ON tk.MaCH = ch.MaCH
+                 ${whereClause}
+                 ORDER BY ch.TenCH, sp.TenSP
+                 LIMIT ? OFFSET ?`,
+                [...params, parseInt(pageSize), offset]
+            );
+
+            const [total] = await pool.query(
+                `SELECT COUNT(*) as total FROM ton_kho tk 
+                 JOIN sanpham sp ON tk.MaSP = sp.MaSP
+                 ${whereClause}`,
+                params
+            );
+
+            res.json({
+                success: true,
+                data: rows,
+                pagination: {
+                    page: parseInt(page),
+                    pageSize: parseInt(pageSize),
+                    total: total[0].total
+                }
+            });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    getLowStockAlerts: async (req, res) => {
+        const { MaCH } = req.query;
+        try {
+            let whereClause = 'WHERE tk.SoLuongTon < tk.SoLuongToiThieu';
+            const params = [];
+
+            if (MaCH) {
+                whereClause += ' AND tk.MaCH = ?';
+                params.push(MaCH);
+            }
+
+            const [alerts] = await pool.query(
+                `SELECT tk.*, sp.TenSP, sp.DonGia, ch.TenCH,
+                        (tk.SoLuongToiThieu - tk.SoLuongTon) as SoLuongCanNhap
+                 FROM ton_kho tk
+                 JOIN sanpham sp ON tk.MaSP = sp.MaSP
+                 JOIN cua_hang ch ON tk.MaCH = ch.MaCH
+                 ${whereClause}
+                 ORDER BY (tk.SoLuongToiThieu - tk.SoLuongTon) DESC`,
+                params
+            );
+
+            res.json({ success: true, data: alerts, count: alerts.length });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // ======================= PURCHASE ORDER QUERIES =======================
+
+    getAllPurchaseOrders: async (req, res) => {
+        const { page = 1, pageSize = 20, MaNCC, MaCH, startDate, endDate } = req.query;
+        const offset = (page - 1) * pageSize;
+
+        try {
+            let whereClause = 'WHERE 1=1';
+            const params = [];
+
+            if (MaNCC) {
+                whereClause += ' AND pn.MaNCC = ?';
+                params.push(MaNCC);
+            }
+            if (MaCH) {
+                whereClause += ' AND pn.MaCH = ?';
+                params.push(MaCH);
+            }
+            if (startDate) {
+                whereClause += ' AND pn.NgayNhap >= ?';
+                params.push(startDate);
+            }
+            if (endDate) {
+                whereClause += ' AND pn.NgayNhap <= ?';
+                params.push(endDate);
+            }
+
+            const [rows] = await pool.query(
+                `SELECT pn.*, ncc.TenNCC, ch.TenCH, tk.TenTK as NguoiLap
+                 FROM phieunhap pn
+                 JOIN nhacungcap ncc ON pn.MaNCC = ncc.MaNCC
+                 JOIN cua_hang ch ON pn.MaCH = ch.MaCH
+                 LEFT JOIN taikhoan tk ON pn.MaTK = tk.MaTK
+                 ${whereClause}
+                 ORDER BY pn.NgayNhap DESC
+                 LIMIT ? OFFSET ?`,
+                [...params, parseInt(pageSize), offset]
+            );
+
+            const [total] = await pool.query(
+                `SELECT COUNT(*) as total FROM phieunhap pn ${whereClause}`,
+                params
+            );
+
+            res.json({
+                success: true,
+                data: rows,
+                pagination: {
+                    page: parseInt(page),
+                    pageSize: parseInt(pageSize),
+                    total: total[0].total
+                }
+            });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    getPurchaseOrderById: async (req, res) => {
+        const { id } = req.params;
+        try {
+            // Get PO header
+            const [header] = await pool.query(
+                `SELECT pn.*, ncc.TenNCC, ncc.DiaChi as DiaChiNCC, ncc.SDT as SDTNCC,
+                        ch.TenCH, ch.DiaChi as DiaChiCH, tk.TenTK as NguoiLap
+                 FROM phieunhap pn
+                 JOIN nhacungcap ncc ON pn.MaNCC = ncc.MaNCC
+                 JOIN cua_hang ch ON pn.MaCH = ch.MaCH
+                 LEFT JOIN taikhoan tk ON pn.MaTK = tk.MaTK
+                 WHERE pn.MaPN = ?`,
+                [id]
+            );
+
+            if (header.length === 0) {
+                return res.status(404).json({ success: false, message: 'Phiếu nhập không tồn tại' });
+            }
+
+            // Get PO details
+            const [details] = await pool.query(
+                `SELECT ctp.*, sp.TenSP, sp.HinhAnh
+                 FROM chitietphieunhap ctp
+                 JOIN sanpham sp ON ctp.MaSP = sp.MaSP
+                 WHERE ctp.MaPN = ?`,
+                [id]
+            );
+
+            res.json({
+                success: true,
+                data: {
+                    ...header[0],
+                    ChiTiet: details
+                }
+            });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
     }
 };
 

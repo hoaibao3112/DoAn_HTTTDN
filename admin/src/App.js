@@ -21,7 +21,6 @@ import LeavePage from './pages/LeavePage';
 import AttendancePage from './pages/AttendancePage';
 import { PermissionContext } from './components/PermissionContext';
 import DiscountManagement from './pages/DiscountManagement.js';
-import RefundManagement from './pages/RefundManagement.js';
 import AdminHome from './pages/AdminHome';
 
 const PrivateRoute = ({ component: Component }) => {
@@ -154,18 +153,18 @@ const App = () => {
           />
         }
       />
-     
+
       {/* Thêm route cho trang tạo khuyến mãi */}
-     <Route
-  path="/admin/khuyenmai"
-  element={
-    <PrivateRoute
-      component={() => (
-        <RestrictedRoute component={DiscountManagement} permission="Khuyến mãi" />
-      )}
-    />
-  }
-/>
+      <Route
+        path="/admin/khuyenmai"
+        element={
+          <PrivateRoute
+            component={() => (
+              <RestrictedRoute component={DiscountManagement} permission="Khuyến mãi" />
+            )}
+          />
+        }
+      />
       <Route
         path="/admin/statistical"
         element={
@@ -220,22 +219,13 @@ const App = () => {
           />
         }
       />
-             <Route
-        path="/admin/refunds"
+
+      <Route
+        path="/admin/returns"
         element={
           <PrivateRoute
             component={() => (
-              <RestrictedRoute component={RefundManagement} permission="Hoàn tiền đơn hàng" />
-            )}
-          />
-        }
-      />
-              <Route
-        path="/admin/Returns"
-        element={
-          <PrivateRoute
-            component={() => (
-              <RestrictedRoute component={ReturnManagement} permission="Hoàn tiền đơn hàng" />
+              <RestrictedRoute component={ReturnManagement} permission="Trả Hàng" />
             )}
           />
         }
