@@ -27,15 +27,20 @@ const Sidebar = () => {
   const location = useLocation();
   const { permissions, hasPermissionById } = useContext(PermissionContext);
 
-  // Permission IDs (MaCN) mapped to menu items - USING CONSTANTS
   const menuItems = [
     { to: '/admin', icon: 'dashboard', text: 'Trang Chủ', permissionId: null },
+    { to: '/admin/pos', icon: 'point_of_sale', text: 'Bán hàng (POS)', permissionId: FEATURES.POS },
     { to: '/admin/products', icon: 'inventory_2', text: 'Quản lý sản phẩm', permissionId: FEATURES.PRODUCTS },
+    { to: '/admin/stock', icon: 'warehouse', text: 'Quản lý tồn kho', permissionId: FEATURES.STOCK },
+    { to: '/admin/stock-transfer', icon: 'sync_alt', text: 'Chuyển kho', permissionId: FEATURES.STOCK },
+    { to: '/admin/inventory-check', icon: 'inventory', text: 'Kiểm kê kho', permissionId: FEATURES.INVENTORY_CHECK },
     { to: '/admin/account', icon: 'people', text: 'Quản lý tài khoản', permissionId: FEATURES.USERS },
+    { to: '/admin/branches', icon: 'store', text: 'Quản lý chi nhánh', permissionId: FEATURES.CATEGORIES },
     { to: '/admin/category', icon: 'category', text: 'Quản lý thể loại', permissionId: FEATURES.CATEGORIES },
     { to: '/admin/users', icon: 'badge', text: 'Quản lý nhân viên', permissionId: FEATURES.EMPLOYEES },
     { to: '/admin/invoices', icon: 'receipt_long', text: 'Quản lý hóa đơn', permissionId: FEATURES.INVOICES },
     { to: '/admin/company', icon: 'business', text: 'Quản lý nhà cung cấp', permissionId: FEATURES.SUPPLIERS },
+    { to: '/admin/supplier-debts', icon: 'account_balance', text: 'Công nợ NCC', permissionId: FEATURES.SUPPLIERS },
     { to: '/admin/roles', icon: 'admin_panel_settings', text: 'Quản lý quyền', permissionId: FEATURES.ROLES },
     { to: '/admin/authorities', icon: 'person', text: 'Quản lý tác giả', permissionId: FEATURES.AUTHORS },
     { to: '/admin/client', icon: 'groups', text: 'Quản lý khách hàng', permissionId: FEATURES.CUSTOMERS },
@@ -45,7 +50,8 @@ const Sidebar = () => {
     { to: '/admin/salary', icon: 'payments', text: 'Tính lương', permissionId: FEATURES.SALARY },
     { to: '/admin/leave', icon: 'event_busy', text: 'Xin nghỉ phép', permissionId: FEATURES.LEAVE },
     { to: '/admin/attendance', icon: 'check_circle', text: 'Chấm công', permissionId: FEATURES.ATTENDANCE },
-    { to: '/admin/returns', icon: 'assignment_return', text: 'Quản lý trả hàng', permissionId: FEATURES.RETURNS }
+    { to: '/admin/returns', icon: 'assignment_return', text: 'Quản lý trả hàng', permissionId: FEATURES.RETURNS },
+    { to: '/admin/audit-logs', icon: 'history', text: 'Nhật ký hoạt động', permissionId: FEATURES.AUDIT_LOGS }
   ];
 
   // Normalize function (same as PermissionContext) to compare names safely

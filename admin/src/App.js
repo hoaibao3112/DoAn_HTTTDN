@@ -22,6 +22,13 @@ import AttendancePage from './pages/AttendancePage';
 import { PermissionContext } from './components/PermissionContext';
 import DiscountManagement from './pages/DiscountManagement.js';
 import AdminHome from './pages/AdminHome';
+import StockManagement from './pages/StockManagement';
+import POSPage from './pages/POSPage';
+import StockTransfer from './pages/StockTransfer';
+import InventoryCheck from './pages/InventoryCheck';
+import SupplierDebts from './pages/SupplierDebts';
+import AuditLogs from './pages/AuditLogs';
+import BranchManagement from './pages/BranchManagement';
 import { FEATURES } from './constants/permissions';
 
 const PrivateRoute = ({ component: Component }) => {
@@ -230,6 +237,83 @@ const App = () => {
           <PrivateRoute
             component={() => (
               <RestrictedRoute component={ReturnManagement} permissionId={FEATURES.RETURNS} />
+            )}
+          />
+        }
+      />
+
+      <Route
+        path="/admin/stock"
+        element={
+          <PrivateRoute
+            component={() => (
+              <RestrictedRoute component={StockManagement} permissionId={FEATURES.STOCK} />
+            )}
+          />
+        }
+      />
+
+      <Route
+        path="/admin/pos"
+        element={
+          <PrivateRoute
+            component={() => (
+              <RestrictedRoute component={POSPage} permissionId={FEATURES.POS} />
+            )}
+          />
+        }
+      />
+
+      <Route
+        path="/admin/stock-transfer"
+        element={
+          <PrivateRoute
+            component={() => (
+              <RestrictedRoute component={StockTransfer} permissionId={FEATURES.STOCK} />
+            )}
+          />
+        }
+      />
+
+      <Route
+        path="/admin/inventory-check"
+        element={
+          <PrivateRoute
+            component={() => (
+              <RestrictedRoute component={InventoryCheck} permissionId={FEATURES.INVENTORY_CHECK} />
+            )}
+          />
+        }
+      />
+
+      <Route
+        path="/admin/supplier-debts"
+        element={
+          <PrivateRoute
+            component={() => (
+              <RestrictedRoute component={SupplierDebts} permissionId={FEATURES.SUPPLIERS} />
+            )}
+          />
+        }
+      />
+
+      <Route
+        path="/admin/audit-logs"
+        element={
+          <PrivateRoute
+            component={() => (
+              <RestrictedRoute component={AuditLogs} permissionId={FEATURES.AUDIT_LOGS} />
+            )}
+          />
+        }
+      />
+
+      <Route
+        path="/admin/branches"
+        element={
+          <PrivateRoute
+            component={() => (
+              <RestrictedRoute component={BranchManagement} permissionId={FEATURES.CATEGORIES} />
             )}
           />
         }
