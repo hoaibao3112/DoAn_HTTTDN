@@ -5,6 +5,7 @@ import '../styles/sidebar.css';
 import logo from '../assets/logo.png';
 import UserInfo from './UserInfo';
 import { PermissionContext } from './PermissionContext';
+import { FEATURES } from '../constants/permissions';
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(true);
@@ -26,25 +27,25 @@ const Sidebar = () => {
   const location = useLocation();
   const { permissions, hasPermissionById } = useContext(PermissionContext);
 
-  // Permission IDs (MaCN) mapped to menu items to avoid fuzzy name matching
+  // Permission IDs (MaCN) mapped to menu items - USING CONSTANTS
   const menuItems = [
-    { to: '/admin', icon: 'dashboard', text: 'Trang Chủ', permission: null },
-    { to: '/admin/products', icon: 'inventory_2', text: 'Quản lý sản phẩm', permissionId: 13 },
-    { to: '/admin/account', icon: 'people', text: 'Quản lý tài khoản', permissionId: 2 },
-    { to: '/admin/category', icon: 'category', text: 'Quản lý thể loại', permissionId: 28 },
-    { to: '/admin/users', icon: 'badge', text: 'Quản lý nhân viên', permissionId: 6 },
-    { to: '/admin/invoices', icon: 'receipt_long', text: 'Quản lý hóa đơn', permissionId: 20 },
-    { to: '/admin/company', icon: 'business', text: 'Quản lý nhà cung cấp', permissionId: 14 },
-    { to: '/admin/roles', icon: 'admin_panel_settings', text: 'Quản lý quyền', permissionId: 3 },
-    { to: '/admin/authorities', icon: 'person', text: 'Quản lý tác giả', permissionId: 29 },
-    { to: '/admin/client', icon: 'groups', text: 'Quản lý khách hàng', permissionId: 21 },
-    { to: '/admin/statistical', icon: 'analytics', text: 'Thống kê', permissionId: 23 },
-    { to: '/admin/receipt', icon: 'receipt', text: 'Quản lý phiếu nhập', permissionId: 15 },
-    { to: '/admin/khuyenmai', icon: 'local_offer', text: 'Quản lý khuyến mãi', permissionId: 30 },
-    { to: '/admin/salary', icon: 'payments', text: 'Tính lương', permissionId: 10 },
-    { to: '/admin/leave', icon: 'event_busy', text: 'Xin nghỉ phép', permissionId: 9 },
-    { to: '/admin/attendance', icon: 'check_circle', text: 'Chấm công', permissionId: 7 },
-    { to: '/admin/returns', icon: 'assignment_return', text: 'Quản lý trả hàng', permissionId: 22 }
+    { to: '/admin', icon: 'dashboard', text: 'Trang Chủ', permissionId: null },
+    { to: '/admin/products', icon: 'inventory_2', text: 'Quản lý sản phẩm', permissionId: FEATURES.PRODUCTS },
+    { to: '/admin/account', icon: 'people', text: 'Quản lý tài khoản', permissionId: FEATURES.USERS },
+    { to: '/admin/category', icon: 'category', text: 'Quản lý thể loại', permissionId: FEATURES.CATEGORIES },
+    { to: '/admin/users', icon: 'badge', text: 'Quản lý nhân viên', permissionId: FEATURES.EMPLOYEES },
+    { to: '/admin/invoices', icon: 'receipt_long', text: 'Quản lý hóa đơn', permissionId: FEATURES.INVOICES },
+    { to: '/admin/company', icon: 'business', text: 'Quản lý nhà cung cấp', permissionId: FEATURES.SUPPLIERS },
+    { to: '/admin/roles', icon: 'admin_panel_settings', text: 'Quản lý quyền', permissionId: FEATURES.ROLES },
+    { to: '/admin/authorities', icon: 'person', text: 'Quản lý tác giả', permissionId: FEATURES.AUTHORS },
+    { to: '/admin/client', icon: 'groups', text: 'Quản lý khách hàng', permissionId: FEATURES.CUSTOMERS },
+    { to: '/admin/statistical', icon: 'analytics', text: 'Thống kê', permissionId: FEATURES.REPORTS },
+    { to: '/admin/receipt', icon: 'receipt', text: 'Quản lý phiếu nhập', permissionId: FEATURES.PURCHASE_ORDERS },
+    { to: '/admin/khuyenmai', icon: 'local_offer', text: 'Quản lý khuyến mãi', permissionId: FEATURES.PROMOTIONS },
+    { to: '/admin/salary', icon: 'payments', text: 'Tính lương', permissionId: FEATURES.SALARY },
+    { to: '/admin/leave', icon: 'event_busy', text: 'Xin nghỉ phép', permissionId: FEATURES.LEAVE },
+    { to: '/admin/attendance', icon: 'check_circle', text: 'Chấm công', permissionId: FEATURES.ATTENDANCE },
+    { to: '/admin/returns', icon: 'assignment_return', text: 'Quản lý trả hàng', permissionId: FEATURES.RETURNS }
   ];
 
   // Normalize function (same as PermissionContext) to compare names safely

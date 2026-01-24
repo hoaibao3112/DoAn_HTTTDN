@@ -17,7 +17,7 @@ router.post('/sessions/close', checkPermission(FEATURES.POS, PERMISSIONS.UPDATE)
 router.post('/invoices', checkPermission(FEATURES.INVOICES, PERMISSIONS.CREATE), salesController.createInvoice);
 
 // ======================= 4.2 CUSTOMER MANAGEMENT (Sales Context) =======================
-router.get('/customers/search', async (req, res) => {
+router.get('/customers/search', checkPermission(FEATURES.CUSTOMERS, PERMISSIONS.VIEW), async (req, res) => {
     const { sdt } = req.query;
     try {
         const [rows] = await pool.query('SELECT * FROM khachhang WHERE sdt = ?', [sdt]);
@@ -27,7 +27,7 @@ router.get('/customers/search', async (req, res) => {
     }
 });
 
-router.post('/customers', async (req, res) => {
+router.post('/customers', checkPermission(FEATURES.CUSTOMERS, PERMISSIONS.CREATE), async (req, res) => {
     const { TenKH, SDT, Email, DiaChi } = req.body;
     try {
         const [result] = await pool.query(
