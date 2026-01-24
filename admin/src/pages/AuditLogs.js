@@ -304,13 +304,13 @@ const AuditLogs = () => {
                                         <td>
                                             <div className="user-cell">
                                                 <div className="user-avatar">
-                                                    {log.user.avatar ? (
+                                                    {log.user?.avatar ? (
                                                         <img src={log.user.avatar} alt={log.user.name} />
                                                     ) : (
-                                                        <span>{log.user.name.charAt(0)}</span>
+                                                        <span>{log.user?.name?.charAt(0) || 'U'}</span>
                                                     )}
                                                 </div>
-                                                <span>{log.user.name}</span>
+                                                <span>{log.user?.name || 'Unknown User'}</span>
                                             </div>
                                         </td>
                                         <td>
