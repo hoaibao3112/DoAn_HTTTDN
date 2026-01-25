@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import './App.css';
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 import ProductManagement from './pages/ProductManagement';

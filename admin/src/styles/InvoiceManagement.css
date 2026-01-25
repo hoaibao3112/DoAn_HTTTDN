@@ -1,0 +1,61 @@
+/* Invoice Management Styles */
+.invoice-management-page {
+    padding: 24px;
+    padding-bottom: 40px;
+    background: #f5f7fa;
+    min-height: 100vh;
+    overflow-y: auto;
+}
+
+.invoice-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.invoice-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #050505;
+    margin: 0;
+}
+
+.invoice-content {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.invoice-filters {
+    margin-bottom: 20px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.invoice-table {
+    margin-top: 20px;
+}
+
+/* Customer cell */
+.customer-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .invoice-management-page {
+        padding: 16px;
+    }
+
+    .invoice-header h1 {
+        font-size: 24px;
+    }
+}

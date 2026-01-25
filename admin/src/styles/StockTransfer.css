@@ -1,8 +1,10 @@
 /* Stock Transfer Styles */
 .stock-transfer-page {
     padding: 24px;
+    padding-bottom: 40px;
     background: #f5f7fa;
     min-height: 100vh;
+    overflow-y: auto;
 }
 
 .page-header {

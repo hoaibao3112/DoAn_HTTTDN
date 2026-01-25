@@ -445,8 +445,8 @@ const AccountManagement = () => {
   }
 
   return (
-    <div className="thongke-page">
-      <div className="thongke-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="account-management-page">
+      <div className="account-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>
           <i className="fas fa-users"></i> Quản lý Tài khoản
         </h1>
@@ -474,8 +474,8 @@ const AccountManagement = () => {
         )}
       </div>
 
-      <div className="thongke-content">
-        <div className="thongke-filters">
+      <div className="account-content">
+        <div className="account-filters">
           <div className="filter-group">
             <label>Trạng thái:</label>
             <Select
@@ -491,7 +491,7 @@ const AccountManagement = () => {
           </div>
         </div>
 
-        <div className="thongke-table">
+        <div className="account-table">
           <Table
             columns={columns}
             dataSource={filteredAccounts}

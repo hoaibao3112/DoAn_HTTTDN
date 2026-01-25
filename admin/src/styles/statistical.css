@@ -2,31 +2,38 @@
   /* Move the whole stats page to the right so it doesn't get hidden under the app sidebar.
      Assumption: sidebar width is ~220px. Adjust margin-left if your sidebar is wider/narrower. */
   padding: 25px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding-bottom: 40px;
+  background: #f5f7fa;
+  /* Loại bỏ gradient */
   min-height: 100vh;
-  margin-left: 220px; /* shift page right to clear navigation */
-  transition: margin-left 220ms ease; /* smooth when sidebar toggles */
+  overflow-y: auto;
+  /* Đã loại bỏ margin-left vì đã có App layout */
+  transition: all 220ms ease;
+  /* smooth when sidebar toggles */
   box-sizing: border-box;
 }
 
 .thongke-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: white;
+  /* Loại bỏ gradient */
   padding: 25px 35px;
   border-radius: 12px;
   margin-bottom: 25px;
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
 }
 
 .thongke-header h1 {
   margin: 0;
-  color: white;
+  color: #050505;
+  /* Đổi màu text từ white sang đen */
   font-size: 28px;
   display: flex;
   align-items: center;
   gap: 12px;
   font-weight: 700;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  text-shadow: none;
+  /* Loại bỏ text shadow */
 }
 
 .thongke-header h1 i {
@@ -35,8 +42,15 @@
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
 }
 
 /* Main Tabs */
@@ -57,7 +71,7 @@
   font-weight: 600;
   transition: all 0.3s ease;
   color: #595959;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   position: relative;
   overflow: hidden;
 }
@@ -95,8 +109,8 @@
   background: white;
   border-radius: 12px;
   padding: 25px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  border: 1px solid rgba(0,0,0,0.05);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 /* Sub Tabs */
@@ -120,7 +134,7 @@
   font-weight: 500;
   transition: all 0.3s ease;
   color: #495057;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 .thongke-subtabs button:hover {
@@ -199,7 +213,8 @@
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.btn-excel, .btn-chart {
+.btn-excel,
+.btn-chart {
   padding: 10px 24px;
   color: white;
   border: none;
@@ -211,7 +226,7 @@
   align-items: center;
   gap: 10px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   position: relative;
   overflow: hidden;
 }
@@ -260,13 +275,15 @@
   box-shadow: 0 6px 20px rgba(146, 84, 222, 0.5);
 }
 
-.btn-excel i, .btn-chart i {
+.btn-excel i,
+.btn-chart i {
   font-size: 18px;
   position: relative;
   z-index: 1;
 }
 
-.btn-excel span, .btn-chart span {
+.btn-excel span,
+.btn-chart span {
   position: relative;
   z-index: 1;
 }
@@ -277,7 +294,7 @@
   padding: 25px;
   border-radius: 12px;
   margin-bottom: 25px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   border: 2px solid #e9ecef;
   position: relative;
   overflow: hidden;
@@ -295,8 +312,13 @@
 }
 
 @keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .chart-wrapper {
@@ -310,7 +332,7 @@
   overflow-x: auto;
   margin-top: 20px;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   border: 1px solid #e9ecef;
 }
 
@@ -357,8 +379,13 @@
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .thongke-table th {
@@ -371,7 +398,7 @@
   letter-spacing: 1px;
   border: none;
   position: relative;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .thongke-table th::after {
@@ -449,7 +476,7 @@
 .thongke-table td[style*="color: #1890ff"] {
   position: relative;
   font-weight: 700 !important;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .thongke-table td[style*="color: #52c41a"]::before {
@@ -465,8 +492,15 @@
 }
 
 @keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
 /* Loading & Empty States */
@@ -485,8 +519,13 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* DatePicker custom styles */
@@ -495,7 +534,7 @@
   border: 2px solid #ced4da !important;
   padding: 8px 12px !important;
   transition: all 0.3s ease !important;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
 }
 
 .ant-picker:hover {
@@ -517,7 +556,8 @@
 @media (max-width: 768px) {
   .thongke-page {
     padding: 15px;
-    margin-left: 0; /* remove shift on small screens */
+    margin-left: 0;
+    /* remove shift on small screens */
   }
 
   .thongke-header {
@@ -527,31 +567,32 @@
   .thongke-header h1 {
     font-size: 22px;
   }
-  
+
   .thongke-tabs {
     flex-direction: column;
   }
-  
+
   .thongke-tabs button {
     width: 100%;
   }
-  
+
   .thongke-filters {
     flex-direction: column;
     align-items: stretch;
     padding: 15px;
   }
-  
+
   .filter-group select {
     width: 100%;
   }
-  
-  .btn-excel, .btn-chart {
+
+  .btn-excel,
+  .btn-chart {
     margin-left: 0;
     justify-content: center;
     width: 100%;
   }
-  
+
   .thongke-table {
     font-size: 12px;
   }
@@ -576,13 +617,14 @@
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-.thongke-page > * {
+.thongke-page>* {
   animation: fadeInUp 0.6s ease-out;
 }
 
@@ -600,6 +642,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -610,15 +653,31 @@
   animation: countUp 0.5s ease-out;
 }
 
-.thongke-table tbody tr:nth-child(1) td { animation-delay: 0.05s; }
-.thongke-table tbody tr:nth-child(2) td { animation-delay: 0.1s; }
-.thongke-table tbody tr:nth-child(3) td { animation-delay: 0.15s; }
-.thongke-table tbody tr:nth-child(4) td { animation-delay: 0.2s; }
-.thongke-table tbody tr:nth-child(5) td { animation-delay: 0.25s; }
+.thongke-table tbody tr:nth-child(1) td {
+  animation-delay: 0.05s;
+}
+
+.thongke-table tbody tr:nth-child(2) td {
+  animation-delay: 0.1s;
+}
+
+.thongke-table tbody tr:nth-child(3) td {
+  animation-delay: 0.15s;
+}
+
+.thongke-table tbody tr:nth-child(4) td {
+  animation-delay: 0.2s;
+}
+
+.thongke-table tbody tr:nth-child(5) td {
+  animation-delay: 0.25s;
+}
 
 /* ...existing code... */
 
-.btn-excel, .btn-chart, .btn-pdf {
+.btn-excel,
+.btn-chart,
+.btn-pdf {
   padding: 10px 24px;
   color: white;
   border: none;
@@ -630,7 +689,7 @@
   align-items: center;
   gap: 10px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   position: relative;
   overflow: hidden;
 }
@@ -702,21 +761,25 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  box-shadow: 0 6px 18px rgba(0,168,107,0.18);
+  box-shadow: 0 6px 18px rgba(0, 168, 107, 0.18);
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
+
 .btn-refresh i {
   font-size: 14px;
   transform: translateY(0);
   transition: transform 0.2s ease;
 }
+
 .btn-refresh:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 28px rgba(0,168,107,0.28);
+  box-shadow: 0 10px 28px rgba(0, 168, 107, 0.28);
 }
+
 .btn-refresh:active {
   transform: translateY(-1px) scale(0.995);
 }
+
 .btn-refresh[disabled] {
   opacity: 0.6;
   cursor: not-allowed;
@@ -732,14 +795,19 @@
   }
 }
 
-.btn-excel i, .btn-chart i, .btn-pdf i {
+.btn-excel i,
+.btn-chart i,
+.btn-pdf i {
   font-size: 18px;
   position: relative;
   z-index: 1;
 }
+
 /* ...existing code... */
 
-.btn-excel, .btn-chart, .btn-pdf {
+.btn-excel,
+.btn-chart,
+.btn-pdf {
   padding: 10px 24px;
   color: white;
   border: none;
@@ -751,7 +819,7 @@
   align-items: center;
   gap: 10px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   position: relative;
   overflow: hidden;
 }

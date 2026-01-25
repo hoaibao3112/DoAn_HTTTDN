@@ -1,7 +1,10 @@
 /* Inventory Check Styles */
 .inventory-check-page {
+    padding: 24px;
+    padding-bottom: 40px;
     min-height: 100vh;
     background: #f5f7fa;
+    overflow-y: auto;
 }
 
 /* Start Screen */

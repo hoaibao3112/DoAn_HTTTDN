@@ -1,21 +1,80 @@
-.account-management-container {
-  padding: 16px 16px 16px 216px;
+/* Account Management Styles */
+.account-management-page {
+  padding: 24px;
+  padding-bottom: 40px;
+  background: #f5f7fa;
   min-height: 100vh;
+  overflow-y: auto;
 }
-.header-section {
+
+.account-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 16px;
+  margin-bottom: 24px;
 }
-.page-title {
-  font-size: 18px;
-  font-weight: 600;
+
+.account-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #050505;
   margin: 0;
 }
-.search-box {
-  width: 250px;
+
+.account-content {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
-/* Thêm các style khác nếu cần */
+
+.account-filters {
+  margin-bottom: 20px;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #050505;
+}
+
+.account-table {
+  margin-top: 20px;
+}
+
+/* Info Section in Modal */
+.info-section {
+  margin-bottom: 20px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.info-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #050505;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+}

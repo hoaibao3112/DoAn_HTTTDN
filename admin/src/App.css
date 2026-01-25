@@ -11,3 +11,28 @@ body {
   color: #333;
 }
 
+/* App Layout */
+.app-admin {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  margin-left: 260px;
+  min-height: 100vh;
+  overflow-y: auto;
+  transition: margin-left 0.3s ease;
+}
+
+/* Sidebar collapsed state */
+body.sidebar-closed .main-content {
+  margin-left: 68px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .main-content {
+    margin-left: 0;
+  }
+}

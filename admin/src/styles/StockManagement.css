@@ -1,8 +1,10 @@
 /* Stock Management Styles */
 .stock-management {
   padding: 24px;
+  padding-bottom: 40px;
   background: #f5f7fa;
   min-height: 100vh;
+  overflow-y: auto;
 }
 
 .page-header {
@@ -44,7 +46,8 @@
   gap: 12px;
 }
 
-.btn-export, .btn-primary {
+.btn-export,
+.btn-primary {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -502,7 +505,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-state p {
