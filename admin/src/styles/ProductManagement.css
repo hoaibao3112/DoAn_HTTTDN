@@ -1,7 +1,9 @@
 .product-management-container {
-  padding: 16px 16px 16px 216px;
+  padding: 24px;
+  padding-bottom: 40px;
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: #f5f7fa;
+  overflow-y: auto;
 }
 
 .header-section {
@@ -14,7 +16,7 @@
   background: white;
   padding: 16px;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .page-title {
@@ -39,7 +41,7 @@
   padding: 16px;
   border-radius: 8px;
   margin-bottom: 16px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .info-grid {
@@ -64,22 +66,22 @@
   background: white;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.compact-permission-table .ant-table-thead > tr > th {
+.compact-permission-table .ant-table-thead>tr>th {
   padding: 12px 8px;
   font-weight: 600;
   background-color: #fafafa;
   border-bottom: 2px solid #f0f0f0;
 }
 
-.compact-permission-table .ant-table-tbody > tr > td {
+.compact-permission-table .ant-table-tbody>tr>td {
   padding: 12px 8px;
   border-bottom: 1px solid #f0f0f0;
 }
 
-.compact-permission-table .ant-table-tbody > tr:hover > td {
+.compact-permission-table .ant-table-tbody>tr:hover>td {
   background-color: #f5f5f5;
 }
 
@@ -102,20 +104,20 @@
   .product-management-container {
     padding: 16px;
   }
-  
+
   .header-section {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .header-actions {
     justify-content: space-between;
   }
-  
+
   .search-box {
     width: 100%;
   }
-  
+
   .info-grid {
     grid-template-columns: repeat(2, 1fr);
   }

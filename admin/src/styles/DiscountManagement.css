@@ -1,15 +1,12 @@
 .discount-management-container {
   padding: 24px;
-  margin-left: 260px; /* Dùng margin-left thay vì padding-left để tránh bị sidebar che */
-  background-color: #f5f5f5;
+  padding-bottom: 40px;
+  background-color: #f5f7fa;
   min-height: 100vh;
-  transition: margin-left 0.3s ease; /* Smooth transition khi sidebar đóng/mở */
+  overflow-y: auto;
 }
 
-/* Khi sidebar đóng lại */
-body.sidebar-closed .discount-management-container {
-  margin-left: 68px; /* Width của sidebar khi đóng */
-}
+/* Removed margin-left rules - App layout handles spacing now */
 
 .header-section {
   margin-bottom: 24px;
@@ -22,26 +19,34 @@ body.sidebar-closed .discount-management-container {
 /* Di chuyển phần controls sang phải */
 .controls-section {
   display: flex;
-  justify-content: flex-end; /* Đẩy tất cả về phía phải */
+  justify-content: flex-end;
+  /* Đẩy tất cả về phía phải */
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-  margin-right: 40px; /* Tăng margin phải để di chuyển xa hơn */
-  margin-left: auto; /* Thêm margin-left auto để đẩy sang phải */
-  width: fit-content; /* Chỉ chiếm không gian cần thiết */
+  margin-right: 40px;
+  /* Tăng margin phải để di chuyển xa hơn */
+  margin-left: auto;
+  /* Thêm margin-left auto để đẩy sang phải */
+  width: fit-content;
+  /* Chỉ chiếm không gian cần thiết */
 }
 
 /* Thu phần statistics cards */
 .header-section .ant-row {
-  margin-left: 20px; /* Thêm margin trái cho stats cards */
-  margin-right: 20px; /* Thêm margin phải cho stats cards */
+  margin-left: 20px;
+  /* Thêm margin trái cho stats cards */
+  margin-right: 20px;
+  /* Thêm margin phải cho stats cards */
 }
 
 .table-card {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin-left: 20px; /* Thu bảng sang phải */
-  margin-right: 20px; /* Giữ khoảng cách phải */
+  margin-left: 20px;
+  /* Thu bảng sang phải */
+  margin-right: 20px;
+  /* Giữ khoảng cách phải */
 }
 
 .stat-card {
@@ -92,18 +97,18 @@ body.sidebar-closed .discount-management-container {
   background: white;
 }
 
-.promotion-table .ant-table-thead > tr > th {
+.promotion-table .ant-table-thead>tr>th {
   background-color: #fafafa;
   border-bottom: 2px solid #f0f0f0;
   font-weight: 600;
   color: #262626;
 }
 
-.promotion-table .ant-table-tbody > tr:hover > td {
+.promotion-table .ant-table-tbody>tr:hover>td {
   background-color: #f5f5f5;
 }
 
-.promotion-table .ant-table-tbody > tr > td {
+.promotion-table .ant-table-tbody>tr>td {
   border-bottom: 1px solid #f0f0f0;
 }
 
@@ -123,7 +128,7 @@ body.sidebar-closed .discount-management-container {
   border-bottom: 2px solid #f0f0f0;
 }
 
-.form-modal .ant-form-item-label > label {
+.form-modal .ant-form-item-label>label {
   font-weight: 600;
   color: #262626;
 }
@@ -142,34 +147,41 @@ body.sidebar-closed .discount-management-container {
 @media (max-width: 768px) {
   .discount-management-container {
     padding: 16px;
-    padding-left: 16px; /* Reset padding-left cho mobile */
+    padding-left: 16px;
+    /* Reset padding-left cho mobile */
   }
-  
+
   .controls-section {
     flex-direction: column;
     align-items: stretch;
-    justify-content: center; /* Reset về center cho mobile */
-    margin-right: 0; /* Reset margin cho mobile */
-    margin-left: 0; /* Reset margin-left cho mobile */
-    width: 100%; /* Full width cho mobile */
+    justify-content: center;
+    /* Reset về center cho mobile */
+    margin-right: 0;
+    /* Reset margin cho mobile */
+    margin-left: 0;
+    /* Reset margin-left cho mobile */
+    width: 100%;
+    /* Full width cho mobile */
   }
-  
+
   .controls-section .ant-input-search {
     width: 100% !important;
     margin-bottom: 16px;
   }
-  
+
   .stat-number {
     font-size: 24px !important;
   }
-  
+
   .table-card {
-    margin-left: 0; /* Reset margin cho mobile */
+    margin-left: 0;
+    /* Reset margin cho mobile */
     margin-right: 0;
   }
-  
+
   .header-section .ant-row {
-    margin-left: 0; /* Reset margin cho mobile */
+    margin-left: 0;
+    /* Reset margin cho mobile */
     margin-right: 0;
   }
 }
@@ -178,11 +190,11 @@ body.sidebar-closed .discount-management-container {
   .promotion-table {
     font-size: 12px;
   }
-  
-  .promotion-table .ant-table-tbody > tr > td {
+
+  .promotion-table .ant-table-tbody>tr>td {
     padding: 8px 4px;
   }
-  
+
   .promotion-table .ant-space {
     flex-wrap: wrap;
   }
@@ -226,7 +238,7 @@ body.sidebar-closed .discount-management-container {
 }
 
 /* Animation */
-.ant-table-tbody > tr {
+.ant-table-tbody>tr {
   transition: all 0.3s ease;
 }
 
