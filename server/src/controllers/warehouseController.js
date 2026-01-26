@@ -14,9 +14,9 @@ const warehouseController = {
             if (author) { sql += ' AND MaTG = ?'; params.push(author); }
 
             const [rows] = await pool.query(sql, params);
-            res.json({ success: true, data: rows });
+            res.json(rows); // Return array directly for frontend compatibility
         } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
+            res.status(500).json({ error: error.message });
         }
     },
 
@@ -384,6 +384,101 @@ const warehouseController = {
             });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // ======================= HELPER ENDPOINTS FOR PRODUCT MANAGEMENT =======================
+
+    getAuthors: async (req, res) => {
+        try {
+            const [rows] = await pool.query('SELECT MaTG, TenTG FROM tacgia ORDER BY TenTG');
+            res.json(rows);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    getCategories: async (req, res) => {
+        try {
+            const [rows] = await pool.query('SELECT MaTL, TenTL FROM theloai WHERE TinhTrang = 1 ORDER BY TenTL');
+            res.json(rows);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    getSuppliers: async (req, res) => {
+        try {
+            const [rows] = await pool.query('SELECT MaNCC, TenNCC, DiaChi, SDT FROM nhacungcap ORDER BY TenNCC');
+            res.json(rows);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    getProductById: async (req, res) => {
+        const { id } = req.params;
+        try {
+            const [rows] = await pool.query(
+                `SELECT sp.*, tg.TenTG as TacGia, tl.TenTL as TheLoai, ncc.TenNCC as NhaCungCap
+                 FROM sanpham sp
+                 LEFT JOIN tacgia tg ON sp.MaTG = tg.MaTG
+                 LEFT JOIN theloai tl ON sp.MaTL = tl.MaTL
+                 LEFT JOIN nhacungcap ncc ON sp.MaNCC = ncc.MaNCC
+                 WHERE sp.MaSP = ?`,
+                [id]
+            );
+
+            if (rows.length === 0) {
+                return res.status(404).json({ error: 'Sản phẩm không tồn tại' });
+            }
+
+            res.json(rows[0]);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    deleteProduct: async (req, res) => {
+        const { id } = req.params;
+        try {
+            // Soft delete by setting TinhTrang = 0
+            const [result] = await pool.query('UPDATE sanpham SET TinhTrang = 0 WHERE MaSP = ?', [id]);
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Sản phẩm không tồn tại' });
+            }
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Xoa',
+                BangDuLieu: 'sanpham',
+                MaBanGhi: id,
+                DiaChi_IP: req.ip
+            });
+
+            res.json({ message: 'Xóa sản phẩm thành công' });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    updateMinStock: async (req, res) => {
+        const { id } = req.params;
+        const { MinSoLuong } = req.body;
+        try {
+            const [result] = await pool.query(
+                'UPDATE sanpham SET MinSoLuong = ? WHERE MaSP = ?',
+                [MinSoLuong, id]
+            );
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Sản phẩm không tồn tại' });
+            }
+
+            res.json({ message: 'Cập nhật ngưỡng tồn thành công' });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
         }
     }
 };

@@ -37,6 +37,29 @@ export const PermissionProvider = ({ children }) => {
 
   useEffect(() => {
     fetchPermissions();
+
+    // Listen for login events to refresh permissions
+    const handleStorageChange = (e) => {
+      if (e.key === 'authToken' && e.newValue) {
+        console.log('Auth token changed, refreshing permissions...');
+        fetchPermissions();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    // Custom event for same-tab login
+    const handleLoginEvent = () => {
+      console.log('Login event detected, refreshing permissions...');
+      setTimeout(() => fetchPermissions(), 100);
+    };
+
+    window.addEventListener('userLoggedIn', handleLoginEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userLoggedIn', handleLoginEvent);
+    };
     // eslint-disable-next-line
   }, []);
 

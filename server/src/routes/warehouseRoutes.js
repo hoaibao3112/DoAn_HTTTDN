@@ -6,7 +6,14 @@ import { FEATURES, PERMISSIONS } from '../constants/permissions.js';
 
 const router = express.Router();
 
-// All warehouse routes require authentication
+// ======================= PUBLIC HELPER ENDPOINTS (No Auth Required) =======================
+// These are read-only reference data for dropdowns - placed before auth middleware
+router.get('/authors', warehouseController.getAuthors);
+router.get('/categories', warehouseController.getCategories);
+router.get('/suppliers', warehouseController.getSuppliers);
+
+// ======================= AUTHENTICATED ROUTES =======================
+// All routes below require authentication
 router.use(authenticateToken);
 
 // ======================= PRODUCT MANAGEMENT =======================
@@ -15,14 +22,29 @@ router.get('/products',
     warehouseController.getAllProducts
 );
 
+router.get('/products/:id',
+    checkPermission(FEATURES.PRODUCTS, PERMISSIONS.VIEW),
+    warehouseController.getProductById
+);
+
 router.post('/products',
     checkPermission(FEATURES.PRODUCTS, PERMISSIONS.CREATE),
     warehouseController.upsertProduct
 );
 
-router.put('/products',
+router.put('/products/:id',
     checkPermission(FEATURES.PRODUCTS, PERMISSIONS.UPDATE),
     warehouseController.upsertProduct
+);
+
+router.delete('/products/:id',
+    checkPermission(FEATURES.PRODUCTS, PERMISSIONS.DELETE),
+    warehouseController.deleteProduct
+);
+
+router.patch('/products/:id/min-stock',
+    checkPermission(FEATURES.PRODUCTS, PERMISSIONS.UPDATE),
+    warehouseController.updateMinStock
 );
 
 // ======================= PURCHASE ORDERS =======================

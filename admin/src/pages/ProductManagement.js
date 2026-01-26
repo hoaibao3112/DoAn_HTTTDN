@@ -39,7 +39,7 @@ const ProductManagement = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const API_URL = 'http://localhost:5000/api/product';
+  const API_URL = 'http://localhost:5000/api/product/products';
   const AUTHORS_API_URL = 'http://localhost:5000/api/product/authors';
   const CATEGORIES_API_URL = 'http://localhost:5000/api/product/categories';
   const SUPPLIERS_API_URL = 'http://localhost:5000/api/product/suppliers';
@@ -94,38 +94,38 @@ const ProductManagement = () => {
     }
   };
 
- const fetchProducts = async () => {
-  try {
-    setLoading(true);
-    const response = await axios.get(API_URL);
-    if (Array.isArray(response.data)) {
-      const processedProducts = response.data.map((product) => ({
-        ...product,
-        HinhAnh: product.HinhAnh && product.HinhAnh !== 'null'
-          ? `/img/products/${product.HinhAnh}`
-          : 'https://via.placeholder.com/50',
-        // ✅ SỬA LOGIC: Nếu SoLuong > 0 thì "Còn hàng", ngược lại "Hết hàng"
-        TinhTrang: (product.SoLuong && product.SoLuong > 0) ? 'Còn hàng' : 'Hết hàng',
-        MinSoLuong: product.MinSoLuong || 0,
-        MoTa: product.MoTa || null,
-        MaNCC: product.MaNCC || null,
-        NhaCungCap: product.NhaCungCap || null,
-        TrongLuong: product.TrongLuong == null ? null : Number(product.TrongLuong),
-        KichThuoc: product.KichThuoc || null,
-        SoTrang: product.SoTrang == null ? null : Number(product.SoTrang),
-        HinhThuc: product.HinhThuc || null,
-      }));
-      setProducts(processedProducts);
-    } else {
-      throw new Error('Dữ liệu sản phẩm không hợp lệ');
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(API_URL);
+      if (Array.isArray(response.data)) {
+        const processedProducts = response.data.map((product) => ({
+          ...product,
+          HinhAnh: product.HinhAnh && product.HinhAnh !== 'null'
+            ? `/img/products/${product.HinhAnh}`
+            : 'https://via.placeholder.com/50',
+          // ✅ SỬA LOGIC: Nếu SoLuong > 0 thì "Còn hàng", ngược lại "Hết hàng"
+          TinhTrang: (product.SoLuong && product.SoLuong > 0) ? 'Còn hàng' : 'Hết hàng',
+          MinSoLuong: product.MinSoLuong || 0,
+          MoTa: product.MoTa || null,
+          MaNCC: product.MaNCC || null,
+          NhaCungCap: product.NhaCungCap || null,
+          TrongLuong: product.TrongLuong == null ? null : Number(product.TrongLuong),
+          KichThuoc: product.KichThuoc || null,
+          SoTrang: product.SoTrang == null ? null : Number(product.SoTrang),
+          HinhThuc: product.HinhThuc || null,
+        }));
+        setProducts(processedProducts);
+      } else {
+        throw new Error('Dữ liệu sản phẩm không hợp lệ');
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy danh sách sản phẩm:', error);
+      message.error('Lỗi khi tải danh sách sản phẩm');
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Lỗi khi lấy danh sách sản phẩm:', error);
-    message.error('Lỗi khi tải danh sách sản phẩm');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -227,168 +227,168 @@ const ProductManagement = () => {
     // optional: revoke object URL if used elsewhere
   };
 
- // Thêm sản phẩm - SỬA XỬ LÝ NAMXB
-const handleAddProduct = async () => {
-  const maTL = newProduct.MaTL;
-  const tenSP = newProduct.TenSP.trim();
-  const maTG = newProduct.MaTG;
-  const namXB = newProduct.NamXB; // ✅ Bỏ .trim() vì có thể là số
+  // Thêm sản phẩm - SỬA XỬ LÝ NAMXB
+  const handleAddProduct = async () => {
+    const maTL = newProduct.MaTL;
+    const tenSP = newProduct.TenSP.trim();
+    const maTG = newProduct.MaTG;
+    const namXB = newProduct.NamXB; // ✅ Bỏ .trim() vì có thể là số
 
-  if (!maTL || !tenSP) {
-    message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Thể loại, Tên SP)!');
-    return;
-  }
-
-  try {
-    const formData = new FormData();
-    formData.append('MaTL', maTL);
-    formData.append('TenSP', tenSP);
-    // Backend expects fields: 'HinhAnh' (primary, single) and 'ExtraImages' (secondary, multiple)
-    if (newProduct.HinhAnhPrimary) {
-      formData.append('HinhAnh', newProduct.HinhAnhPrimary);
-    }
-    if (Array.isArray(newProduct.HinhAnhPhu) && newProduct.HinhAnhPhu.length > 0) {
-      newProduct.HinhAnhPhu.forEach((file) => formData.append('ExtraImages', file));
-    }
-    if (maTG) {
-      formData.append('MaTG', maTG);
-    }
-    if (newProduct.MoTa) formData.append('MoTa', newProduct.MoTa);
-    if (newProduct.MaNCC) formData.append('MaNCC', newProduct.MaNCC);
-    if (newProduct.TrongLuong) formData.append('TrongLuong', newProduct.TrongLuong);
-    if (newProduct.KichThuoc) formData.append('KichThuoc', newProduct.KichThuoc);
-    if (newProduct.SoTrang) formData.append('SoTrang', newProduct.SoTrang);
-    if (newProduct.HinhThuc) formData.append('HinhThuc', newProduct.HinhThuc);
-    if (newProduct.MinSoLuong) formData.append('MinSoLuong', newProduct.MinSoLuong);
-    // ✅ SỬA: Kiểm tra namXB khác null/undefined và là số hợp lệ
-    if (namXB && namXB.toString().trim() && !isNaN(parseInt(namXB))) {
-      formData.append('NamXB', parseInt(namXB));
-    }
-    formData.append('TinhTrang', 0);
-    formData.append('DonGia', 0);
-    formData.append('SoLuong', 0);
-
-    const config = getAuthConfig();
-    const response = await axios.post(API_URL, formData, config);
-    
-    await fetchProducts();
-    setNewProduct({
-      MaTL: '',
-      TenSP: '',
-      HinhAnhPrimary: null,
-      HinhAnhPhu: [],
-      MaTG: '',
-      NamXB: '',
-      TinhTrang: 'Hết hàng',
-      DonGia: 0,
-      SoLuong: 0,
-      MoTa: '',
-      MaNCC: '',
-      TrongLuong: '',
-      KichThuoc: '',
-      SoTrang: '',
-      HinhThuc: '',
-      MinSoLuong: 0,
-    });
-    setIsModalVisible(false);
-    message.success(response.data.message || 'Thêm sản phẩm thành công!');
-  } catch (error) {
-    console.error('❌ Lỗi khi thêm sản phẩm:', error.response || error);
-    
-    if (error.response?.status === 401) {
-      message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
-      localStorage.removeItem('authToken');
-      window.location.href = '/admin/login';
+    if (!maTL || !tenSP) {
+      message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Thể loại, Tên SP)!');
       return;
     }
-    
-    if (error.response?.status === 403) {
-      message.error(`Không có quyền! ${error.response.data?.error || 'Cần tài khoản admin/staff/NV004/NV007'}`);
-      return;
+
+    try {
+      const formData = new FormData();
+      formData.append('MaTL', maTL);
+      formData.append('TenSP', tenSP);
+      // Backend expects fields: 'HinhAnh' (primary, single) and 'ExtraImages' (secondary, multiple)
+      if (newProduct.HinhAnhPrimary) {
+        formData.append('HinhAnh', newProduct.HinhAnhPrimary);
+      }
+      if (Array.isArray(newProduct.HinhAnhPhu) && newProduct.HinhAnhPhu.length > 0) {
+        newProduct.HinhAnhPhu.forEach((file) => formData.append('ExtraImages', file));
+      }
+      if (maTG) {
+        formData.append('MaTG', maTG);
+      }
+      if (newProduct.MoTa) formData.append('MoTa', newProduct.MoTa);
+      if (newProduct.MaNCC) formData.append('MaNCC', newProduct.MaNCC);
+      if (newProduct.TrongLuong) formData.append('TrongLuong', newProduct.TrongLuong);
+      if (newProduct.KichThuoc) formData.append('KichThuoc', newProduct.KichThuoc);
+      if (newProduct.SoTrang) formData.append('SoTrang', newProduct.SoTrang);
+      if (newProduct.HinhThuc) formData.append('HinhThuc', newProduct.HinhThuc);
+      if (newProduct.MinSoLuong) formData.append('MinSoLuong', newProduct.MinSoLuong);
+      // ✅ SỬA: Kiểm tra namXB khác null/undefined và là số hợp lệ
+      if (namXB && namXB.toString().trim() && !isNaN(parseInt(namXB))) {
+        formData.append('NamXB', parseInt(namXB));
+      }
+      formData.append('TinhTrang', 0);
+      formData.append('DonGia', 0);
+      formData.append('SoLuong', 0);
+
+      const config = getAuthConfig();
+      const response = await axios.post(API_URL, formData, config);
+
+      await fetchProducts();
+      setNewProduct({
+        MaTL: '',
+        TenSP: '',
+        HinhAnhPrimary: null,
+        HinhAnhPhu: [],
+        MaTG: '',
+        NamXB: '',
+        TinhTrang: 'Hết hàng',
+        DonGia: 0,
+        SoLuong: 0,
+        MoTa: '',
+        MaNCC: '',
+        TrongLuong: '',
+        KichThuoc: '',
+        SoTrang: '',
+        HinhThuc: '',
+        MinSoLuong: 0,
+      });
+      setIsModalVisible(false);
+      message.success(response.data.message || 'Thêm sản phẩm thành công!');
+    } catch (error) {
+      console.error('❌ Lỗi khi thêm sản phẩm:', error.response || error);
+
+      if (error.response?.status === 401) {
+        message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
+        localStorage.removeItem('authToken');
+        window.location.href = '/admin/login';
+        return;
+      }
+
+      if (error.response?.status === 403) {
+        message.error(`Không có quyền! ${error.response.data?.error || 'Cần tài khoản admin/staff/NV004/NV007'}`);
+        return;
+      }
+
+      const errorMessage = error.response?.data?.error || error.message || 'Lỗi khi thêm sản phẩm!';
+      message.error(errorMessage);
     }
-    
-    const errorMessage = error.response?.data?.error || error.message || 'Lỗi khi thêm sản phẩm!';
-    message.error(errorMessage);
-  }
-};
+  };
 
 
   // Cập nhật sản phẩm - SỬA XỬ LÝ NAMXB
-const handleUpdateProduct = async () => {
-  const maTL = editingProduct.MaTL;
-  const tenSP = editingProduct.TenSP.trim();
-  const maTG = editingProduct.MaTG;
-  const namXB = editingProduct.NamXB; // ✅ Bỏ .trim() vì có thể là số
+  const handleUpdateProduct = async () => {
+    const maTL = editingProduct.MaTL;
+    const tenSP = editingProduct.TenSP.trim();
+    const maTG = editingProduct.MaTG;
+    const namXB = editingProduct.NamXB; // ✅ Bỏ .trim() vì có thể là số
 
-  if (!maTL || !tenSP) {
-    message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Thể loại, Tên SP)!');
-    return;
-  }
-
-  try {
-    const formData = new FormData();
-    formData.append('MaTL', maTL);
-    formData.append('TenSP', tenSP);
-    // If user selected a new primary file, append it; otherwise, keep existing HinhAnh value (filename string)
-    if (editingProduct.HinhAnh instanceof File) {
-      formData.append('HinhAnh', editingProduct.HinhAnh);
-    } else if (editingProduct.HinhAnh) {
-      // editingProduct.HinhAnh might be '/img/products/<filename>' or a filename
-      const possible = editingProduct.HinhAnh.toString();
-      const filenameOnly = possible.includes('/img/products/') ? possible.replace('/img/products/', '') : possible;
-      formData.append('HinhAnh', filenameOnly);
-    }
-
-    // If there are newly added extra images while editing, append them
-    if (Array.isArray(editingExtraFiles) && editingExtraFiles.length > 0) {
-      editingExtraFiles.forEach(f => formData.append('ExtraImages', f));
-    }
-    if (maTG) {
-      formData.append('MaTG', maTG);
-    }
-    // New fields for update
-    if (editingProduct.MoTa !== undefined) formData.append('MoTa', editingProduct.MoTa);
-    if (editingProduct.MaNCC !== undefined) formData.append('MaNCC', editingProduct.MaNCC);
-    if (editingProduct.TrongLuong !== undefined) formData.append('TrongLuong', editingProduct.TrongLuong);
-    if (editingProduct.KichThuoc !== undefined) formData.append('KichThuoc', editingProduct.KichThuoc);
-    if (editingProduct.SoTrang !== undefined) formData.append('SoTrang', editingProduct.SoTrang);
-    if (editingProduct.HinhThuc !== undefined) formData.append('HinhThuc', editingProduct.HinhThuc);
-    if (editingProduct.MinSoLuong !== undefined) formData.append('MinSoLuong', editingProduct.MinSoLuong);
-    // ✅ SỬA: Kiểm tra namXB khác null/undefined và là số hợp lệ
-    if (namXB && namXB.toString().trim() && !isNaN(parseInt(namXB))) {
-      formData.append('NamXB', parseInt(namXB));
-    }
-    formData.append('TinhTrang', 0);
-    formData.append('DonGia', 0);
-    formData.append('SoLuong', 0);
-
-    const config = getAuthConfig();
-    const response = await axios.put(`${API_URL}/${editingProduct.MaSP}`, formData, config);
-    
-    await fetchProducts();
-    setEditingProduct(null);
-  setEditingExtraFiles([]);
-    setIsModalVisible(false);
-    message.success(response.data.message || 'Cập nhật sản phẩm thành công!');
-  } catch (error) {
-    console.error('❌ Lỗi khi cập nhật sản phẩm:', error.response || error);
-    
-    if (error.response?.status === 401) {
-      message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
-      localStorage.removeItem('authToken');
-      window.location.href = '/admin/login';
+    if (!maTL || !tenSP) {
+      message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Thể loại, Tên SP)!');
       return;
     }
-    
-    if (error.response?.status === 403) {
-      message.error('Bạn không có quyền thực hiện thao tác này!');
-      return;
+
+    try {
+      const formData = new FormData();
+      formData.append('MaTL', maTL);
+      formData.append('TenSP', tenSP);
+      // If user selected a new primary file, append it; otherwise, keep existing HinhAnh value (filename string)
+      if (editingProduct.HinhAnh instanceof File) {
+        formData.append('HinhAnh', editingProduct.HinhAnh);
+      } else if (editingProduct.HinhAnh) {
+        // editingProduct.HinhAnh might be '/img/products/<filename>' or a filename
+        const possible = editingProduct.HinhAnh.toString();
+        const filenameOnly = possible.includes('/img/products/') ? possible.replace('/img/products/', '') : possible;
+        formData.append('HinhAnh', filenameOnly);
+      }
+
+      // If there are newly added extra images while editing, append them
+      if (Array.isArray(editingExtraFiles) && editingExtraFiles.length > 0) {
+        editingExtraFiles.forEach(f => formData.append('ExtraImages', f));
+      }
+      if (maTG) {
+        formData.append('MaTG', maTG);
+      }
+      // New fields for update
+      if (editingProduct.MoTa !== undefined) formData.append('MoTa', editingProduct.MoTa);
+      if (editingProduct.MaNCC !== undefined) formData.append('MaNCC', editingProduct.MaNCC);
+      if (editingProduct.TrongLuong !== undefined) formData.append('TrongLuong', editingProduct.TrongLuong);
+      if (editingProduct.KichThuoc !== undefined) formData.append('KichThuoc', editingProduct.KichThuoc);
+      if (editingProduct.SoTrang !== undefined) formData.append('SoTrang', editingProduct.SoTrang);
+      if (editingProduct.HinhThuc !== undefined) formData.append('HinhThuc', editingProduct.HinhThuc);
+      if (editingProduct.MinSoLuong !== undefined) formData.append('MinSoLuong', editingProduct.MinSoLuong);
+      // ✅ SỬA: Kiểm tra namXB khác null/undefined và là số hợp lệ
+      if (namXB && namXB.toString().trim() && !isNaN(parseInt(namXB))) {
+        formData.append('NamXB', parseInt(namXB));
+      }
+      formData.append('TinhTrang', 0);
+      formData.append('DonGia', 0);
+      formData.append('SoLuong', 0);
+
+      const config = getAuthConfig();
+      const response = await axios.put(`${API_URL}/${editingProduct.MaSP}`, formData, config);
+
+      await fetchProducts();
+      setEditingProduct(null);
+      setEditingExtraFiles([]);
+      setIsModalVisible(false);
+      message.success(response.data.message || 'Cập nhật sản phẩm thành công!');
+    } catch (error) {
+      console.error('❌ Lỗi khi cập nhật sản phẩm:', error.response || error);
+
+      if (error.response?.status === 401) {
+        message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
+        localStorage.removeItem('authToken');
+        window.location.href = '/admin/login';
+        return;
+      }
+
+      if (error.response?.status === 403) {
+        message.error('Bạn không có quyền thực hiện thao tác này!');
+        return;
+      }
+
+      const errorMessage = error.response?.data?.error || error.message || 'Lỗi khi cập nhật sản phẩm!';
+      message.error(errorMessage);
     }
-    
-    const errorMessage = error.response?.data?.error || error.message || 'Lỗi khi cập nhật sản phẩm!';
-    message.error(errorMessage);
-  }
-};
+  };
 
   // Xóa sản phẩm
   const handleDeleteProduct = (productId) => {
@@ -723,7 +723,7 @@ const handleUpdateProduct = async () => {
                 <Input size="small" value={editingProduct.MaSP} disabled />
               </div>
             )}
-            
+
             {/* Dropdown chọn thể loại */}
             <div className="info-item">
               <p className="info-label">Thể loại <span style={{ color: 'red' }}>*</span></p>
@@ -750,7 +750,7 @@ const handleUpdateProduct = async () => {
                 ))}
               </Select>
             </div>
-            
+
             <div className="info-item">
               <p className="info-label">Tên sản phẩm <span style={{ color: 'red' }}>*</span></p>
               <Input
@@ -765,7 +765,7 @@ const handleUpdateProduct = async () => {
                 placeholder="Nhập tên sản phẩm"
               />
             </div>
-            
+
             <div className="info-item">
               <p className="info-label">Ảnh chính:</p>
               {!editingProduct ? (
@@ -932,7 +932,7 @@ const handleUpdateProduct = async () => {
                 </>
               )}
             </div>
-            
+
             {/* Dropdown chọn tác giả */}
             <div className="info-item">
               <p className="info-label">Tác giả:</p>
@@ -960,7 +960,7 @@ const handleUpdateProduct = async () => {
                 ))}
               </Select>
             </div>
-            
+
             <div className="info-item">
               <p className="info-label">Năm xuất bản:</p>
               <Input
@@ -1099,7 +1099,7 @@ const handleUpdateProduct = async () => {
           </div>
         </div>
       </Modal>
-    
+
       {/* Modal chỉnh ngưỡng tối thiểu (MinSoLuong) */}
       <Modal
         title={`Cập nhật ngưỡng tồn cho sản phẩm ${editingProduct ? editingProduct.MaSP : ''}`}

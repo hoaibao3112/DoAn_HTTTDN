@@ -24,7 +24,7 @@ const AccountManagement = () => {
     newAccount: {
       TenTK: '',
       MatKhau: '',
-      MaQuyen: undefined,
+      MaNQ: undefined,
       NgayTao: new Date().toISOString().split('T')[0],
       TinhTrang: '1',
     },
@@ -90,10 +90,11 @@ const AccountManagement = () => {
   }, [hasPermission]);
 
   // Fetch quyền khi mở modal edit
-  const fetchPermissions = async (maQuyen) => {
+  const fetchPermissions = async (maNQ) => {
+    if (!maNQ) return;
     try {
       const token = localStorage.getItem('authToken');
-      const resp = await axios.get(`${PERMISSION_API}/roles/${maQuyen}`, {
+      const resp = await axios.get(`${PERMISSION_API}/roles/${maNQ}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setState(prev => ({ ...prev, permissions: resp.data }));
@@ -103,7 +104,7 @@ const AccountManagement = () => {
   };
 
   const handleInputChange = (field, value) => {
-    const updatedValue = field === 'MaQuyen' ? parseInt(value) : value;
+    const updatedValue = field === 'MaNQ' ? parseInt(value) : value;
     if (editingAccount) {
       setState(prev => ({
         ...prev,
@@ -125,7 +126,7 @@ const AccountManagement = () => {
   };
 
   const validateAccountData = (accountData) => {
-    if (!accountData.TenTK || !accountData.MatKhau || !accountData.MaQuyen) {
+    if (!accountData.TenTK || !accountData.MatKhau || !accountData.MaNQ) {
       message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Tên TK, Mật khẩu, Quyền)!');
       return false;
     }
@@ -142,7 +143,7 @@ const AccountManagement = () => {
     const payload = {
       TenTK: newAccount.TenTK,
       MatKhau: newAccount.MatKhau,
-      MaQuyen: newAccount.MaQuyen,
+      MaNQ: newAccount.MaNQ,
       NgayTao: newAccount.NgayTao,
       TinhTrang: parseInt(newAccount.TinhTrang),
     };
@@ -179,7 +180,7 @@ const AccountManagement = () => {
     const payload = {
       TenTK: editingAccount.TenTK,
       MatKhau: editingAccount.MatKhau,
-      MaQuyen: editingAccount.MaQuyen,
+      MaNQ: editingAccount.MaNQ,
       TinhTrang: parseInt(editingAccount.TinhTrang),
     };
     try {
@@ -258,7 +259,6 @@ const AccountManagement = () => {
       message.error('Bạn không có quyền thêm quyền!');
       return;
     }
-    // Hỗ trợ chọn nhiều hành động cùng lúc (newPermission.HanhDong là mảng)
     if (!newPermission.MaCN || !newPermission.HanhDong || newPermission.HanhDong.length === 0) {
       message.error('Vui lòng chọn chức năng và ít nhất một hành động!');
       return;
@@ -266,17 +266,20 @@ const AccountManagement = () => {
 
     try {
       const token = localStorage.getItem('authToken');
-      // Gửi nhiều request (mỗi hành động 1 bản ghi)
-      const requests = newPermission.HanhDong.map((hd) =>
-        axios.post(PERMISSION_API, {
-          MaQuyen: editingAccount.MaQuyen,
-          MaCN: newPermission.MaCN,
-          HanhDong: hd,
-          TinhTrang: parseInt(newPermission.TinhTrang),
-        }, { headers: { Authorization: `Bearer ${token}` } })
-      );
-      await Promise.all(requests);
-      await fetchPermissions(editingAccount.MaQuyen);
+      // Gộp tất cả hành động được chọn vào 1 bản ghi duy nhất (hệ thống bit-flag)
+      const payload = {
+        MaNQ: editingAccount.MaNQ,
+        MaCN: newPermission.MaCN,
+        Xem: newPermission.HanhDong.includes('Xem') ? 1 : 0,
+        Them: newPermission.HanhDong.includes('Thêm') ? 1 : 0,
+        Sua: newPermission.HanhDong.includes('Sửa') ? 1 : 0,
+        Xoa: newPermission.HanhDong.includes('Xóa') ? 1 : 0,
+        XuatFile: newPermission.HanhDong.includes('Xuất File') ? 1 : 0,
+        Duyet: newPermission.HanhDong.includes('Duyệt') ? 1 : 0
+      };
+
+      await axios.post(PERMISSION_API, payload, { headers: { Authorization: `Bearer ${token}` } });
+      await fetchPermissions(editingAccount.MaNQ);
       setState(prev => ({ ...prev, newPermission: { MaCN: undefined, HanhDong: [], TinhTrang: '1' } }));
       message.success('Thêm quyền thành công!');
     } catch (error) {
@@ -300,7 +303,7 @@ const AccountManagement = () => {
         try {
           const token = localStorage.getItem('authToken');
           await axios.delete(`${PERMISSION_API}/${maCTQ}`, { headers: { Authorization: `Bearer ${token}` } });
-          await fetchPermissions(editingAccount.MaQuyen);
+          await fetchPermissions(editingAccount.MaNQ);
           message.success('Xóa quyền thành công!');
         } catch (error) {
           message.error(`Lỗi khi xóa quyền: ${error.response?.data?.error || error.message}`);
@@ -326,12 +329,16 @@ const AccountManagement = () => {
     try {
       const token = localStorage.getItem('authToken');
       await axios.put(`${PERMISSION_API}/${editingPermission.MaCTQ}`, {
-        MaQuyen: editingAccount.MaQuyen, // Giữ nguyên nhóm
+        MaNQ: editingAccount.MaNQ,
         MaCN: editingPermission.MaCN,
-        HanhDong: editingPermission.HanhDong,
-        TinhTrang: editingPermission.TinhTrang,
+        Xem: editingPermission.Xem,
+        Them: editingPermission.Them,
+        Sua: editingPermission.Sua,
+        Xoa: editingPermission.Xoa,
+        XuatFile: editingPermission.XuatFile,
+        Duyet: editingPermission.Duyet
       }, { headers: { Authorization: `Bearer ${token}` } });
-      await fetchPermissions(editingAccount.MaQuyen);
+      await fetchPermissions(editingAccount.MaNQ);
       setEditingPermission(null);
       message.success('Cập nhật quyền thành công!');
     } catch (error) {
@@ -340,7 +347,7 @@ const AccountManagement = () => {
   };
 
   const handlePermissionInputChange = (field, value) => {
-    setEditingPermission(prev => ({ ...prev, [field]: value }));
+    setEditingPermission(prev => ({ ...prev, [field]: value ? 1 : 0 }));
   };
 
   const filteredAccounts = accounts.filter(
@@ -353,8 +360,8 @@ const AccountManagement = () => {
     { title: 'Tên tài khoản', dataIndex: 'TenTK', key: 'TenTK', width: 200 },
     {
       title: 'Quyền',
-      dataIndex: 'MaQuyen',
-      key: 'MaQuyen',
+      dataIndex: 'MaNQ',
+      key: 'MaNQ',
       width: 120,
       render: (value) => quyenList.find(q => q.MaNQ === value)?.TenNQ || 'Chưa xác định',
     },
@@ -388,7 +395,7 @@ const AccountManagement = () => {
                   editingAccount: { ...record, TinhTrang: record.TinhTrangValue.toString() },
                   isModalVisible: true,
                 }));
-                fetchPermissions(record.MaQuyen);
+                fetchPermissions(record.MaNQ);
               }}
             />
           )}
@@ -417,12 +424,30 @@ const AccountManagement = () => {
   const permissionColumns = [
     { title: 'Mã CTQ', dataIndex: 'MaCTQ', key: 'MaCTQ' },
     { title: 'Chức năng', dataIndex: 'TenCN', key: 'TenCN' },
-    { title: 'Hành động', dataIndex: 'HanhDong', key: 'HanhDong' },
+    {
+      title: 'Hành động',
+      dataIndex: 'actions',
+      key: 'actions',
+      render: (_, record) => {
+        const labels = [];
+        if (record.Xem) labels.push(<span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded mr-1">Xem</span>);
+        if (record.Them) labels.push(<span className="px-2 py-0.5 bg-green-100 text-green-800 rounded mr-1">Thêm</span>);
+        if (record.Sua) labels.push(<span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded mr-1">Sửa</span>);
+        if (record.Xoa) labels.push(<span className="px-2 py-0.5 bg-red-100 text-red-800 rounded mr-1">Xóa</span>);
+        if (record.XuatFile) labels.push(<span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded mr-1">Xuất</span>);
+        if (record.Duyet) labels.push(<span className="px-2 py-0.5 bg-orange-100 text-orange-800 rounded mr-1">Duyệt</span>);
+        return labels.length > 0 ? <Space wrap>{labels}</Space> : <span className="text-gray-400 italic">Không có quyền</span>;
+      }
+    },
     {
       title: 'Trạng thái',
-      dataIndex: 'TinhTrang',
-      key: 'TinhTrang',
-      render: (status) => (status === 1 ? 'Hoạt động' : 'Bị khóa'),
+      key: 'status',
+      width: 120,
+      render: (_, record) => (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          Hoạt động
+        </span>
+      ),
     },
     {
       title: 'Thao tác',
@@ -461,7 +486,7 @@ const AccountManagement = () => {
                 newAccount: {
                   TenTK: '',
                   MatKhau: '',
-                  MaQuyen: undefined,
+                  MaNQ: undefined,
                   NgayTao: new Date().toISOString().split('T')[0],
                   TinhTrang: '1',
                 },
@@ -508,169 +533,211 @@ const AccountManagement = () => {
         open={isModalVisible}
         onCancel={() => setState(prev => ({ ...prev, isModalVisible: false, editingAccount: null, permissions: [] }))}
         footer={null}
-        width={800}
-        bodyStyle={{ padding: '16px' }}
+        width={900}
+        styles={{ body: { padding: '16px' } }}
       >
-        <Tabs defaultActiveKey="1">
-          <TabPane tab="Thông tin tài khoản" key="1">
-            <div className="info-section">
-              <div className="info-grid">
-                {editingAccount && (
-                  <div className="info-item">
-                    <p className="info-label">Mã tài khoản:</p>
-                    <Input size="small" value={editingAccount.MaTK} disabled />
+        <Tabs
+          defaultActiveKey="1"
+          items={[
+            {
+              key: '1',
+              label: 'Thông tin tài khoản',
+              children: (
+                <>
+                  <div className="info-section">
+                    <div className="info-grid">
+                      {editingAccount && (
+                        <div className="info-item">
+                          <p className="info-label">Mã tài khoản:</p>
+                          <Input size="small" value={editingAccount.MaTK} disabled />
+                        </div>
+                      )}
+                      <div className="info-item">
+                        <p className="info-label">Tên tài khoản <span style={{ color: 'red' }}>*</span></p>
+                        <Input
+                          size="small"
+                          value={editingAccount ? editingAccount.TenTK : newAccount.TenTK}
+                          onChange={(e) => handleInputChange('TenTK', e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="info-item">
+                        <p className="info-label">Mật khẩu <span style={{ color: 'red' }}>*</span></p>
+                        <Input.Password
+                          size="small"
+                          value={editingAccount ? editingAccount.MatKhau : newAccount.MatKhau}
+                          onChange={(e) => handleInputChange('MatKhau', e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="info-item">
+                        <p className="info-label">Quyền <span style={{ color: 'red' }}>*</span></p>
+                        <Select
+                          size="small"
+                          value={editingAccount ? editingAccount.MaNQ : newAccount.MaNQ}
+                          onChange={(value) => handleInputChange('MaNQ', value)}
+                          style={{ width: '100%' }}
+                        >
+                          {quyenList.map(quyen => (
+                            <Option key={quyen.MaNQ} value={quyen.MaNQ}>
+                              {quyen.TenNQ}
+                            </Option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div className="info-item">
+                        <p className="info-label">Ngày tạo:</p>
+                        <Input
+                          size="small"
+                          type="date"
+                          value={editingAccount ? editingAccount.NgayTao : newAccount.NgayTao}
+                          onChange={(e) => handleInputChange('NgayTao', e.target.value)}
+                        />
+                      </div>
+                      <div className="info-item">
+                        <p className="info-label">Trạng thái <span style={{ color: 'red' }}>*</span></p>
+                        <Select
+                          size="small"
+                          value={editingAccount ? editingAccount.TinhTrang : newAccount.TinhTrang}
+                          onChange={(value) => handleInputChange('TinhTrang', value)}
+                          style={{ width: '100%' }}
+                        >
+                          <Option value="1">Hoạt động</Option>
+                          <Option value="0">Bị khóa</Option>
+                        </Select>
+                      </div>
+                    </div>
                   </div>
-                )}
-                <div className="info-item">
-                  <p className="info-label">Tên tài khoản <span style={{ color: 'red' }}>*</span></p>
-                  <Input
+                  <Button type="primary" onClick={editingAccount ? handleUpdateAccount : handleAddAccount} style={{ marginTop: 16 }}>
+                    {editingAccount ? 'Lưu' : 'Thêm'}
+                  </Button>
+                </>
+              ),
+            },
+            editingAccount ? {
+              key: '2',
+              label: 'Quyền của nhóm',
+              children: (
+                <>
+                  <h3>Quyền của nhóm {quyenList.find(q => q.MaNQ === editingAccount?.MaNQ)?.TenNQ} Admin</h3>
+                  {hasPermission('Phân quyền', 'Thêm') && (
+                    <div style={{ marginBottom: 12 }}>
+                      <h4>Thêm quyền mới</h4>
+                      <Form layout="inline">
+                        <Form.Item label="Chức năng">
+                          <Select
+                            value={newPermission.MaCN}
+                            onChange={(v) => setState(prev => ({ ...prev, newPermission: { ...prev.newPermission, MaCN: v } }))}
+                            style={{ width: 200 }}
+                          >
+                            {features.map(f => <Option key={f.MaCN} value={f.MaCN}>{f.TenCN}</Option>)}
+                          </Select>
+                        </Form.Item>
+                        <Form.Item label="Hành động">
+                          <Select
+                            mode="multiple"
+                            placeholder="Chọn hành động (Xem, Thêm, Sửa, Xóa)"
+                            value={newPermission.HanhDong}
+                            onChange={(v) => setState(prev => ({ ...prev, newPermission: { ...prev.newPermission, HanhDong: v } }))}
+                            style={{ minWidth: 220 }}
+                          >
+                            <Option value="Xem">Xem</Option>
+                            <Option value="Thêm">Thêm</Option>
+                            <Option value="Sửa">Sửa</Option>
+                            <Option value="Xóa">Xóa</Option>
+                            <Option value="Xuất File">Xuất File</Option>
+                            <Option value="Duyệt">Duyệt</Option>
+                          </Select>
+                        </Form.Item>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAddPermission}>
+                          Thêm
+                        </Button>
+                      </Form>
+                    </div>
+                  )}
+                  <Table
+                    columns={permissionColumns}
+                    dataSource={permissions}
+                    rowKey="MaCTQ"
+                    pagination={false}
                     size="small"
-                    value={editingAccount ? editingAccount.TenTK : newAccount.TenTK}
-                    onChange={(e) => handleInputChange('TenTK', e.target.value)}
-                    required
                   />
-                </div>
-                <div className="info-item">
-                  <p className="info-label">Mật khẩu <span style={{ color: 'red' }}>*</span></p>
-                  <Input.Password
-                    size="small"
-                    value={editingAccount ? editingAccount.MatKhau : newAccount.MatKhau}
-                    onChange={(e) => handleInputChange('MatKhau', e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="info-item">
-                  <p className="info-label">Quyền <span style={{ color: 'red' }}>*</span></p>
-                  <Select
-                    size="small"
-                    value={editingAccount ? editingAccount.MaQuyen : newAccount.MaQuyen}
-                    onChange={(value) => handleInputChange('MaQuyen', value)}
-                    style={{ width: '100%' }}
-                  >
-                    {quyenList.map(quyen => (
-                      <Option key={quyen.MaNQ} value={quyen.MaNQ}>
-                        {quyen.TenNQ}
-                      </Option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="info-item">
-                  <p className="info-label">Ngày tạo:</p>
-                  <Input
-                    size="small"
-                    type="date"
-                    value={editingAccount ? editingAccount.NgayTao : newAccount.NgayTao}
-                    onChange={(e) => handleInputChange('NgayTao', e.target.value)}
-                  />
-                </div>
-                <div className="info-item">
-                  <p className="info-label">Trạng thái <span style={{ color: 'red' }}>*</span></p>
-                  <Select
-                    size="small"
-                    value={editingAccount ? editingAccount.TinhTrang : newAccount.TinhTrang}
-                    onChange={(value) => handleInputChange('TinhTrang', value)}
-                    style={{ width: '100%' }}
-                  >
-                    <Option value="1">Hoạt động</Option>
-                    <Option value="0">Bị khóa</Option>
-                  </Select>
-                </div>
-              </div>
-            </div>
-            <Button type="primary" onClick={editingAccount ? handleUpdateAccount : handleAddAccount} style={{ marginTop: 16 }}>
-              {editingAccount ? 'Lưu' : 'Thêm'}
-            </Button>
-          </TabPane>
-          {editingAccount && (
-            <TabPane tab="Quyền của nhóm" key="2">
-              <h3>Quyền của nhóm {quyenList.find(q => q.MaNQ === editingAccount?.MaQuyen)?.TenNQ}</h3>
-              {hasPermission('Phân quyền', 'Thêm') && (
-                <div style={{ marginBottom: 12 }}>
-                  <h4>Thêm quyền mới</h4>
-                  <Form layout="inline">
-                    <Form.Item label="Chức năng">
-                      <Select
-                        value={newPermission.MaCN}
-                        onChange={(v) => setState(prev => ({ ...prev, newPermission: { ...prev.newPermission, MaCN: v } }))}
-                        style={{ width: 200 }}
-                      >
-                        {features.map(f => <Option key={f.MaCN} value={f.MaCN}>{f.TenCN}</Option>)}
-                      </Select>
-                    </Form.Item>
-                    <Form.Item label="Hành động">
-                      <Select
-                        mode="multiple"
-                        placeholder="Chọn hành động (Đọc, Thêm, Sửa, Xóa)"
-                        value={newPermission.HanhDong}
-                        onChange={(v) => setState(prev => ({ ...prev, newPermission: { ...prev.newPermission, HanhDong: v } }))}
-                        style={{ minWidth: 220 }}
-                      >
-                        <Option value="Đọc">Đọc</Option>
-                        <Option value="Thêm">Thêm</Option>
-                        <Option value="Sửa">Sửa</Option>
-                        <Option value="Xóa">Xóa</Option>
-                      </Select>
-                    </Form.Item>
-                    <Form.Item label="Trạng thái">
-                      <Select
-                        value={newPermission.TinhTrang}
-                        onChange={(v) => setState(prev => ({ ...prev, newPermission: { ...prev.newPermission, TinhTrang: v } }))}
-                        style={{ width: 120 }}
-                      >
-                        <Option value="1">Hoạt động</Option>
-                        <Option value="0">Bị khóa</Option>
-                      </Select>
-                    </Form.Item>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={handleAddPermission}>
-                      Thêm
-                    </Button>
-                  </Form>
-                </div>
-              )}
-              <Table
-                columns={permissionColumns}
-                dataSource={permissions}
-                rowKey="MaCTQ"
-                pagination={false}
-                size="small"
-              />
-            </TabPane>
-          )}
-        </Tabs>
+                </>
+              ),
+            } : null,
+          ].filter(Boolean)}
+        />
       </Modal>
 
       {/* Modal sửa quyền (nếu muốn dùng modal riêng) */}
       <Modal
-        title="Sửa quyền"
+        title={`Sửa quyền: ${editingPermission?.TenCN}`}
         open={!!editingPermission}
         onCancel={() => setEditingPermission(null)}
         onOk={handleUpdatePermission}
+        width={500}
+        styles={{ body: { padding: '24px' } }}
       >
         {editingPermission && (
-          <div>
-            <p>Chức năng:</p>
-            <Select
-              value={editingPermission.MaCN}
-              onChange={(v) => handlePermissionInputChange('MaCN', v)}
-              style={{ width: '100%' }}
-            >
-              {features.map(f => <Option key={f.MaCN} value={f.MaCN}>{f.TenCN}</Option>)}
-            </Select>
-            <p>Hành động:</p>
-            <Input
-              value={editingPermission.HanhDong}
-              onChange={(e) => handlePermissionInputChange('HanhDong', e.target.value)}
-            />
-            <p>Trạng thái:</p>
-            <Select
-              value={editingPermission.TinhTrang}
-              onChange={(v) => handlePermissionInputChange('TinhTrang', v)}
-              style={{ width: '100%' }}
-            >
-              <Option value={1}>Hoạt động</Option>
-              <Option value={0}>Bị khóa</Option>
-            </Select>
-          </div>
+          <Form layout="vertical">
+            <Form.Item label="Chức năng:">
+              <Input value={editingPermission.TenCN} disabled />
+            </Form.Item>
+
+            <Form.Item label="Cấu hình hành động:">
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
+                gap: '16px',
+                padding: '12px',
+                background: '#f5f5f5',
+                borderRadius: '8px'
+              }}>
+                <Form.Item label="Xem" style={{ marginBottom: 0 }}>
+                  <Select
+                    value={editingPermission.Xem}
+                    onChange={(v) => handlePermissionInputChange('Xem', v)}
+                    options={[{ label: 'Bật', value: 1 }, { label: 'Tắt', value: 0 }]}
+                  />
+                </Form.Item>
+                <Form.Item label="Thêm" style={{ marginBottom: 0 }}>
+                  <Select
+                    value={editingPermission.Them}
+                    onChange={(v) => handlePermissionInputChange('Them', v)}
+                    options={[{ label: 'Bật', value: 1 }, { label: 'Tắt', value: 0 }]}
+                  />
+                </Form.Item>
+                <Form.Item label="Sửa" style={{ marginBottom: 0 }}>
+                  <Select
+                    value={editingPermission.Sua}
+                    onChange={(v) => handlePermissionInputChange('Sua', v)}
+                    options={[{ label: 'Bật', value: 1 }, { label: 'Tắt', value: 0 }]}
+                  />
+                </Form.Item>
+                <Form.Item label="Xóa" style={{ marginBottom: 0 }}>
+                  <Select
+                    value={editingPermission.Xoa}
+                    onChange={(v) => handlePermissionInputChange('Xoa', v)}
+                    options={[{ label: 'Bật', value: 1 }, { label: 'Tắt', value: 0 }]}
+                  />
+                </Form.Item>
+                <Form.Item label="Xuất File" style={{ marginBottom: 0 }}>
+                  <Select
+                    value={editingPermission.XuatFile}
+                    onChange={(v) => handlePermissionInputChange('XuatFile', v)}
+                    options={[{ label: 'Bật', value: 1 }, { label: 'Tắt', value: 0 }]}
+                  />
+                </Form.Item>
+                <Form.Item label="Duyệt" style={{ marginBottom: 0 }}>
+                  <Select
+                    value={editingPermission.Duyet}
+                    onChange={(v) => handlePermissionInputChange('Duyet', v)}
+                    options={[{ label: 'Bật', value: 1 }, { label: 'Tắt', value: 0 }]}
+                  />
+                </Form.Item>
+              </div>
+            </Form.Item>
+          </Form>
         )}
       </Modal>
 

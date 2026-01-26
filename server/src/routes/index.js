@@ -45,6 +45,7 @@ export const initRoutes = (app) => {
   // Warehouse Management
   app.use('/api/warehouse', warehouseRoutes);
   app.use('/api/product', warehouseRoutes); // Legacy compatibility
+  app.use('/api/products', warehouseRoutes); // Plural alias for ProductManagement.js
   app.use('/api/receipt', Receipt);
   app.use('/api/suppliers', supplierRoutes);
 

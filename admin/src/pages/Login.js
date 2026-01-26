@@ -58,6 +58,8 @@ const Login = () => {
 
         if (permissionRes.data.success) {
           setPermissions(permissionRes.data.data);
+          // Dispatch custom event to trigger permission refresh in PermissionContext
+          window.dispatchEvent(new Event('userLoggedIn'));
         } else {
           setPermissions([]);
         }
