@@ -31,7 +31,7 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
     config.headers['X-Auth-Key'] = keyFound; // debug only
-    try { console.debug('api attach token (masked):', token.substring(0,10) + '...', 'key=', keyFound); } catch(e){}
+    try { console.debug('api attach token (masked):', token.substring(0, 10) + '...', 'key=', keyFound); } catch (e) { }
   } else {
     delete config.headers['Authorization'];
     delete config.headers['X-Auth-Key'];
@@ -107,14 +107,14 @@ const CustomerManagement = () => {
   // We'll use a dedicated axios instance so every request automatically attaches the token from localStorage.
   // ⚠️ If your backend uses httpOnly cookies for auth, set withCredentials: true and ensure CORS allows credentials.
   // For Bearer token header flow (Postman style), keep withCredentials: false.
-  
-  const API_URL = '/api/client';
+
+  const API_URL = '/api/customers';
   const RATINGS_API = '/api/ratings';
 
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-  const res = await api.get(API_URL);
+      const res = await api.get(API_URL);
       if (res.data && Array.isArray(res.data.data)) setCustomers(res.data.data);
       else setCustomers([]);
     } catch (err) {
@@ -134,7 +134,7 @@ const CustomerManagement = () => {
     let mounted = true;
     const fetchPendingCount = async () => {
       try {
-  const res = await api.get(`${RATINGS_API}/pending/list`);
+        const res = await api.get(`${RATINGS_API}/pending/list`);
         if (!mounted) return;
         const count = Array.isArray(res.data?.data) ? res.data.data.length : 0;
         setPendingCount(count);
@@ -158,7 +158,7 @@ const CustomerManagement = () => {
   const handleToggleStatus = async (customer) => {
     try {
       const newStatus = customer.tinhtrang === 'Hoạt động' ? 'Ngừng hoạt động' : 'Hoạt động';
-  await api.patch(`${API_URL}/${customer.makh}/toggle-status`, { tinhtrang: newStatus });
+      await api.patch(`${API_URL}/${customer.makh}`, { tinhtrang: newStatus });
       message.success('Đổi trạng thái thành công');
       fetchCustomers();
     } catch (err) {
@@ -173,7 +173,7 @@ const CustomerManagement = () => {
   const fetchPromoList = async (makh) => {
     try {
       setPromoListLoading(true);
-  const res = await api.get(`${API_URL}/${makh}/promo-list`);
+      const res = await api.get(`${API_URL}/${makh}/promo-list`);
       if (res.data && Array.isArray(res.data.data)) {
         setPromoList(res.data.data);
         setPromoUsage((p) => ({ ...p, makh }));
@@ -194,7 +194,7 @@ const CustomerManagement = () => {
   const fetchPendingList = async () => {
     try {
       setPendingLoading(true);
-  const res = await api.get(`${RATINGS_API}/pending/list`);
+      const res = await api.get(`${RATINGS_API}/pending/list`);
       const rows = Array.isArray(res.data?.data) ? res.data.data : [];
       setPendingList(rows);
       setPendingCount(rows.length);
@@ -208,7 +208,7 @@ const CustomerManagement = () => {
 
   const approvePending = async (id) => {
     try {
-  await api.post(`${RATINGS_API}/pending/${id}/approve`);
+      await api.post(`${RATINGS_API}/pending/${id}/approve`);
       message.success('Đã duyệt đánh giá');
       // refresh pending
       await fetchPendingList();
@@ -222,7 +222,7 @@ const CustomerManagement = () => {
 
   const rejectPending = async (id) => {
     try {
-  await api.delete(`${RATINGS_API}/pending/${id}`);
+      await api.delete(`${RATINGS_API}/pending/${id}`);
       message.success('Đã từ chối đánh giá');
       await fetchPendingList();
       setPendingCount((c) => Math.max(0, c - 1));
@@ -236,9 +236,9 @@ const CustomerManagement = () => {
     (statusFilter === '' || c.tinhtrang === statusFilter) &&
     (tierFilter === '' || c.loyalty_tier === tierFilter) &&
     (c.tenkh?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.makh?.toString().includes(searchTerm) ||
-    c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.sdt?.toString().includes(searchTerm))
+      c.makh?.toString().includes(searchTerm) ||
+      c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.sdt?.toString().includes(searchTerm))
   ));
 
   const columns = [
@@ -247,10 +247,10 @@ const CustomerManagement = () => {
     { title: 'SĐT', dataIndex: 'sdt', key: 'sdt', width: 100 },
     { title: 'Email', dataIndex: 'email', key: 'email', render: (t) => t || 'N/A', width: 150 },
     { title: 'Địa chỉ', dataIndex: 'diachi', key: 'diachi', render: (t) => t || 'N/A', width: 200 },
-    { 
-      title: 'Hạng TV', 
-      dataIndex: 'loyalty_tier', 
-      key: 'loyalty_tier', 
+    {
+      title: 'Hạng TV',
+      dataIndex: 'loyalty_tier',
+      key: 'loyalty_tier',
       width: 100,
       render: (tier) => {
         const tierConfig = {
@@ -261,21 +261,21 @@ const CustomerManagement = () => {
         };
         const config = tierConfig[tier] || tierConfig['dong'];
         return (
-          <Tag style={{ 
-            background: config.bg, 
-            color: config.color, 
+          <Tag style={{
+            background: config.bg,
+            color: config.color,
             border: `1px solid ${config.color}`,
-            fontWeight: 600 
+            fontWeight: 600
           }}>
             {config.label}
           </Tag>
         );
       }
     },
-    { 
-      title: 'Điểm tích lũy', 
-      dataIndex: 'loyalty_points', 
-      key: 'loyalty_points', 
+    {
+      title: 'Điểm tích lũy',
+      dataIndex: 'loyalty_points',
+      key: 'loyalty_points',
       width: 110,
       render: (points) => (
         <span style={{ fontWeight: 600, color: '#1890ff' }}>
@@ -302,20 +302,20 @@ const CustomerManagement = () => {
         <h1>
           <i className="fas fa-users"></i> Quản lý Khách hàng
         </h1>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Button type="default" size="small" onClick={() => fetchCustomers()}>Làm mới</Button>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Button type="default" size="small" onClick={() => fetchCustomers()}>Làm mới</Button>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              {/* Auth status debug */}
-              <div style={{ fontSize: 12, color: authInfo.present ? '#138000' : '#a00', marginRight: 8 }} title={authInfo.payload ? JSON.stringify(authInfo.payload) : (authInfo.present ? 'Token present' : 'No token') }>
-                Auth: {authInfo.present ? 'OK' : 'No token'}
-              </div>
-              <Badge count={pendingCount} offset={[6, 0]}>
-                <Button type="primary" size="small" onClick={() => { setIsPendingModalVisible(true); fetchPendingList(); }}>
-                  Duyệt đánh giá
-                </Button>
-              </Badge>
+            {/* Auth status debug */}
+            <div style={{ fontSize: 12, color: authInfo.present ? '#138000' : '#a00', marginRight: 8 }} title={authInfo.payload ? JSON.stringify(authInfo.payload) : (authInfo.present ? 'Token present' : 'No token')}>
+              Auth: {authInfo.present ? 'OK' : 'No token'}
             </div>
+            <Badge count={pendingCount} offset={[6, 0]}>
+              <Button type="primary" size="small" onClick={() => { setIsPendingModalVisible(true); fetchPendingList(); }}>
+                Duyệt đánh giá
+              </Button>
+            </Badge>
           </div>
+        </div>
       </div>
 
       <div className="thongke-content">
@@ -365,12 +365,12 @@ const CustomerManagement = () => {
 
       <Modal
         title={promoUsage.makh ? `Mã khuyến mãi - KH ${promoUsage.makh}` : 'Mã khuyến mãi'}
-  open={isPromoModalVisible}
+        open={isPromoModalVisible}
         onCancel={() => setIsPromoModalVisible(false)}
         footer={null}
         width={800}
         centered
-    confirmLoading={promoListLoading}
+        confirmLoading={promoListLoading}
       >
         <div style={{ padding: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>

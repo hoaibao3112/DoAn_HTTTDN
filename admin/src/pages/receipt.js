@@ -29,10 +29,10 @@ const NhapHang = () => {
   const [lowStock, setLowStock] = useState([]);
   const [showLowStockBanner, setShowLowStockBanner] = useState(false);
   const [showLowStockDetails, setShowLowStockDetails] = useState(false);
-  
+
   // Tỷ lệ lợi nhuận chung (%) - dùng để tính giá bán
   const [tyLeLoi, setTyLeLoi] = useState(10); // Mặc định 10%
-  
+
   // State để theo dõi items trong form (dùng để tính tổng tiền realtime)
   const [formItems, setFormItems] = useState([]);
 
@@ -56,7 +56,7 @@ const NhapHang = () => {
 
   const fetchNhaCungCap = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/company');
+      const res = await axios.get('http://localhost:5000/api/suppliers');
       setNhaCungCap(res.data);
     } catch (error) {
       notification.error({ message: 'Lỗi tải danh sách nhà cung cấp' });
@@ -65,7 +65,7 @@ const NhapHang = () => {
 
   const fetchSanPham = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/product');
+      const res = await axios.get('http://localhost:5000/api/warehouse/products');
       setSanPham(res.data);
     } catch (error) {
       console.error('Lỗi khi lấy danh sách sản phẩm:', error);
@@ -183,10 +183,10 @@ const NhapHang = () => {
       };
 
       const response = await axios.post('http://localhost:5000/api/receipt', payload);
-      
+
       // Hiển thị kết quả chi tiết
       const { MaPN, TongTienNhap, items: processedItems } = response.data;
-      notification.success({ 
+      notification.success({
         message: 'Tạo phiếu nhập thành công',
         description: `Mã phiếu: ${MaPN} | Tổng tiền nhập: ${TongTienNhap?.toLocaleString()}đ | Tỷ lệ lời: ${tyLeLoi}%`
       });
@@ -464,7 +464,7 @@ const NhapHang = () => {
                   // Dùng formItems state để lấy giá trị realtime
                   const currentItem = formItems[name] || {};
                   const giaBanDuKien = calculateGiaBan(currentItem.DonGiaNhap, tyLeLoi);
-                  
+
                   return (
                     <div key={key} className="form-item-row" style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 12, padding: 8, background: '#fafafa', borderRadius: 4 }}>
                       <Form.Item
@@ -485,10 +485,10 @@ const NhapHang = () => {
                             const nextItems = items.map((it, idx) =>
                               idx === name
                                 ? {
-                                    ...it,
-                                    TenSP: product?.TenSP || '',
-                                    DonGiaNhap: Number(product?.DonGia || 0) // Lấy giá hiện tại làm giá nhập mặc định
-                                  }
+                                  ...it,
+                                  TenSP: product?.TenSP || '',
+                                  DonGiaNhap: Number(product?.DonGia || 0) // Lấy giá hiện tại làm giá nhập mặc định
+                                }
                                 : it
                             );
                             form.setFieldsValue({ items: nextItems, totalNhap: calculateTotalNhap(nextItems) });
@@ -529,9 +529,9 @@ const NhapHang = () => {
                       {/* Hiển thị giá bán dự kiến */}
                       <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
                         <span style={{ fontSize: 12, color: '#666' }}>Giá bán dự kiến</span>
-                        <span style={{ 
-                          padding: '4px 11px', 
-                          background: '#e6f7ff', 
+                        <span style={{
+                          padding: '4px 11px',
+                          background: '#e6f7ff',
                           border: '1px solid #91d5ff',
                           borderRadius: 4,
                           fontWeight: 'bold',

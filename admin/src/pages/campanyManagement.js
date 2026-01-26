@@ -25,7 +25,7 @@ const CompanyManagement = () => {
   });
 
   const { companies, newCompany, editingCompany, searchTerm, isModalVisible, loading } = state;
-  const API_URL = 'http://localhost:5000/api/company';
+  const API_URL = 'http://localhost:5000/api/suppliers';
   const debounceRef = useRef(null); // Để debounce search
 
   // Helper để convert Buffer to string nếu cần (fallback)
@@ -45,7 +45,7 @@ const CompanyManagement = () => {
         url = `${API_URL}/search?keyword=${encodeURIComponent(keyword)}`;
       }
       const response = await axios.get(url);
-      
+
       if (Array.isArray(response.data)) {
         const processedCompanies = response.data.map(company => {
           const statusValue = convertStatusIfBuffer(company);
@@ -281,9 +281,8 @@ const CompanyManagement = () => {
       width: 150,
       render: (status) => (
         <span
-          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-            status === 'Hoạt động' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-          }`}
+          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${status === 'Hoạt động' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}
         >
           {status}
         </span>

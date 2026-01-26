@@ -21,7 +21,6 @@ import SalaryPage from './pages/SalaryPage';
 import LeavePage from './pages/LeavePage';
 import AttendancePage from './pages/AttendancePage';
 import { PermissionContext } from './components/PermissionContext';
-import DiscountManagement from './pages/DiscountManagement.js';
 import AdminHome from './pages/AdminHome';
 import StockManagement from './pages/StockManagement';
 import POSPage from './pages/POSPage';

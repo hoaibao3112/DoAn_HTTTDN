@@ -39,10 +39,10 @@ const ProductManagement = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const API_URL = 'http://localhost:5000/api/product/products';
-  const AUTHORS_API_URL = 'http://localhost:5000/api/product/authors';
-  const CATEGORIES_API_URL = 'http://localhost:5000/api/product/categories';
-  const SUPPLIERS_API_URL = 'http://localhost:5000/api/product/suppliers';
+  const API_URL = 'http://localhost:5000/api/warehouse/products';
+  const AUTHORS_API_URL = 'http://localhost:5000/api/warehouse/authors';
+  const CATEGORIES_API_URL = 'http://localhost:5000/api/warehouse/categories';
+  const SUPPLIERS_API_URL = 'http://localhost:5000/api/suppliers';
 
   // Hàm để lấy token từ localStorage
   const getAuthToken = () => {
