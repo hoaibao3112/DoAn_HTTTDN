@@ -355,6 +355,16 @@ router.get('/attendance/summary',
     attendanceController.getAttendanceSummary
 );
 
+router.get('/attendance/monthly',
+    checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.VIEW),
+    attendanceController.getMonthlyAttendance
+);
+
+router.get('/monthly',
+    checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.VIEW),
+    attendanceController.getMonthlyAttendance
+);
+
 export default router;
 
 

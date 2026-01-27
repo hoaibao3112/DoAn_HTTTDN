@@ -115,6 +115,84 @@ const salesController = {
         } finally {
             conn.release();
         }
+    },
+
+    // ======================= 4.3 INVOICE MANAGEMENT =======================
+
+    getAllInvoices: async (req, res) => {
+        try {
+            const { search, MaCH, fromDate, toDate } = req.query;
+            let sql = `
+                SELECT hd.*, kh.HoTen as TenKH, nv.HoTen as TenNV, ch.TenCH
+                FROM hoadon hd
+                LEFT JOIN khachhang kh ON hd.MaKH = kh.MaKH
+                LEFT JOIN nhanvien nv ON hd.MaNV = nv.MaNV
+                LEFT JOIN cua_hang ch ON hd.MaCH = ch.MaCH
+                WHERE 1=1
+            `;
+            const params = [];
+
+            if (search) {
+                sql += ' AND (hd.MaHD = ? OR kh.HoTen LIKE ? OR kh.SDT LIKE ?)';
+                params.push(search, `%${search}%`, `%${search}%`);
+            }
+            if (MaCH) {
+                sql += ' AND hd.MaCH = ?';
+                params.push(MaCH);
+            }
+            if (fromDate) {
+                sql += ' AND hd.NgayBan >= ?';
+                params.push(fromDate);
+            }
+            if (toDate) {
+                sql += ' AND hd.NgayBan <= ?';
+                params.push(toDate);
+            }
+
+            sql += ' ORDER BY hd.NgayBan DESC';
+
+            const [rows] = await pool.query(sql, params);
+            res.json({ success: true, data: rows });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    getInvoiceById: async (req, res) => {
+        const { id } = req.params;
+        try {
+            // Get invoice header
+            const [hd] = await pool.query(`
+                SELECT hd.*, kh.HoTen as TenKH, kh.SDT as SDTKH, nv.HoTen as TenNV, ch.TenCH, ch.DiaChi as DiaChiCH, ch.SDT as SDTCH
+                FROM hoadon hd
+                LEFT JOIN khachhang kh ON hd.MaKH = kh.MaKH
+                LEFT JOIN nhanvien nv ON hd.MaNV = nv.MaNV
+                LEFT JOIN cua_hang ch ON hd.MaCH = ch.MaCH
+                WHERE hd.MaHD = ?
+            `, [id]);
+
+            if (hd.length === 0) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy hóa đơn' });
+            }
+
+            // Get invoice details
+            const [details] = await pool.query(`
+                SELECT ct.*, sp.TenSP, sp.HinhAnh
+                FROM chitiethoadon ct
+                JOIN sanpham sp ON ct.MaSP = sp.MaSP
+                WHERE ct.MaHD = ?
+            `, [id]);
+
+            res.json({
+                success: true,
+                data: {
+                    ...hd[0],
+                    ChiTiet: details
+                }
+            });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
     }
 };
 

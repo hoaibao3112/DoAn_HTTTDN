@@ -14,10 +14,32 @@ const SalaryPage = () => {
 
   const fetchSalary = async () => {
     try {
-      const res = await axios.post(`http://localhost:5000/api/salary/compute/${selectedYear}/${selectedMonth}`);
-      setSalaryData(res.data.data);
+      const token = localStorage.getItem('authToken');
+      const response = await axios.get(
+        `http://localhost:5000/api/hr/reports/salary?period=monthly&year=${selectedYear}&month=${selectedMonth}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        // Map backend response to match table columns
+        const mappedData = response.data.data.map((item, index) => ({
+          key: index,
+          MaNV: index + 1, // Backend doesn't return MaNV, using index
+          TenNV: item.HoTen,
+          soNgayLam: 22, // Backend doesn't provide this, default to 22
+          soGioTangCa: 0, // Backend doesn't provide this
+          luong_co_ban: item.LuongCoBan || 0,
+          phu_cap: item.PhuCap || 0,
+          thuong: item.Thuong || 0,
+          phat: item.KhauTru || 0,
+          tong_luong: item.TongLuong || 0,
+          trang_thai: 'Chua_tra' // Backend doesn't provide status
+        }));
+        setSalaryData(mappedData);
+      }
     } catch (error) {
-      message.error('Lỗi khi tính lương');
+      console.error('Error fetching salary:', error);
+      message.error('Lỗi khi tải dữ liệu lương: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -26,11 +48,20 @@ const SalaryPage = () => {
   const showDetail = async (record) => {
     setSelectedEmployee(record);
     try {
-      const res = await axios.get(`http://localhost:5000/api/attendance/detail/${record.MaNV}/${selectedMonth}/${selectedYear}`);
-      setDetailData(res.data);
+      const token = localStorage.getItem('authToken');
+      const response = await axios.get(
+        `http://localhost:5000/api/hr/attendance/summary?year=${selectedYear}&month=${selectedMonth}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // For now, show message that detail view is not available
+      // Backend doesn't have per-employee daily attendance detail endpoint
+      message.info('Chi tiết chấm công từng ngày chưa có API. Hiển thị tổng quan thay thế.');
+      setDetailData([]);
       setDetailModal(true);
-    } catch {
-      message.error('Lỗi khi lấy chi tiết ngày công');
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+      message.error('Lỗi khi lấy chi tiết chấm công');
     }
   };
 
@@ -52,9 +83,9 @@ const SalaryPage = () => {
       dataIndex: 'trang_thai',
       width: 120,
       render: v => (
-        <span style={{ 
+        <span style={{
           color: v === 'Da_tra' ? '#52c41a' : '#fa8c16',
-          fontWeight: 600 
+          fontWeight: 600
         }}>
           {v === 'Da_tra' ? '✓ Đã chi trả' : '○ Chưa chi trả'}
         </span>
@@ -116,11 +147,11 @@ const SalaryPage = () => {
         <Table
           columns={[
             { title: 'Ngày', dataIndex: 'ngay', render: d => new Date(d).toLocaleDateString('vi-VN'), width: 120 },
-            { 
-              title: 'Trạng thái', 
+            {
+              title: 'Trạng thái',
               dataIndex: 'trang_thai',
               render: v => {
-                switch(v) {
+                switch (v) {
                   case 'Di_lam': return <span style={{ color: 'green' }}>Đi làm</span>;
                   case 'Lam_them': return <span style={{ color: 'blue' }}>Làm thêm</span>;
                   case 'Nghi_phep': return <span style={{ color: 'orange' }}>Nghỉ phép</span>;

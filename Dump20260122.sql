@@ -1028,6 +1028,7 @@ CREATE TABLE `sanpham` (
   `TrongLuong` decimal(6,2) DEFAULT NULL COMMENT 'Gram',
   `KichThuoc` varchar(50) DEFAULT NULL COMMENT 'VD: 14x20 cm',
   `ISBN` varchar(20) DEFAULT NULL,
+  `MinSoLuong` int DEFAULT '0',
   `TinhTrang` tinyint(1) DEFAULT '1' COMMENT '1: Còn bán, 0: Ngừng kinh doanh',
   `NgayTao` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`MaSP`),

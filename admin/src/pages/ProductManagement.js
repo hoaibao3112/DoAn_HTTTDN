@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Button, Input, message, Table, Modal, Space, Select } from 'antd';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
@@ -8,11 +8,13 @@ const { Search } = Input;
 const { confirm } = Modal;
 const { Option } = Select;
 
+const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNGNEY0RjQiLz48cGF0aCBkPSJNMjAgMTRDMjMuMzEzNyAxNCAyNiAxNi42ODYzIDI2IDIwQzI2IDIzLjMxMzcgMjMuMzEzNyAyNiAyMCAyNkMxNi42ODYzIDI2IDE0IDIzLjMxMzcgMTQgMjBDMTQgMTYuNjg2MyAxNi42ODYzIDE0IDIwIDE0WiIgZmlsbD0iI0NDQ0NDQyIvPjwvc3ZnPg==';
+
 const ProductManagement = () => {
   const [products, setProducts] = useState([]);
   const [authors, setAuthors] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
+  const [publishers, setPublishers] = useState([]);
   const [newProduct, setNewProduct] = useState({
     MaTL: '',
     TenSP: '',
@@ -30,6 +32,7 @@ const ProductManagement = () => {
     SoTrang: '',
     HinhThuc: '',
     MinSoLuong: 0,
+    MaNXB: '',
   });
   const [editingProduct, setEditingProduct] = useState(null);
   const [editingExtraFiles, setEditingExtraFiles] = useState([]);
@@ -40,17 +43,17 @@ const ProductManagement = () => {
   const [loading, setLoading] = useState(false);
 
   const API_URL = 'http://localhost:5000/api/warehouse/products';
-  const AUTHORS_API_URL = 'http://localhost:5000/api/warehouse/authors';
-  const CATEGORIES_API_URL = 'http://localhost:5000/api/warehouse/categories';
-  const SUPPLIERS_API_URL = 'http://localhost:5000/api/suppliers';
+  const AUTHORS_API_URL = 'http://localhost:5000/api/catalog/authors';
+  const CATEGORIES_API_URL = 'http://localhost:5000/api/catalog/categories';
+  const PUBLISHERS_API_URL = 'http://localhost:5000/api/warehouse/publishers';
 
   // Hàm để lấy token từ localStorage
-  const getAuthToken = () => {
+  const getAuthToken = useCallback(() => {
     return localStorage.getItem('authToken');
-  };
+  }, []);
 
   // Hàm để tạo config axios với token
-  const getAuthConfig = () => {
+  const getAuthConfig = useCallback(() => {
     const token = getAuthToken();
     if (!token) {
       throw new Error('Không tìm thấy token. Vui lòng đăng nhập lại.');
@@ -60,10 +63,10 @@ const ProductManagement = () => {
         'Authorization': `Bearer ${token}`
       }
     };
-  };
+  }, [getAuthToken]);
 
   // Fetch danh sách tác giả
-  const fetchAuthors = async () => {
+  const fetchAuthors = useCallback(async () => {
     try {
       const response = await axios.get(AUTHORS_API_URL);
       const data = response.data.data || response.data;
@@ -72,10 +75,10 @@ const ProductManagement = () => {
       console.error('Lỗi khi lấy danh sách tác giả:', error);
       message.error('Lỗi khi tải danh sách tác giả');
     }
-  };
+  }, []);
 
   // Fetch danh sách thể loại
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const response = await axios.get(CATEGORIES_API_URL);
       const data = response.data.data || response.data;
@@ -84,20 +87,20 @@ const ProductManagement = () => {
       console.error('Lỗi khi lấy danh sách thể loại:', error);
       message.error('Lỗi khi tải danh sách thể loại');
     }
-  };
+  }, []);
 
-  const fetchSuppliers = async () => {
+  const fetchPublishers = useCallback(async () => {
     try {
-      const response = await axios.get(SUPPLIERS_API_URL);
+      const response = await axios.get(PUBLISHERS_API_URL, getAuthConfig());
       const data = response.data.data || response.data;
-      setSuppliers(Array.isArray(data) ? data : []);
+      setPublishers(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Lỗi khi lấy danh sách nhà cung cấp:', error);
-      message.error('Lỗi khi tải danh sách nhà cung cấp');
+      console.error('Lỗi khi lấy danh sách nhà xuất bản:', error);
+      message.error('Lỗi khi tải danh sách nhà xuất bản');
     }
-  };
+  }, [getAuthConfig]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get(API_URL);
@@ -107,7 +110,7 @@ const ProductManagement = () => {
           ...product,
           HinhAnh: product.HinhAnh && product.HinhAnh !== 'null'
             ? `/img/products/${product.HinhAnh}`
-            : 'https://via.placeholder.com/50',
+            : PLACEHOLDER_IMAGE,
           // ✅ SỬA LOGIC: Nếu SoLuong > 0 thì "Còn hàng", ngược lại "Hết hàng"
           TinhTrang: (product.SoLuong && product.SoLuong > 0) ? 'Còn hàng' : 'Hết hàng',
           MinSoLuong: product.MinSoLuong || 0,
@@ -129,14 +132,14 @@ const ProductManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchProducts();
     fetchAuthors();
     fetchCategories();
-    fetchSuppliers();
-  }, []);
+    fetchPublishers();
+  }, [fetchProducts, fetchAuthors, fetchCategories, fetchPublishers]);
 
   // Xử lý thay đổi file
   // Xử lý thay đổi file
@@ -258,7 +261,7 @@ const ProductManagement = () => {
         formData.append('MaTG', maTG);
       }
       if (newProduct.MoTa) formData.append('MoTa', newProduct.MoTa);
-      if (newProduct.MaNCC) formData.append('MaNCC', newProduct.MaNCC);
+      if (newProduct.MaNXB) formData.append('MaNXB', newProduct.MaNXB);
       if (newProduct.TrongLuong) formData.append('TrongLuong', newProduct.TrongLuong);
       if (newProduct.KichThuoc) formData.append('KichThuoc', newProduct.KichThuoc);
       if (newProduct.SoTrang) formData.append('SoTrang', newProduct.SoTrang);
@@ -287,7 +290,7 @@ const ProductManagement = () => {
         DonGia: 0,
         SoLuong: 0,
         MoTa: '',
-        MaNCC: '',
+        MaNXB: '',
         TrongLuong: '',
         KichThuoc: '',
         SoTrang: '',
@@ -352,7 +355,7 @@ const ProductManagement = () => {
       }
       // New fields for update
       if (editingProduct.MoTa !== undefined) formData.append('MoTa', editingProduct.MoTa);
-      if (editingProduct.MaNCC !== undefined) formData.append('MaNCC', editingProduct.MaNCC);
+      if (editingProduct.MaNXB !== undefined) formData.append('MaNXB', editingProduct.MaNXB);
       if (editingProduct.TrongLuong !== undefined) formData.append('TrongLuong', editingProduct.TrongLuong);
       if (editingProduct.KichThuoc !== undefined) formData.append('KichThuoc', editingProduct.KichThuoc);
       if (editingProduct.SoTrang !== undefined) formData.append('SoTrang', editingProduct.SoTrang);
@@ -489,7 +492,7 @@ const ProductManagement = () => {
             border: '1px solid #d9d9d9'
           }}
           onError={(e) => {
-            e.target.src = 'https://via.placeholder.com/40';
+            e.target.src = PLACEHOLDER_IMAGE;
           }}
         />
       ),
@@ -994,23 +997,23 @@ const ProductManagement = () => {
             </div>
 
             <div className="info-item">
-              <p className="info-label">Nhà cung cấp:</p>
+              <p className="info-label">Nhà xuất bản:</p>
               <Select
                 size="small"
-                placeholder="Chọn nhà cung cấp"
-                value={editingProduct ? editingProduct.MaNCC : newProduct.MaNCC}
+                placeholder="Chọn nhà xuất bản"
+                value={editingProduct ? editingProduct.MaNXB : newProduct.MaNXB}
                 onChange={(value) =>
                   editingProduct
-                    ? setEditingProduct({ ...editingProduct, MaNCC: value })
-                    : setNewProduct({ ...newProduct, MaNCC: value })
+                    ? setEditingProduct({ ...editingProduct, MaNXB: value })
+                    : setNewProduct({ ...newProduct, MaNXB: value })
                 }
                 style={{ width: '100%' }}
                 allowClear
                 showSearch
                 optionFilterProp="children"
               >
-                {suppliers.map(s => (
-                  <Option key={s.MaNCC} value={s.MaNCC}>{s.TenNCC}</Option>
+                {publishers.map(p => (
+                  <Option key={p.MaNXB} value={p.MaNXB}>{p.TenNXB}</Option>
                 ))}
               </Select>
             </div>

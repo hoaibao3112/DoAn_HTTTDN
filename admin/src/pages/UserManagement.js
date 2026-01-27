@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Button, Input, message, Table, Modal, Space, Select } from 'antd';
+import { Button, Input, message, Table, Modal, Space, Select, InputNumber, DatePicker } from 'antd';
+import dayjs from 'dayjs';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled, LockOutlined, UnlockOutlined } from '@ant-design/icons';
 
-const { Search } = Input;
 const { confirm } = Modal;
 const { Option } = Select;
 
@@ -11,13 +11,15 @@ const UserManagement = () => {
   const [state, setState] = useState({
     users: [],
     newUser: {
-      MaNV: '',
-      HoTen: '',
-      SDT: '',
-      GioiTinh: '',
-      DiaChi: '',
       Email: '',
-      TinhTrang: 'Active',
+      CCCD: '',
+      NgaySinh: null,
+      NgayVaoLam: null,
+      ChucVu: '',
+      LuongCoBan: 0,
+      PhuCap: 0,
+      MaCH: null,
+      TinhTrang: 1,
     },
     editingUser: null,
     searchTerm: '',
@@ -73,9 +75,13 @@ const UserManagement = () => {
     }
   };
 
-  const validateUserData = (userData) => {
-    if (!userData.MaNV || !userData.HoTen || !userData.SDT || !userData.Email) {
-      message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Mã NV, Tên NV, SĐT, Email)!');
+  const validateUserData = (userData, isEdit = false) => {
+    if (!userData.HoTen || !userData.SDT || !userData.Email) {
+      message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Tên NV, SĐT, Email)!');
+      return false;
+    }
+    if (isEdit && !userData.MaNV) {
+      message.error('Thiếu Mã NV để cập nhật!');
       return false;
     }
     if (!/^\d{10,11}$/.test(userData.SDT)) {
@@ -93,18 +99,28 @@ const UserManagement = () => {
     if (!validateUserData(newUser)) return;
 
     try {
-      await axios.post(API_URL, newUser);
+      await axios.post(API_URL, {
+        ...newUser,
+        NgaySinh: newUser.NgaySinh ? (typeof newUser.NgaySinh === 'string' ? newUser.NgaySinh : dayjs(newUser.NgaySinh).format('YYYY-MM-DD')) : null,
+        NgayVaoLam: newUser.NgayVaoLam ? (typeof newUser.NgayVaoLam === 'string' ? newUser.NgayVaoLam : dayjs(newUser.NgayVaoLam).format('YYYY-MM-DD')) : null,
+      });
       await fetchUsers();
       setState(prev => ({
         ...prev,
         newUser: {
-          MaNV: '',
           HoTen: '',
           SDT: '',
           GioiTinh: '',
           DiaChi: '',
           Email: '',
-          TinhTrang: 'Active',
+          CCCD: '',
+          NgaySinh: null,
+          NgayVaoLam: null,
+          ChucVu: '',
+          LuongCoBan: 0,
+          PhuCap: 0,
+          MaCH: null,
+          TinhTrang: 1,
         },
         isModalVisible: false,
       }));
@@ -115,10 +131,15 @@ const UserManagement = () => {
   };
 
   const handleUpdateUser = async () => {
-    if (!validateUserData(editingUser)) return;
+    if (!validateUserData(editingUser, true)) return;
 
     try {
-      await axios.put(`${API_URL}/${editingUser.MaNV}`, editingUser);
+      console.log('Updating user:', editingUser);
+      await axios.put(`${API_URL}/${editingUser.MaNV}`, {
+        ...editingUser,
+        NgaySinh: editingUser.NgaySinh ? (typeof editingUser.NgaySinh === 'string' ? editingUser.NgaySinh : dayjs(editingUser.NgaySinh).format('YYYY-MM-DD')) : null,
+        NgayVaoLam: editingUser.NgayVaoLam ? (typeof editingUser.NgayVaoLam === 'string' ? editingUser.NgayVaoLam : dayjs(editingUser.NgayVaoLam).format('YYYY-MM-DD')) : null,
+      });
       await fetchUsers();
       setState(prev => ({
         ...prev,
@@ -161,7 +182,7 @@ const UserManagement = () => {
         try {
           await axios.put(`${API_URL}/${user.MaNV}`, {
             ...user,
-            TinhTrang: user.TinhTrang === 'Active' ? 'Inactive' : 'Active',
+            TinhTrang: Number(user.TinhTrang) === 1 ? 0 : 1,
           });
           await fetchUsers();
           message.success('Đổi trạng thái thành công!');
@@ -219,14 +240,17 @@ const UserManagement = () => {
       dataIndex: 'TinhTrang',
       key: 'TinhTrang',
       width: 120,
-      render: (status) => (
-        <span
-          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-            }`}
-        >
-          {status === 'Active' ? 'Hoạt động' : 'Không hoạt động'}
-        </span>
-      ),
+      render: (status) => {
+        const isActive = Number(status) === 1;
+        return (
+          <span
+            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+              }`}
+          >
+            {isActive ? 'Hoạt động' : 'Không hoạt động'}
+          </span>
+        );
+      },
     },
     {
       title: 'Thao tác',
@@ -246,7 +270,7 @@ const UserManagement = () => {
           />
           <Button
             size="small"
-            icon={record.TinhTrang === 'Active' ? <LockOutlined /> : <UnlockOutlined />}
+            icon={Number(record.TinhTrang) === 1 ? <LockOutlined /> : <UnlockOutlined />}
             onClick={() => handleToggleStatus(record)}
           />
           <Button
@@ -276,13 +300,19 @@ const UserManagement = () => {
               ...prev,
               editingUser: null,
               newUser: {
-                MaNV: '',
                 HoTen: '',
                 SDT: '',
                 GioiTinh: '',
                 DiaChi: '',
                 Email: '',
-                TinhTrang: 'Active',
+                CCCD: '',
+                NgaySinh: null,
+                NgayVaoLam: null,
+                ChucVu: '',
+                LuongCoBan: 0,
+                PhuCap: 0,
+                MaCH: null,
+                TinhTrang: 1,
               },
               isModalVisible: true,
             }));
@@ -307,8 +337,8 @@ const UserManagement = () => {
             <label>Trạng thái:</label>
             <Select value={statusFilter} onChange={(value) => setState(prev => ({ ...prev, statusFilter: value }))} style={{ width: 120, marginRight: 8 }}>
               <Select.Option value="">Tất cả</Select.Option>
-              <Select.Option value="Active">Hoạt động</Select.Option>
-              <Select.Option value="Inactive">Không hoạt động</Select.Option>
+              <Select.Option value="1">Hoạt động</Select.Option>
+              <Select.Option value="0">Không hoạt động</Select.Option>
             </Select>
           </div>
           <div className="filter-group">
@@ -393,6 +423,24 @@ const UserManagement = () => {
               />
             </div>
             <div className="info-item">
+              <p className="info-label">Ngày sinh:</p>
+              <DatePicker
+                size="small"
+                style={{ width: '100%' }}
+                value={(editingUser ? editingUser.NgaySinh : newUser.NgaySinh) ? dayjs(editingUser ? editingUser.NgaySinh : newUser.NgaySinh) : null}
+                onChange={(date, dateString) => handleInputChange('NgaySinh', dateString)}
+              />
+            </div>
+            <div className="info-item">
+              <p className="info-label">Ngày vào làm:</p>
+              <DatePicker
+                size="small"
+                style={{ width: '100%' }}
+                value={(editingUser ? editingUser.NgayVaoLam : newUser.NgayVaoLam) ? dayjs(editingUser ? editingUser.NgayVaoLam : newUser.NgayVaoLam) : null}
+                onChange={(date, dateString) => handleInputChange('NgayVaoLam', dateString)}
+              />
+            </div>
+            <div className="info-item">
               <p className="info-label">Số điện thoại:</p>
               <Input
                 size="small"
@@ -432,15 +480,58 @@ const UserManagement = () => {
               />
             </div>
             <div className="info-item">
+              <p className="info-label">CCCD:</p>
+              <Input
+                size="small"
+                value={editingUser ? editingUser.CCCD : newUser.CCCD}
+                onChange={(e) => handleInputChange('CCCD', e.target.value)}
+              />
+            </div>
+            <div className="info-item">
+              <p className="info-label">Chức vụ:</p>
+              <Input
+                size="small"
+                value={editingUser ? editingUser.ChucVu : newUser.ChucVu}
+                onChange={(e) => handleInputChange('ChucVu', e.target.value)}
+              />
+            </div>
+            <div className="info-item">
+              <p className="info-label">Mã cửa hàng:</p>
+              <InputNumber
+                size="small"
+                style={{ width: '100%' }}
+                value={editingUser ? editingUser.MaCH : newUser.MaCH}
+                onChange={(value) => handleInputChange('MaCH', value)}
+              />
+            </div>
+            <div className="info-item">
+              <p className="info-label">Lương cơ bản:</p>
+              <InputNumber
+                size="small"
+                style={{ width: '100%' }}
+                value={editingUser ? editingUser.LuongCoBan : newUser.LuongCoBan}
+                onChange={(value) => handleInputChange('LuongCoBan', value)}
+              />
+            </div>
+            <div className="info-item">
+              <p className="info-label">Phụ cấp:</p>
+              <InputNumber
+                size="small"
+                style={{ width: '100%' }}
+                value={editingUser ? editingUser.PhuCap : newUser.PhuCap}
+                onChange={(value) => handleInputChange('PhuCap', value)}
+              />
+            </div>
+            <div className="info-item">
               <p className="info-label">Tình trạng:</p>
               <Select
                 size="small"
-                value={editingUser ? editingUser.TinhTrang : newUser.TinhTrang}
+                value={Number(editingUser ? editingUser.TinhTrang : newUser.TinhTrang)}
                 onChange={(value) => handleInputChange('TinhTrang', value)}
                 style={{ width: '100%' }}
               >
-                <Option value="Active">Hoạt động</Option>
-                <Option value="Inactive">Không hoạt động</Option>
+                <Option value={1}>Hoạt động</Option>
+                <Option value={0}>Không hoạt động</Option>
               </Select>
             </div>
           </div>

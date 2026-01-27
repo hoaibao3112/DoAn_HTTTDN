@@ -18,28 +18,34 @@ const warehouseController = {
         } = req.query;
 
         try {
-            let sql = 'SELECT * FROM sanpham WHERE TinhTrang = 1';
+            let sql = `
+                SELECT sp.*, tg.TenTG as TacGia, 
+                       IFNULL((SELECT SUM(SoLuongTon) FROM ton_kho WHERE MaSP = sp.MaSP), 0) as SoLuong
+                FROM sanpham sp
+                LEFT JOIN tacgia tg ON sp.MaTG = tg.MaTG
+                WHERE sp.TinhTrang = 1
+            `;
             const params = [];
 
             // Advanced search filters
             if (search) {
-                sql += ' AND (TenSP LIKE ? OR ISBN LIKE ?)';
+                sql += ' AND (sp.TenSP LIKE ? OR sp.ISBN LIKE ?)';
                 params.push(`%${search}%`, `%${search}%`);
             }
             if (category) {
-                sql += ' AND MaTL = ?';
+                sql += ' AND sp.MaTL = ?';
                 params.push(category);
             }
             if (author) {
-                sql += ' AND MaTG = ?';
+                sql += ' AND sp.MaTG = ?';
                 params.push(author);
             }
             if (minPrice) {
-                sql += ' AND DonGia >= ?';
+                sql += ' AND sp.DonGia >= ?';
                 params.push(minPrice);
             }
             if (maxPrice) {
-                sql += ' AND DonGia <= ?';
+                sql += ' AND sp.DonGia <= ?';
                 params.push(maxPrice);
             }
 
@@ -93,13 +99,13 @@ const warehouseController = {
         try {
             if (isUpdate) {
                 await pool.query(
-                    `UPDATE sanpham SET TenSP=?, MaTG=?, MaTL=?, MaNXB=?, DonGia=?, NamXB=?, SoTrang=?, ISBN=?, MoTa=?, GiaNhap=? WHERE MaSP=?`,
-                    [data.TenSP, data.MaTG, data.MaTL, data.MaNXB, data.DonGia, data.NamXB, data.SoTrang, data.ISBN, data.MoTa, data.GiaNhap, data.MaSP]
+                    `UPDATE sanpham SET TenSP=?, MaTG=?, MaTL=?, MaNXB=?, DonGia=?, NamXB=?, SoTrang=?, ISBN=?, MoTa=?, GiaNhap=?, MinSoLuong=? WHERE MaSP=?`,
+                    [data.TenSP, data.MaTG, data.MaTL, data.MaNXB, data.DonGia, data.NamXB, data.SoTrang, data.ISBN, data.MoTa, data.GiaNhap, data.MinSoLuong || 0, data.MaSP]
                 );
             } else {
                 await pool.query(
-                    `INSERT INTO sanpham (TenSP, MaTG, MaTL, MaNXB, DonGia, NamXB, SoTrang, ISBN, MoTa, GiaNhap) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [data.TenSP, data.MaTG, data.MaTL, data.MaNXB, data.DonGia, data.NamXB, data.SoTrang, data.ISBN, data.MoTa, data.GiaNhap || 0]
+                    `INSERT INTO sanpham (TenSP, MaTG, MaTL, MaNXB, DonGia, NamXB, SoTrang, ISBN, MoTa, GiaNhap, MinSoLuong) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [data.TenSP, data.MaTG, data.MaTL, data.MaNXB, data.DonGia, data.NamXB, data.SoTrang, data.ISBN, data.MoTa, data.GiaNhap || 0, data.MinSoLuong || 0]
                 );
             }
             res.json({ success: true, message: 'Product saved' });
@@ -457,11 +463,83 @@ const warehouseController = {
     // ======================= HELPER ENDPOINTS FOR PRODUCT MANAGEMENT =======================
 
     getAuthors: async (req, res) => {
+        const { search } = req.query;
         try {
-            const [rows] = await pool.query('SELECT MaTG, TenTG FROM tacgia ORDER BY TenTG');
-            res.json(rows);
+            let sql = 'SELECT * FROM tacgia WHERE TinhTrang = 1';
+            const params = [];
+            if (search) {
+                sql += ' AND TenTG LIKE ?';
+                params.push(`%${search}%`);
+            }
+            sql += ' ORDER BY TenTG';
+            const [rows] = await pool.query(sql, params);
+            res.json({ success: true, data: rows });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    addAuthor: async (req, res) => {
+        const data = req.body;
+        try {
+            const [result] = await pool.query(
+                'INSERT INTO tacgia (TenTG, NgaySinh, QuocTich, MoTa, HinhAnh) VALUES (?, ?, ?, ?, ?)',
+                [data.TenTG, data.NgaySinh || null, data.QuocTich || null, data.TieuSu || data.MoTa || null, data.AnhTG || data.HinhAnh || null]
+            );
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Them',
+                BangDuLieu: 'tacgia',
+                MaBanGhi: result.insertId,
+                DiaChi_IP: req.ip
+            });
+
+            res.json({ success: true, message: 'Thêm tác giả thành công', MaTG: result.insertId });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    updateAuthor: async (req, res) => {
+        const { id } = req.params;
+        const data = req.body;
+        try {
+            await pool.query(
+                'UPDATE tacgia SET TenTG=?, NgaySinh=?, QuocTich=?, MoTa=?, HinhAnh=? WHERE MaTG=?',
+                [data.TenTG, data.NgaySinh || null, data.QuocTich || null, data.TieuSu || data.MoTa || null, data.AnhTG || data.HinhAnh || null, id]
+            );
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'tacgia',
+                MaBanGhi: id,
+                DiaChi_IP: req.ip
+            });
+
+            res.json({ success: true, message: 'Cập nhật tác giả thành công' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    deleteAuthor: async (req, res) => {
+        const { id } = req.params;
+        try {
+            await pool.query('UPDATE tacgia SET TinhTrang = 0 WHERE MaTG = ?', [id]);
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Xoa',
+                BangDuLieu: 'tacgia',
+                MaBanGhi: id,
+                DiaChi_IP: req.ip
+            });
+
+            res.json({ success: true, message: 'Xóa tác giả thành công' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
     },
 
@@ -483,15 +561,24 @@ const warehouseController = {
         }
     },
 
+    getPublishers: async (req, res) => {
+        try {
+            const [rows] = await pool.query('SELECT MaNXB, TenNXB FROM nhaxuatban WHERE TinhTrang = 1 ORDER BY TenNXB');
+            res.json(rows);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
     getProductById: async (req, res) => {
         const { id } = req.params;
         try {
             const [rows] = await pool.query(
-                `SELECT sp.*, tg.TenTG as TacGia, tl.TenTL as TheLoai, ncc.TenNCC as NhaCungCap
+                `SELECT sp.*, tg.TenTG as TacGia, tl.TenTL as TheLoai, nxb.TenNXB as NhaXuatBan
                  FROM sanpham sp
                  LEFT JOIN tacgia tg ON sp.MaTG = tg.MaTG
                  LEFT JOIN theloai tl ON sp.MaTL = tl.MaTL
-                 LEFT JOIN nhacungcap ncc ON sp.MaNCC = ncc.MaNCC
+                 LEFT JOIN nhaxuatban nxb ON sp.MaNXB = nxb.MaNXB
                  WHERE sp.MaSP = ?`,
                 [id]
             );
@@ -546,6 +633,26 @@ const warehouseController = {
             res.json({ message: 'Cập nhật ngưỡng tồn thành công' });
         } catch (error) {
             res.status(500).json({ error: error.message });
+        }
+    },
+
+    // ======================= STOCK TRANSFERS =======================
+
+    getTransfers: async (req, res) => {
+        try {
+            const [rows] = await pool.query(`
+                SELECT ck.*, sp.TenSP, ch1.TenCH as TenCHNguon, ch2.TenCH as TenCHDich, nv1.HoTen as TenNguoiChuyen, nv2.HoTen as TenNguoiNhan
+                FROM chuyen_kho ck
+                JOIN sanpham sp ON ck.MaSP = sp.MaSP
+                JOIN cua_hang ch1 ON ck.MaCHNguon = ch1.MaCH
+                JOIN cua_hang ch2 ON ck.MaCHDich = ch2.MaCH
+                LEFT JOIN nhanvien nv1 ON ck.NguoiChuyen = nv1.MaNV
+                LEFT JOIN nhanvien nv2 ON ck.NguoiNhan = nv2.MaNV
+                ORDER BY ck.NgayChuyen DESC
+            `);
+            res.json({ success: true, data: rows });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
     }
 };

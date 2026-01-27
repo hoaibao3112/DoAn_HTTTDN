@@ -339,6 +339,46 @@ const attendanceController = {
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }
+    },
+
+    getMonthlyAttendance: async (req, res) => {
+        const { month, year } = req.query;
+        try {
+            // 1. Get all employees
+            const [employees] = await pool.query('SELECT MaNV, HoTen, ChucVu FROM nhanvien');
+
+            // 2. Get attendance records for the month
+            const [attendance] = await pool.query(
+                `SELECT MaNV, DAY(Ngay) as Ngay, TrangThai, GioVao, GioRa, SoGioLam, SoGioTangCa 
+                 FROM cham_cong 
+                 WHERE MONTH(Ngay) = ? AND YEAR(Ngay) = ?`,
+                [month, year]
+            );
+
+            // 3. Transform to frontend format
+            const result = employees.map(emp => {
+                const empDays = {};
+                attendance
+                    .filter(a => a.MaNV === emp.MaNV)
+                    .forEach(a => {
+                        empDays[a.Ngay] = {
+                            trang_thai: a.TrangThai,
+                            gio_vao: a.GioVao,
+                            gio_ra: a.GioRa,
+                            so_gio_lam: a.SoGioLam,
+                            so_gio_tang_ca: a.SoGioTangCa
+                        };
+                    });
+                return {
+                    ...emp,
+                    days: empDays
+                };
+            });
+
+            res.json(result); // Return array directly as expected by frontend
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
     }
 };
 

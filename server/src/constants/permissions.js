@@ -77,7 +77,11 @@ export const FEATURES = {
     REVENUE_REPORT: 24,           // Báo cáo doanh thu
     PROFIT_REPORT: 25,            // Báo cáo lợi nhuận
     STOCK_REPORT: 26,             // Báo cáo tồn kho
-    HR_REPORT: 27                 // Báo cáo nhân sự
+    HR_REPORT: 27,                // Báo cáo nhân sự
+
+    // ============ CATALOG (Reference Data) ============
+    AUTHORS: 29,                 // Quản lý tác giả
+    CATEGORIES: 30               // Quản lý thể loại
 };
 
 /**
@@ -132,7 +136,10 @@ export const FEATURE_NAMES = {
     24: 'Báo cáo doanh thu',
     25: 'Báo cáo lợi nhuận',
     26: 'Báo cáo tồn kho',
-    27: 'Báo cáo nhân sự'
+    27: 'Báo cáo nhân sự',
+    28: 'Quản lý chi nhánh',
+    29: 'Quản lý tác giả',
+    30: 'Quản lý thể loại'
 };
 
 /**

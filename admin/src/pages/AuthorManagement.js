@@ -3,10 +3,11 @@ import axios from 'axios';
 import { Button, Input, message, Table, Modal, Space, DatePicker } from 'antd';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
 import { PermissionContext } from '../components/PermissionContext';
-import moment from 'moment';
+import dayjs from 'dayjs';
 
 const { Search } = Input;
 const { confirm } = Modal;
+const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNGNEY0RjQiLz48cGF0aCBkPSJNMjAgMTRDMjMuMzEzNyAxNCAyNiAxNi42ODYzIDI2IDIwQzI2IDIzLjMxMzcgMjMuMzEzNyAyNiAyMCAyNkMxNi42ODYzIDI2IDE0IDIzLjMxMzcgMTQgMjBDMTQgMTYuNjg2MyAxNi42ODYzIDE0IDIwIDE0WiIgZmlsbD0iI0NDQ0NDQyIvPjwvc3ZnPg==';
 
 const AuthorManagement = () => {
   const { hasPermission } = useContext(PermissionContext);
@@ -23,8 +24,8 @@ const AuthorManagement = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const API_URL = 'http://localhost:5000/api/author';
-  const IMAGE_BASE_PATH = '/img/author/';
+  const API_URL = 'http://localhost:5000/api/warehouse/authors';
+  const IMAGE_BASE_PATH = '/img/authors/';
 
   const fetchAuthors = useCallback(async () => {
     console.log('[DEBUG] Fetching authors...');
@@ -48,17 +49,17 @@ const AuthorManagement = () => {
 
       if (Array.isArray(response.data.data)) {
         const processedAuthors = response.data.data.map((author) => {
-          const imageUrl = author.AnhTG && author.AnhTG !== 'null'
-            ? `${IMAGE_BASE_PATH}${author.AnhTG}`
-            : 'https://via.placeholder.com/50';
+          const imageUrl = (author.HinhAnh || author.AnhTG) && (author.HinhAnh || author.AnhTG) !== 'null'
+            ? `${IMAGE_BASE_PATH}${author.HinhAnh || author.AnhTG}`
+            : PLACEHOLDER_IMAGE;
           console.log(`[DEBUG] URL ảnh cho tác giả ${author.MaTG}: ${imageUrl}`);
 
           return {
             ...author,
             TenTG: author.TenTG?.trim() || '',
             QuocTich: author.QuocTich || '',
-            NgaySinh: author.NgaySinh ? moment(author.NgaySinh).format('YYYY-MM-DD') : null,
-            TieuSu: author.TieuSu || '',
+            NgaySinh: author.NgaySinh ? dayjs(author.NgaySinh).format('YYYY-MM-DD') : null,
+            TieuSu: author.MoTa || author.TieuSu || '',
             AnhTG: imageUrl,
           };
         });
@@ -288,7 +289,7 @@ const AuthorManagement = () => {
           style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 2 }}
           onError={(e) => {
             console.log(`[ERROR] Lỗi tải ảnh: ${text}`);
-            e.target.src = 'https://via.placeholder.com/50';
+            e.target.src = PLACEHOLDER_IMAGE;
           }}
         />
       ),
@@ -445,11 +446,11 @@ const AuthorManagement = () => {
                 value={
                   editingAuthor
                     ? editingAuthor.NgaySinh
-                      ? moment(editingAuthor.NgaySinh)
+                      ? dayjs(editingAuthor.NgaySinh)
                       : null
                     : newAuthor.NgaySinh
-                    ? moment(newAuthor.NgaySinh)
-                    : null
+                      ? dayjs(newAuthor.NgaySinh)
+                      : null
                 }
                 onChange={(date, dateString) =>
                   editingAuthor

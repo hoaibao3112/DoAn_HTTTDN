@@ -40,4 +40,8 @@ router.post('/customers', checkPermission(FEATURES.CUSTOMERS, PERMISSIONS.CREATE
     }
 });
 
+// ======================= 4.4 INVOICE MANAGEMENT =======================
+router.get('/hoadon', checkPermission(FEATURES.INVOICES, PERMISSIONS.VIEW), salesController.getAllInvoices);
+router.get('/hoadon/:id', checkPermission(FEATURES.INVOICES, PERMISSIONS.VIEW), salesController.getInvoiceById);
+
 export default router;

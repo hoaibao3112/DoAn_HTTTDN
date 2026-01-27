@@ -6,6 +6,8 @@ import { ExclamationCircleFilled, EyeOutlined, DeleteOutlined, MessageOutlined, 
 
 const { confirm } = Modal;
 const { Search, TextArea } = Input;
+
+const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNGNEY0RjQiLz48cGF0aCBkPSJNMjAgMTRDMjMuMzEzNyAxNCAyNiAxNi42ODYzIDI2IDIwQzI2IDIzLjMxMzcgMjMuMzEzNyAyNiAyMCAyNkMxNi42ODYzIDI2IDE0IDIzLjMxMzcgMTQgMjBDMTQgMTYuNjg2MyAxNi42ODYzIDE0IDIwIDE0WiIgZmlsbD0iI0NDQ0NDQyIvPjwvc3ZnPg==';
 // THÊM VÀO SAU DÒNG const { confirm } = Modal; (sau dòng 6)
 
 // ✅ THÊM HÀM FORMAT ĐỊA CHỈ GIỐNG BÊN CUSTOMER
@@ -403,7 +405,7 @@ const InvoiceManagement = () => {
         items: res.data.items.map(item => ({
           ...item,
           unitPrice: item.price,
-          productImage: item.productImage || 'https://via.placeholder.com/50'
+          productImage: item.HinhAnh ? `/img/products/${item.HinhAnh}` : PLACEHOLDER_IMAGE,
         })),
         note: res.data.GhiChu || '',
         status: res.data.tinhtrang,
@@ -1079,7 +1081,7 @@ const InvoiceManagement = () => {
                           }}
                           onError={(e) => {
                             e.target.onerror = null;
-                            e.target.src = 'https://via.placeholder.com/50';
+                            e.target.src = PLACEHOLDER_IMAGE;
                           }}
                         />
                         <span>{text}</span>

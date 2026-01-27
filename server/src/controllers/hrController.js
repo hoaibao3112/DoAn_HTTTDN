@@ -81,7 +81,7 @@ const hrController = {
 
     getAllEmployees: async (req, res) => {
         try {
-            const [rows] = await pool.query('SELECT * FROM nhanvien WHERE TinhTrang = 1');
+            const [rows] = await pool.query('SELECT * FROM nhanvien');
             res.json({ success: true, data: rows });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -92,9 +92,24 @@ const hrController = {
         const data = req.body;
         try {
             const [result] = await pool.query(
-                `INSERT INTO nhanvien (HoTen, Email, SDT, DiaChi, CCCD, NgaySinh, GioiTinh, ChucVu, NgayVaoLam, LuongCoBan, PhuCap, MaCH, MaTK)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [data.HoTen, data.Email, data.SDT, data.DiaChi, data.CCCD, data.NgaySinh, data.GioiTinh, data.ChucVu, data.NgayVaoLam, data.LuongCoBan, data.PhuCap, data.MaCH, data.MaTK]
+                `INSERT INTO nhanvien (HoTen, Email, SDT, DiaChi, CCCD, NgaySinh, GioiTinh, ChucVu, NgayVaoLam, LuongCoBan, PhuCap, MaCH, MaTK, TinhTrang)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    data.HoTen,
+                    data.Email || null,
+                    data.SDT || null,
+                    data.DiaChi || null,
+                    data.CCCD || null,
+                    data.NgaySinh || null,
+                    data.GioiTinh || null,
+                    data.ChucVu || null,
+                    data.NgayVaoLam || null,
+                    data.LuongCoBan || 0,
+                    data.PhuCap || 0,
+                    data.MaCH || null,
+                    data.MaTK || null,
+                    data.TinhTrang !== undefined ? data.TinhTrang : 1
+                ]
             );
             res.json({ success: true, MaNV: result.insertId });
         } catch (error) {
@@ -107,12 +122,30 @@ const hrController = {
         const data = req.body;
         try {
             await pool.query(
-                `UPDATE nhanvien SET HoTen=?, Email=?, SDT=?, DiaChi=?, CCCD=?, NgaySinh=?, GioiTinh=?, ChucVu=?, LuongCoBan=?, PhuCap=?, MaCH=?
+                `UPDATE nhanvien SET 
+                    HoTen=?, Email=?, SDT=?, DiaChi=?, CCCD=?, 
+                    NgaySinh=?, GioiTinh=?, ChucVu=?, LuongCoBan=?, 
+                    PhuCap=?, MaCH=?, TinhTrang=?
                  WHERE MaNV=?`,
-                [data.HoTen, data.Email, data.SDT, data.DiaChi, data.CCCD, data.NgaySinh, data.GioiTinh, data.ChucVu, data.LuongCoBan, data.PhuCap, data.MaCH, id]
+                [
+                    data.HoTen,
+                    data.Email || null,
+                    data.SDT || null,
+                    data.DiaChi || null,
+                    data.CCCD || null,
+                    data.NgaySinh || null,
+                    data.GioiTinh || null,
+                    data.ChucVu || null,
+                    data.LuongCoBan || 0,
+                    data.PhuCap || 0,
+                    data.MaCH || null,
+                    data.TinhTrang !== undefined ? data.TinhTrang : 1,
+                    id
+                ]
             );
             res.json({ success: true, message: 'Updated successfully' });
         } catch (error) {
+            console.error('Error updating employee:', error);
             res.status(500).json({ success: false, message: error.message });
         }
     },

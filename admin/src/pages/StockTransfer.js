@@ -56,40 +56,36 @@ const StockTransfer = () => {
     };
 
     const fetchTransfers = async () => {
-        // Mock data for now since API might not be ready
-        const mockTransfers = [
-            {
-                id: 1,
-                product: 'Đắc Nhân Tâm',
-                sku: 'BK-00124',
-                fromBranch: 'Chi nhánh chuyển đi',
-                toBranch: 'Chi nhánh nhận',
-                quantity: 45,
-                transferQty: 10,
-                status: 'approved'
-            },
-            {
-                id: 2,
-                product: 'Tư Duy Nhanh Và Chậm',
-                sku: 'BK-00892',
-                fromBranch: 'Chi nhánh chuyển đi',
-                toBranch: 'Chi nhánh nhận',
-                quantity: 12,
-                transferQty: 15,
-                status: 'exceeded'
-            },
-            {
-                id: 3,
-                product: 'Nhà Giả Kim',
-                sku: 'BK-00581',
-                fromBranch: 'Chi nhánh chuyển đi',
-                toBranch: 'Chi nhánh nhận',
-                quantity: 120,
-                transferQty: 50,
-                status: 'approved'
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await axios.get(
+                'http://localhost:5000/api/warehouse/transfers',
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (response.data.success && response.data.data) {
+                // Map backend response to frontend format
+                const mappedTransfers = response.data.data.map(transfer => ({
+                    id: transfer.MaCK,
+                    product: transfer.TenSP || 'N/A',
+                    sku: transfer.MaSP || 'N/A',
+                    fromBranch: transfer.TenCHNguon || `Chi nhánh ${transfer.MaCHNguon}`,
+                    toBranch: transfer.TenCHDich || `Chi nhánh ${transfer.MaCHDich}`,
+                    quantity: transfer.SoLuongKho || 0,
+                    transferQty: transfer.SoLuong || 0,
+                    status: transfer.TrangThai === 'Da_duyet' ? 'approved' :
+                        transfer.TrangThai === 'Cho_duyet' ? 'pending' : 'exceeded',
+                    createdDate: transfer.NgayTao
+                }));
+                setTransfers(mappedTransfers);
+            } else {
+                setTransfers([]);
             }
-        ];
-        setTransfers(mockTransfers);
+        } catch (error) {
+            console.error('Error fetching transfers:', error);
+            // Fallback to empty array if API fails
+            setTransfers([]);
+        }
     };
 
     const addProductToTransfer = (product) => {

@@ -41,6 +41,24 @@ router.patch('/products/:id/min-stock',
     warehouseController.updateMinStock
 );
 
+// ======================= CATALOG HELPERS = ::::: AUTHENTICATED CATALOG MANAGEMENT =======================
+router.get('/publishers', warehouseController.getPublishers);
+
+router.post('/authors',
+    checkPermission(FEATURES.AUTHORS, PERMISSIONS.CREATE),
+    warehouseController.addAuthor
+);
+
+router.put('/authors/:id',
+    checkPermission(FEATURES.AUTHORS, PERMISSIONS.UPDATE),
+    warehouseController.updateAuthor
+);
+
+router.delete('/authors/:id',
+    checkPermission(FEATURES.AUTHORS, PERMISSIONS.DELETE),
+    warehouseController.deleteAuthor
+);
+
 // ======================= PURCHASE ORDERS =======================
 router.get('/purchase-orders',
     checkPermission(FEATURES.PURCHASE_ORDERS, PERMISSIONS.VIEW),
@@ -84,5 +102,8 @@ router.post('/inventory-check',
     checkPermission(FEATURES.INVENTORY_CHECK, PERMISSIONS.CREATE),
     warehouseController.performInventoryCheck
 );
+
+// Stock Transfers
+router.get('/transfers', checkPermission(FEATURES.STOCK, PERMISSIONS.VIEW), warehouseController.getTransfers);
 
 export default router;

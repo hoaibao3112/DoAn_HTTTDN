@@ -59,14 +59,23 @@ const POSPage = () => {
 
         try {
             const token = localStorage.getItem('authToken');
+            // Use /api/customers with search parameter
             const response = await axios.get(
-                `http://localhost:5000/api/sales/customers/search?sdt=${customerSearch}`,
+                `http://localhost:5000/api/customers?search=${customerSearch}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
-            if (response.data.success && response.data.data) {
-                setCustomer(response.data.data);
-                alert(`Khách hàng: ${response.data.data.HoTen}`);
+            if (response.data.success && response.data.data && response.data.data.length > 0) {
+                // Take first match
+                const foundCustomer = response.data.data[0];
+                setCustomer({
+                    ...foundCustomer,
+                    HoTen: foundCustomer.tenkh,
+                    MaKH: foundCustomer.makh,
+                    SDT: foundCustomer.sdt,
+                    DiemTichLuy: foundCustomer.loyalty_points || 0
+                });
+                alert(`Khách hàng: ${foundCustomer.tenkh}`);
             } else {
                 alert('Không tìm thấy khách hàng. Vui lòng tạo mới.');
                 setShowCustomerForm(true);
@@ -74,28 +83,41 @@ const POSPage = () => {
             }
         } catch (error) {
             console.error('Error searching customer:', error);
-            alert('Lỗi tìm khách hàng');
+            alert('Lỗi tìm khách hàng: ' + (error.response?.data?.message || error.message));
         }
     };
 
     const createCustomer = async () => {
         try {
             const token = localStorage.getItem('authToken');
+            // Use /api/customers endpoint
+            const payload = {
+                tenkh: newCustomer.TenKH,
+                sdt: newCustomer.SDT,
+                email: newCustomer.Email,
+                diachi: newCustomer.DiaChi
+            };
+
             const response = await axios.post(
-                'http://localhost:5000/api/sales/customers',
-                newCustomer,
+                'http://localhost:5000/api/customers',
+                payload,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
             if (response.data.success) {
-                setCustomer({ ...newCustomer, MaKH: response.data.MaKH, DiemTichLuy: 0 });
+                setCustomer({
+                    HoTen: newCustomer.TenKH,
+                    MaKH: response.data.makh || response.data.MaKH,
+                    SDT: newCustomer.SDT,
+                    DiemTichLuy: 0
+                });
                 setShowCustomerForm(false);
                 setNewCustomer({ TenKH: '', SDT: '', Email: '', DiaChi: '' });
                 alert('Tạo khách hàng thành công!');
             }
         } catch (error) {
             console.error('Error creating customer:', error);
-            alert('Lỗi tạo khách hàng');
+            alert('Lỗi tạo khách hàng: ' + (error.response?.data?.message || error.message));
         }
     };
 

@@ -12,6 +12,7 @@ import returnRoutes from './returnRoutes.js';
 import customerRoutes from './customerRoutes.js';
 import branchRoutes from './branchRoutes.js';
 import catalogRoutes from './catalogRoutes.js';
+import chatRoutes from './chat.js';
 
 export const initRoutes = (app) => {
   // Root path - Server status
@@ -42,6 +43,7 @@ export const initRoutes = (app) => {
   // ======================= HR MANAGEMENT (CONSOLIDATED) =======================
   // Includes: employees, attendance, leave, salary, reports
   app.use('/api/hr', hrRoutes);
+  app.use('/api/attendance_admin', hrRoutes);
 
   // ======================= WAREHOUSE MANAGEMENT (CONSOLIDATED) =======================
   // Includes: products, stock, purchase-orders, transfers, inventory-check
@@ -60,6 +62,7 @@ export const initRoutes = (app) => {
 
   // ======================= SALES & POS =======================
   app.use('/api/sales', salesRoutes);
+  app.use('/api/orders', salesRoutes);
   app.use('/api/returns', returnRoutes);
   app.use('/api/customers', customerRoutes);
 
@@ -68,4 +71,5 @@ export const initRoutes = (app) => {
 
   // ======================= FINANCE MANAGEMENT =======================
   app.use('/api/finance', financeRoutes);
+  app.use('/api/chat', chatRoutes);
 };
