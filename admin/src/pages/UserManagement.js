@@ -12,7 +12,7 @@ const UserManagement = () => {
     users: [],
     newUser: {
       MaNV: '',
-      TenNV: '',
+      HoTen: '',
       SDT: '',
       GioiTinh: '',
       DiaChi: '',
@@ -29,15 +29,15 @@ const UserManagement = () => {
   });
 
   const { users, newUser, editingUser, searchTerm, statusFilter, genderFilter, isModalVisible, loading } = state;
-  const API_URL = 'http://localhost:5000/api/users';
+  const API_URL = 'http://localhost:5000/api/hr/employees';
 
   const fetchUsers = async () => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
       const response = await axios.get(API_URL);
-      
-      if (Array.isArray(response.data)) {
-        setState(prev => ({ ...prev, users: response.data }));
+
+      if (response.data.success && Array.isArray(response.data.data)) {
+        setState(prev => ({ ...prev, users: response.data.data }));
       } else {
         throw new Error('Dữ liệu người dùng không hợp lệ');
       }
@@ -74,7 +74,7 @@ const UserManagement = () => {
   };
 
   const validateUserData = (userData) => {
-    if (!userData.MaNV || !userData.TenNV || !userData.SDT || !userData.Email) {
+    if (!userData.MaNV || !userData.HoTen || !userData.SDT || !userData.Email) {
       message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Mã NV, Tên NV, SĐT, Email)!');
       return false;
     }
@@ -99,7 +99,7 @@ const UserManagement = () => {
         ...prev,
         newUser: {
           MaNV: '',
-          TenNV: '',
+          HoTen: '',
           SDT: '',
           GioiTinh: '',
           DiaChi: '',
@@ -174,12 +174,12 @@ const UserManagement = () => {
 
   const filteredUsers = users.filter(
     user =>
-      (statusFilter === '' || user.TinhTrang === statusFilter) &&
-      (genderFilter === '' || user.GioiTinh === genderFilter) &&
-      ((user.MaNV || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.TenNV || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.SDT || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.Email || '').toLowerCase().includes(searchTerm.toLowerCase()))
+      (statusFilter === '' || String(user.TinhTrang || '') === statusFilter) &&
+      (genderFilter === '' || String(user.GioiTinh || '') === genderFilter) &&
+      (String(user.MaNV || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(user.HoTen || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(user.SDT || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(user.Email || '').toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const columns = [
@@ -192,8 +192,8 @@ const UserManagement = () => {
     },
     {
       title: 'Tên NV',
-      dataIndex: 'TenNV',
-      key: 'TenNV',
+      dataIndex: 'HoTen',
+      key: 'HoTen',
       width: 200,
     },
     {
@@ -221,9 +221,8 @@ const UserManagement = () => {
       width: 120,
       render: (status) => (
         <span
-          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-            status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-          }`}
+          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}
         >
           {status === 'Active' ? 'Hoạt động' : 'Không hoạt động'}
         </span>
@@ -278,7 +277,7 @@ const UserManagement = () => {
               editingUser: null,
               newUser: {
                 MaNV: '',
-                TenNV: '',
+                HoTen: '',
                 SDT: '',
                 GioiTinh: '',
                 DiaChi: '',
@@ -389,8 +388,8 @@ const UserManagement = () => {
               <p className="info-label">Tên nhân viên:</p>
               <Input
                 size="small"
-                value={editingUser ? editingUser.TenNV : newUser.TenNV}
-                onChange={(e) => handleInputChange('TenNV', e.target.value)}
+                value={editingUser ? editingUser.HoTen : newUser.HoTen}
+                onChange={(e) => handleInputChange('HoTen', e.target.value)}
               />
             </div>
             <div className="info-item">

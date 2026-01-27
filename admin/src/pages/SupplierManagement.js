@@ -46,12 +46,14 @@ const CompanyManagement = () => {
       }
       const response = await axios.get(url);
 
-      if (Array.isArray(response.data)) {
-        const processedCompanies = response.data.map(company => {
+      const responseData = response.data.data || response.data;
+
+      if (Array.isArray(responseData)) {
+        const processedCompanies = responseData.map(company => {
           const statusValue = convertStatusIfBuffer(company);
           return {
             ...company,
-            TinhTrang: statusValue === '1' ? 'Hoạt động' : 'Ngừng hoạt động',
+            TinhTrang: String(statusValue) === '1' ? 'Hoạt động' : 'Ngừng hoạt động',
             TinhTrangValue: statusValue,
           };
         });
@@ -408,7 +410,8 @@ const CompanyManagement = () => {
           <Button
             key="cancel"
             onClick={() => {
-              setState(prev => (prev, {
+              setState(prev => ({
+                ...prev,
                 isModalVisible: false,
                 editingCompany: null,
               }));

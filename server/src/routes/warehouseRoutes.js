@@ -6,14 +6,8 @@ import { FEATURES, PERMISSIONS } from '../constants/permissions.js';
 
 const router = express.Router();
 
-// ======================= PUBLIC HELPER ENDPOINTS (No Auth Required) =======================
-// These are read-only reference data for dropdowns - placed before auth middleware
-router.get('/authors', warehouseController.getAuthors);
-router.get('/categories', warehouseController.getCategories);
-router.get('/suppliers', warehouseController.getSuppliers);
-
 // ======================= AUTHENTICATED ROUTES =======================
-// All routes below require authentication
+// All routes require authentication
 router.use(authenticateToken);
 
 // ======================= PRODUCT MANAGEMENT =======================

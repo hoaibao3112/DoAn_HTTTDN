@@ -8,10 +8,10 @@ import AccountManagement from './pages/AccountManagement';
 import UserManagement from './pages/UserManagement';
 import CategoryManagement from './pages/CategoryManagement';
 import InvoiceManagement from './pages/InvoiceManagement';
-import CompanyManagement from './pages/campanyManagement';
+import SupplierManagement from './pages/SupplierManagement';
 import AuthorManagement from './pages/AuthorManagement';
 import Client from './pages/client.js';
-import Authorities from './pages/authorities';
+import RoleManagement from './pages/RoleManagement';
 import Receipt from './pages/receipt.js';
 import Statistical from './pages/statistical.js';
 //import KhuyenMai from './pages/khuyenmai.js';
@@ -129,7 +129,7 @@ const App = () => {
         element={
           <PrivateRoute
             component={() => (
-              <RestrictedRoute component={CompanyManagement} permissionId={FEATURES.SUPPLIERS} />
+              <RestrictedRoute component={SupplierManagement} permissionId={FEATURES.SUPPLIERS} />
             )}
           />
         }
@@ -139,7 +139,7 @@ const App = () => {
         element={
           <PrivateRoute
             component={() => (
-              <RestrictedRoute component={Authorities} permissionId={FEATURES.ROLES} />
+              <RestrictedRoute component={RoleManagement} permissionId={FEATURES.ROLES} />
             )}
           />
         }
@@ -165,17 +165,6 @@ const App = () => {
         }
       />
 
-      {/* Thêm route cho trang tạo khuyến mãi */}
-      <Route
-        path="/admin/khuyenmai"
-        element={
-          <PrivateRoute
-            component={() => (
-              <RestrictedRoute component={DiscountManagement} permissionId={FEATURES.PROMOTIONS} />
-            )}
-          />
-        }
-      />
       <Route
         path="/admin/statistical"
         element={

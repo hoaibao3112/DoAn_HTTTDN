@@ -10,14 +10,14 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // ======================= SUPPLIER CRUD =======================
-router.get('/suppliers', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.VIEW), supplierController.getAllSuppliers);
-router.get('/suppliers/:id', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.VIEW), supplierController.getSupplierById);
-router.post('/suppliers', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.CREATE), supplierController.createSupplier);
-router.put('/suppliers/:id', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.UPDATE), supplierController.updateSupplier);
-router.delete('/suppliers/:id', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.DELETE), supplierController.deleteSupplier);
+router.get('/', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.VIEW), supplierController.getAllSuppliers);
+router.get('/:id', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.VIEW), supplierController.getSupplierById);
+router.post('/', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.CREATE), supplierController.createSupplier);
+router.put('/:id', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.UPDATE), supplierController.updateSupplier);
+router.delete('/:id', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.DELETE), supplierController.deleteSupplier);
 
 // ======================= SUPPLIER DEBTS =======================
-router.get('/suppliers/:id/debts', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.VIEW), supplierController.getSupplierDebts);
+router.get('/:id/debts', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.VIEW), supplierController.getSupplierDebts);
 router.post('/debts/pay', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.CREATE), supplierController.recordDebtPayment);
 
 export default router;

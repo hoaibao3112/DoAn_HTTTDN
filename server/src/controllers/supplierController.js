@@ -4,15 +4,23 @@ import { logActivity } from '../utils/auditLogger.js';
 const supplierController = {
     // ======================= GET ALL SUPPLIERS =======================
     getAllSuppliers: async (req, res) => {
-        const { search, status = '1' } = req.query;
+        const {
+            search,
+            status = '1',
+            sortBy = 'TenNCC',
+            sortOrder = 'ASC',
+            page = 1,
+            pageSize = 20
+        } = req.query;
+
         try {
             let sql = 'SELECT * FROM nhacungcap WHERE 1=1';
             const params = [];
 
             if (search) {
-                sql += ' AND (TenNCC LIKE ? OR SDT LIKE ? OR Email LIKE ?)';
+                sql += ' AND (TenNCC LIKE ? OR SDT LIKE ? OR Email LIKE ? OR DiaChi LIKE ?)';
                 const searchTerm = `%${search}%`;
-                params.push(searchTerm, searchTerm, searchTerm);
+                params.push(searchTerm, searchTerm, searchTerm, searchTerm);
             }
 
             if (status) {
@@ -20,10 +28,46 @@ const supplierController = {
                 params.push(status);
             }
 
-            sql += ' ORDER BY TenNCC';
+            // Sorting
+            const allowedSortFields = ['TenNCC', 'SDT', 'Email', 'MaNCC'];
+            const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'TenNCC';
+            const order = sortOrder.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+            sql += ` ORDER BY ${sortField} ${order}`;
+
+            // Pagination
+            const offset = (page - 1) * pageSize;
+            sql += ` LIMIT ? OFFSET ?`;
+            params.push(parseInt(pageSize), offset);
 
             const [rows] = await pool.query(sql, params);
-            res.json({ success: true, data: rows });
+
+            // Get total count
+            let countSql = 'SELECT COUNT(*) as total FROM nhacungcap WHERE 1=1';
+            const countParams = [];
+            if (search) {
+                countSql += ' AND (TenNCC LIKE ? OR SDT LIKE ? OR Email LIKE ? OR DiaChi LIKE ?)';
+                const searchTerm = `%${search}%`;
+                countParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
+            }
+            if (status) {
+                countSql += ' AND TinhTrang = ?';
+                countParams.push(status);
+            }
+
+            const [countResult] = await pool.query(countSql, countParams);
+
+            res.json({
+                success: true,
+                data: rows,
+                pagination: {
+                    page: parseInt(page),
+                    pageSize: parseInt(pageSize),
+                    total: countResult[0].total,
+                    totalPages: Math.ceil(countResult[0].total / pageSize)
+                },
+                filters: { search, status },
+                sort: { sortBy: sortField, sortOrder: order }
+            });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }

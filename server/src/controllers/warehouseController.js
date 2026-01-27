@@ -5,16 +5,83 @@ const warehouseController = {
     // ======================= 3.1 & 3.2: PRODUCT & SUPPLIER =======================
 
     getAllProducts: async (req, res) => {
-        const { search, category, author } = req.query;
+        const {
+            search,
+            category,
+            author,
+            minPrice,
+            maxPrice,
+            sortBy = 'MaSP',
+            sortOrder = 'ASC',
+            page = 1,
+            pageSize = 20
+        } = req.query;
+
         try {
             let sql = 'SELECT * FROM sanpham WHERE TinhTrang = 1';
             const params = [];
-            if (search) { sql += ' AND TenSP LIKE ?'; params.push(`%${search}%`); }
-            if (category) { sql += ' AND MaTL = ?'; params.push(category); }
-            if (author) { sql += ' AND MaTG = ?'; params.push(author); }
+
+            // Advanced search filters
+            if (search) {
+                sql += ' AND (TenSP LIKE ? OR ISBN LIKE ?)';
+                params.push(`%${search}%`, `%${search}%`);
+            }
+            if (category) {
+                sql += ' AND MaTL = ?';
+                params.push(category);
+            }
+            if (author) {
+                sql += ' AND MaTG = ?';
+                params.push(author);
+            }
+            if (minPrice) {
+                sql += ' AND DonGia >= ?';
+                params.push(minPrice);
+            }
+            if (maxPrice) {
+                sql += ' AND DonGia <= ?';
+                params.push(maxPrice);
+            }
+
+            // Sorting
+            const allowedSortFields = ['MaSP', 'TenSP', 'DonGia', 'GiaNhap', 'NamXB'];
+            const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'MaSP';
+            const order = sortOrder.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+            sql += ` ORDER BY ${sortField} ${order}`;
+
+            // Pagination
+            const offset = (page - 1) * pageSize;
+            sql += ` LIMIT ? OFFSET ?`;
+            params.push(parseInt(pageSize), offset);
 
             const [rows] = await pool.query(sql, params);
-            res.json(rows); // Return array directly for frontend compatibility
+
+            // Get total count for pagination
+            let countSql = 'SELECT COUNT(*) as total FROM sanpham WHERE TinhTrang = 1';
+            const countParams = [];
+            if (search) {
+                countSql += ' AND (TenSP LIKE ? OR ISBN LIKE ?)';
+                countParams.push(`%${search}%`, `%${search}%`);
+            }
+            if (category) { countSql += ' AND MaTL = ?'; countParams.push(category); }
+            if (author) { countSql += ' AND MaTG = ?'; countParams.push(author); }
+            if (minPrice) { countSql += ' AND DonGia >= ?'; countParams.push(minPrice); }
+            if (maxPrice) { countSql += ' AND DonGia <= ?'; countParams.push(maxPrice); }
+
+            const [countResult] = await pool.query(countSql, countParams);
+
+            res.json({
+                success: true,
+                data: rows,
+                pagination: {
+                    page: parseInt(page),
+                    pageSize: parseInt(pageSize),
+                    total: countResult[0].total,
+                    totalPages: Math.ceil(countResult[0].total / pageSize)
+                },
+                filters: { search, category, author, minPrice, maxPrice },
+                sort: { sortBy: sortField, sortOrder: order }
+            });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

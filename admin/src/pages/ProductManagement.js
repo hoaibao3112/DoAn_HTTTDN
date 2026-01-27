@@ -66,7 +66,8 @@ const ProductManagement = () => {
   const fetchAuthors = async () => {
     try {
       const response = await axios.get(AUTHORS_API_URL);
-      setAuthors(response.data || []);
+      const data = response.data.data || response.data;
+      setAuthors(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Lỗi khi lấy danh sách tác giả:', error);
       message.error('Lỗi khi tải danh sách tác giả');
@@ -77,7 +78,8 @@ const ProductManagement = () => {
   const fetchCategories = async () => {
     try {
       const response = await axios.get(CATEGORIES_API_URL);
-      setCategories(response.data || []);
+      const data = response.data.data || response.data;
+      setCategories(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Lỗi khi lấy danh sách thể loại:', error);
       message.error('Lỗi khi tải danh sách thể loại');
@@ -87,7 +89,8 @@ const ProductManagement = () => {
   const fetchSuppliers = async () => {
     try {
       const response = await axios.get(SUPPLIERS_API_URL);
-      setSuppliers(response.data || []);
+      const data = response.data.data || response.data;
+      setSuppliers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Lỗi khi lấy danh sách nhà cung cấp:', error);
       message.error('Lỗi khi tải danh sách nhà cung cấp');
@@ -98,8 +101,9 @@ const ProductManagement = () => {
     try {
       setLoading(true);
       const response = await axios.get(API_URL);
-      if (Array.isArray(response.data)) {
-        const processedProducts = response.data.map((product) => ({
+      const data = response.data.data || response.data;
+      if (Array.isArray(data)) {
+        const processedProducts = data.map((product) => ({
           ...product,
           HinhAnh: product.HinhAnh && product.HinhAnh !== 'null'
             ? `/img/products/${product.HinhAnh}`
