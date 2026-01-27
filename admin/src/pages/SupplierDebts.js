@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { message } from 'antd';
 import { PermissionContext } from '../components/PermissionContext';
 import { FEATURES } from '../constants/permissions';
+import dayjs from 'dayjs';
 import '../styles/SupplierDebts.css';
 
 const SupplierDebts = () => {
@@ -14,6 +16,8 @@ const SupplierDebts = () => {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [selectedDebt, setSelectedDebt] = useState(null);
     const [paymentAmount, setPaymentAmount] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('Chuyen_khoan');
+    const [paymentNote, setPaymentNote] = useState('');
 
     // Mock debts data
     const mockDebts = [
@@ -68,8 +72,31 @@ const SupplierDebts = () => {
         fetchSuppliers();
     }, []);
 
-    const fetchDebts = () => {
-        setDebts(mockDebts);
+    const fetchDebts = async () => {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await axios.get('http://localhost:5000/api/suppliers/debts/all', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.data.success) {
+                const processed = (response.data.data || []).map(d => {
+                    let status = 'unpaid';
+                    if (d.status === 'Da_thanh_toan') status = 'paid';
+                    else if (d.dueDate && new Date(d.dueDate) < new Date() && d.remaining > 0) status = 'overdue';
+
+                    return {
+                        ...d,
+                        id: d.MaCongNo,
+                        purchaseOrder: d.purchaseOrder ? `PN-${d.purchaseOrder}` : 'N/A',
+                        status: status
+                    };
+                });
+                setDebts(processed);
+            }
+        } catch (error) {
+            console.error('Error fetching debts:', error);
+            message.error('Lỗi khi tải danh sách công nợ');
+        }
     };
 
     const fetchSuppliers = async () => {
@@ -115,28 +142,29 @@ const SupplierDebts = () => {
         try {
             const token = localStorage.getItem('authToken');
             const paymentData = {
-                MaNCC: selectedDebt.supplierId,
+                MaCongNo: selectedDebt.MaCongNo,
                 SoTien: parseFloat(paymentAmount),
-                PhuongThuc: 'Chuyen_khoan',
-                GhiChu: `Thanh toán ${selectedDebt.purchaseOrder}`
+                PhuongThuc: paymentMethod,
+                GhiChu: paymentNote || `Thanh toán cho phiếu ${selectedDebt.purchaseOrder}`
             };
 
             const response = await axios.post(
-                'http://localhost:5000/api/debts/pay',
+                'http://localhost:5000/api/suppliers/debts/pay',
                 paymentData,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
             if (response.data.success) {
-                alert('Ghi nhận thanh toán thành công!');
+                message.success('Ghi nhận thanh toán thành công!');
                 setShowPaymentModal(false);
                 setSelectedDebt(null);
                 setPaymentAmount('');
+                setPaymentNote('');
                 fetchDebts();
             }
         } catch (error) {
             console.error('Error recording payment:', error);
-            alert('Lỗi ghi nhận thanh toán: ' + (error.response?.data?.message || error.message));
+            message.error('Lỗi ghi nhận thanh toán: ' + (error.response?.data?.message || error.message));
         }
     };
 
@@ -192,7 +220,7 @@ const SupplierDebts = () => {
                     </div>
                     <div className="stat-content">
                         <h3>TỔNG NỢ CẦN TRẢ</h3>
-                        <div className="stat-value">{stats.totalDebt.toLocaleString()}.000đ</div>
+                        <div className="stat-value">{stats.totalDebt.toLocaleString()} đ</div>
                         <div className="stat-trend positive">+4.2% so với tháng trước</div>
                     </div>
                 </div>
@@ -203,7 +231,7 @@ const SupplierDebts = () => {
                     </div>
                     <div className="stat-content">
                         <h3>ĐÃ TRẢ THÁNG NÀY</h3>
-                        <div className="stat-value">{stats.paidThisMonth.toLocaleString()}.000đ</div>
+                        <div className="stat-value">{stats.paidThisMonth.toLocaleString()} đ</div>
                         <div className="stat-trend positive">+12.4% so với tháng trước</div>
                     </div>
                 </div>
@@ -214,7 +242,7 @@ const SupplierDebts = () => {
                     </div>
                     <div className="stat-content">
                         <h3>NỢ QUÁ HẠN</h3>
-                        <div className="stat-value">{stats.overdue.toLocaleString()}.000đ</div>
+                        <div className="stat-value">{stats.overdue.toLocaleString()} đ</div>
                         <div className="stat-trend negative">-2.1% cảnh báo quá hạn</div>
                     </div>
                 </div>
@@ -284,18 +312,18 @@ const SupplierDebts = () => {
                                             </div>
                                         </td>
                                         <td className="po-code">{debt.purchaseOrder}</td>
-                                        <td className="amount-cell">{debt.totalAmount.toLocaleString()}.000đ</td>
+                                        <td className="amount-cell">{debt.totalAmount.toLocaleString()} đ</td>
                                         <td className="paid-cell">
-                                            {debt.paid > 0 ? `${debt.paid.toLocaleString()}.000đ` : 'Ođ'}
+                                            {debt.paid > 0 ? `${debt.paid.toLocaleString()} đ` : '0 đ'}
                                         </td>
                                         <td className="remaining-cell">
                                             {debt.remaining > 0 ? (
-                                                <span className="remaining-amount">{debt.remaining.toLocaleString()}.000đ</span>
+                                                <span className="remaining-amount">{debt.remaining.toLocaleString()} đ</span>
                                             ) : (
-                                                'Ođ'
+                                                '0 đ'
                                             )}
                                         </td>
-                                        <td className="due-date">{debt.dueDate}</td>
+                                        <td className="due-date">{debt.dueDate ? dayjs(debt.dueDate).format('DD/MM/YYYY') : 'N/A'}</td>
                                         <td>
                                             <span className={`status-badge ${statusBadge.class}`}>
                                                 {statusBadge.text}
@@ -372,7 +400,7 @@ const SupplierDebts = () => {
                                 </div>
                                 <div className="info-row">
                                     <span>Nợ còn lại:</span>
-                                    <strong className="debt-amount">{selectedDebt.remaining.toLocaleString()}.000đ</strong>
+                                    <strong className="debt-amount">{selectedDebt.remaining.toLocaleString()} đ</strong>
                                 </div>
                             </div>
 
@@ -389,10 +417,14 @@ const SupplierDebts = () => {
 
                             <div className="form-group">
                                 <label>Hình thức thanh toán</label>
-                                <select className="payment-method-select">
-                                    <option value="transfer">Chuyển khoản</option>
-                                    <option value="cash">Tiền mặt</option>
-                                    <option value="card">Thẻ</option>
+                                <select
+                                    className="payment-method-select"
+                                    value={paymentMethod}
+                                    onChange={(e) => setPaymentMethod(e.target.value)}
+                                >
+                                    <option value="Chuyen_khoan">Chuyển khoản</option>
+                                    <option value="Tien_mat">Tiền mặt</option>
+                                    <option value="The">Thẻ</option>
                                 </select>
                             </div>
 
@@ -402,6 +434,8 @@ const SupplierDebts = () => {
                                     placeholder="Nhập ghi chú (tùy chọn)"
                                     className="payment-note"
                                     rows="3"
+                                    value={paymentNote}
+                                    onChange={(e) => setPaymentNote(e.target.value)}
                                 ></textarea>
                             </div>
                         </div>

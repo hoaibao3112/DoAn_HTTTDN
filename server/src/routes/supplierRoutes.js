@@ -17,6 +17,7 @@ router.put('/:id', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.UPDATE), supp
 router.delete('/:id', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.DELETE), supplierController.deleteSupplier);
 
 // ======================= SUPPLIER DEBTS =======================
+router.get('/debts/all', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.VIEW), supplierController.getAllDebts);
 router.get('/:id/debts', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.VIEW), supplierController.getSupplierDebts);
 router.post('/debts/pay', checkPermission(FEATURES.SUPPLIERS, PERMISSIONS.CREATE), supplierController.recordDebtPayment);
 

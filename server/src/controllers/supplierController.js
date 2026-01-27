@@ -178,6 +178,24 @@ const supplierController = {
         }
     },
 
+    // ======================= GET ALL DEBTS =======================
+    getAllDebts: async (req, res) => {
+        try {
+            const [rows] = await pool.query(
+                `SELECT cn.*, ncc.TenNCC as supplier, ncc.SDT as contact, pn.MaPN as purchaseOrder,
+                        cn.SoTienNo as totalAmount, cn.SoTienDaTra as paid, cn.SoTienConLai as remaining,
+                        cn.HanThanhToan as dueDate, cn.TrangThai as status
+                 FROM cong_no_ncc cn
+                 JOIN nhacungcap ncc ON cn.MaNCC = ncc.MaNCC
+                 LEFT JOIN phieunhap pn ON cn.MaPN = pn.MaPN
+                 ORDER BY cn.NgayPhatSinh DESC`
+            );
+            res.json({ success: true, data: rows });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
     // ======================= GET SUPPLIER DEBTS =======================
     getSupplierDebts: async (req, res) => {
         const { id } = req.params;
@@ -198,9 +216,9 @@ const supplierController = {
 
     // ======================= RECORD DEBT PAYMENT =======================
     recordDebtPayment: async (req, res) => {
-        const { MaCongNo, SoTienTra, HinhThucTra, GhiChu } = req.body;
+        const { MaCongNo, SoTien, PhuongThuc, GhiChu } = req.body;
 
-        if (!MaCongNo || !SoTienTra || SoTienTra <= 0) {
+        if (!MaCongNo || !SoTien || SoTien <= 0) {
             return res.status(400).json({ success: false, message: 'Dữ liệu không hợp lệ' });
         }
 
@@ -214,7 +232,7 @@ const supplierController = {
                 throw new Error('Công nợ không tồn tại');
             }
 
-            if (SoTienTra > debt[0].SoTienConLai) {
+            if (SoTien > debt[0].SoTienConLai) {
                 throw new Error('Số tiền trả vượt quá số tiền còn lại');
             }
 
@@ -222,11 +240,11 @@ const supplierController = {
             await conn.query(
                 `INSERT INTO lich_su_tra_no_ncc (MaCongNo, SoTienTra, HinhThucTra, NguoiThu, GhiChu)
                  VALUES (?, ?, ?, ?, ?)`,
-                [MaCongNo, SoTienTra, HinhThucTra || 'Tien_mat', req.user.MaTK, GhiChu]
+                [MaCongNo, SoTien, PhuongThuc || 'Tien_mat', req.user.MaTK, GhiChu]
             );
 
             // Update debt
-            const newPaid = parseFloat(debt[0].SoTienDaTra) + parseFloat(SoTienTra);
+            const newPaid = parseFloat(debt[0].SoTienDaTra) + parseFloat(SoTien);
             const newRemaining = parseFloat(debt[0].SoTienNo) - newPaid;
             let newStatus = 'Chua_thanh_toan';
 
