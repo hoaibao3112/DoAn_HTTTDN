@@ -44,7 +44,7 @@ const StockTransfer = () => {
     const fetchProducts = async () => {
         try {
             const token = localStorage.getItem('authToken');
-            const response = await axios.get('http://localhost:5000/api/products', {
+            const response = await axios.get('http://localhost:5000/api/warehouse/products', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.data.success) {

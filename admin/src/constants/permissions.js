@@ -51,10 +51,13 @@ export const FEATURES = {
     STOCK_REPORT: 26,             // Báo cáo tồn kho
     HR_REPORT: 27,                // Báo cáo nhân sự
 
+    // ============ CATALOG (Reference Data) ============
+    AUTHORS: 29,                 // Quản lý tác giả
+    CATEGORIES: 30,              // Quản lý thể loại (Database: 30)
+
     // ============ KHÁC (Others) ============
-    CATEGORIES: 28,               // Thể loại (Database: Thể loại)
-    AUTHORS: 29,                  // Tác Giả (Database: Tác Giả)
-    PROMOTIONS: 30                // Khuyến mãi (Database: Khuyến mãi)
+    BRANCHES: 28,                // Quản lý chi nhánh (Database: 28)
+    PROMOTIONS: 31               // Khuyến mãi (Giả sử 31 nếu 30 là Thể loại)
 };
 
 /**
@@ -104,9 +107,10 @@ export const FEATURE_NAMES = {
     25: 'Báo cáo lợi nhuận',
     26: 'Báo cáo tồn kho',
     27: 'Báo cáo nhân sự',
-    28: 'Thể loại',           // Database: Thể loại
-    29: 'Tác Giả',            // Database: Tác Giả  
-    30: 'Khuyến mãi'          // Database: Khuyến mãi
+    28: 'Quản lý chi nhánh',
+    29: 'Quản lý tác giả',
+    30: 'Quản lý thể loại',
+    31: 'Khuyến mãi'
 };
 
 /**

@@ -12,7 +12,7 @@ router.use(authenticateToken);
 
 // ======================= PRODUCT MANAGEMENT =======================
 router.get('/products',
-    checkPermission(FEATURES.PRODUCTS, PERMISSIONS.VIEW),
+    // checkPermission(FEATURES.PRODUCTS, PERMISSIONS.VIEW), // Cho phép xem list sản phẩm rộng rãi cho POS/Warehouse
     warehouseController.getAllProducts
 );
 

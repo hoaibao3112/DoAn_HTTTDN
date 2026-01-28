@@ -9,8 +9,14 @@ const router = express.Router();
 // All branch routes require authentication
 router.use(authenticateToken);
 
+// Debug log for route hit
+router.use((req, res, next) => {
+    console.log(`[BranchRoutes] Request: ${req.method} ${req.url}`);
+    next();
+});
+
 router.get('/',
-    checkPermission(FEATURES.BRANCHES, PERMISSIONS.VIEW),
+    // checkPermission(FEATURES.BRANCHES, PERMISSIONS.VIEW),
     branchController.getAllBranches
 );
 

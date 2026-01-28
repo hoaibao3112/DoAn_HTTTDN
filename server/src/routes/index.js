@@ -13,6 +13,7 @@ import customerRoutes from './customerRoutes.js';
 import branchRoutes from './branchRoutes.js';
 import catalogRoutes from './catalogRoutes.js';
 import chatRoutes from './chat.js';
+import paymentRoutes from './paymentRoutes.js';
 
 export const initRoutes = (app) => {
   // Root path - Server status
@@ -72,4 +73,5 @@ export const initRoutes = (app) => {
   // ======================= FINANCE MANAGEMENT =======================
   app.use('/api/finance', financeRoutes);
   app.use('/api/chat', chatRoutes);
+  app.use('/api/payments', paymentRoutes);
 };

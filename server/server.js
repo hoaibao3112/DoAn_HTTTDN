@@ -1,4 +1,4 @@
-// server.js - Full rewrite with integrated WebSocket for real-time chat
+// server.js - Full rewrite with integrated WebSocket for real-time chat (Force Restart)
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';

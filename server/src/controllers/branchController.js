@@ -4,10 +4,13 @@ import { logActivity } from '../utils/auditLogger.js';
 const branchController = {
     // ======================= GET ALL BRANCHES =======================
     getAllBranches: async (req, res) => {
+        console.log('GET /api/branches - Fetching all branches...');
         try {
             const [rows] = await pool.query('SELECT * FROM cua_hang ORDER BY TenCH');
+            console.log(`Successfully fetched ${rows.length} branches`);
             res.json({ success: true, data: rows });
         } catch (error) {
+            console.error('❌ Error in getAllBranches:', error.message);
             res.status(500).json({ success: false, message: error.message });
         }
     },
