@@ -11,6 +11,7 @@ const { RangePicker } = DatePicker;
 const NhapHang = () => {
   // ----- States -----
   const [phieuNhap, setPhieuNhap] = useState([]);
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   const [nhaCungCap, setNhaCungCap] = useState([]);
   const [sanPham, setSanPham] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -62,6 +63,13 @@ const NhapHang = () => {
       const res = await axios.get(`${API_BASE_URL}/purchase-orders?${query}`, config);
       if (res.data.success) {
         setPhieuNhap(res.data.data);
+        if (res.data.pagination) {
+          setPagination({
+            current: res.data.pagination.page,
+            pageSize: res.data.pagination.pageSize,
+            total: res.data.pagination.total
+          });
+        }
       }
     } catch (error) {
       notification.error({ message: 'Lỗi tải dữ liệu phiếu nhập' });

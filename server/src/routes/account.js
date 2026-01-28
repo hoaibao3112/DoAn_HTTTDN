@@ -11,6 +11,24 @@ const router = express.Router();
 // Middleware to apply to all account routes
 router.use(authenticateToken);
 
+// 0. Change Password (Self)
+router.put('/change-password', async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  try {
+    const [user] = await pool.query('SELECT MatKhau FROM taikhoan WHERE MaTK = ?', [req.user.MaTK]);
+    if (!user.length) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const match = await bcrypt.compare(oldPassword, user[0].MatKhau);
+    if (!match) return res.status(400).json({ success: false, message: 'Mật khẩu cũ không chính xác' });
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE taikhoan SET MatKhau = ? WHERE MaTK = ?', [hashed, req.user.MaTK]);
+    res.json({ success: true, message: 'Đổi mật khẩu thành công' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // 1. Get all accounts (Admin/Manager with 'Xem' permission on feature 2)
 router.get('/', checkPermission(FEATURES.USERS, PERMISSIONS.VIEW), async (req, res) => {
   try {

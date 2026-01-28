@@ -23,6 +23,7 @@ router.get('/my-leave', hrController.getMyLeave);
 
 // Salary (Self) - Nhân viên xem lương của mình
 router.get('/my-salary', hrController.getMySalary);
+router.get('/my-salary-history', hrController.getMySalaryHistory);
 
 // ======================= MODULE 2.2: HR MANAGER =======================
 
@@ -83,13 +84,13 @@ router.get('/my-salary/print/monthly',
                 SELECT 
                     bl.*, 
                     nv.HoTen, nv.ChucVu,
-                    DATE_FORMAT(bl.NgayTinhLuong, '%m/%Y') as ThangNam
-                FROM bang_luong bl
-                JOIN nhanvien nv ON bl.MaNV = nv.MaTK
+                    DATE_FORMAT(bl.NgayTinh, '%m/%Y') as ThangNam
+                FROM luong bl
+                JOIN nhanvien nv ON bl.MaNV = nv.MaNV
                 WHERE nv.MaTK = ? 
-                ${year ? 'AND YEAR(bl.NgayTinhLuong) = ?' : ''}
-                ${month ? 'AND MONTH(bl.NgayTinhLuong) = ?' : ''}
-                ORDER BY bl.NgayTinhLuong DESC
+                ${year ? 'AND YEAR(bl.NgayTinh) = ?' : ''}
+                ${month ? 'AND MONTH(bl.NgayTinh) = ?' : ''}
+                ORDER BY bl.NgayTinh DESC
             `, year && month ? [MaTK, year, month] : year ? [MaTK, year] : [MaTK]);
 
             res.json({
@@ -120,12 +121,12 @@ router.get('/my-salary/print/yearly',
         try {
             const [salaryData] = await pool.query(`
                 SELECT 
-                    MONTH(bl.NgayTinhLuong) as Thang,
-                    bl.LuongCoBan, bl.PhuCap, bl.Thuong, bl.KhauTru, bl.TongLuong,
+                    MONTH(bl.NgayTinh) as Thang,
+                    bl.LuongCoBan, bl.PhuCap, bl.Thuong, bl.Phat, bl.TongLuong,
                     nv.HoTen, nv.ChucVu
-                FROM bang_luong bl
-                JOIN nhanvien nv ON bl.MaNV = nv.MaTK
-                WHERE nv.MaTK = ? AND YEAR(bl.NgayTinhLuong) = ?
+                FROM luong bl
+                JOIN nhanvien nv ON bl.MaNV = nv.MaNV
+                WHERE nv.MaTK = ? AND YEAR(bl.NgayTinh) = ?
                 ORDER BY Thang
             `, [MaTK, year]);
 
@@ -134,9 +135,9 @@ router.get('/my-salary/print/yearly',
                 TongLuongCoBan: acc.TongLuongCoBan + parseFloat(row.LuongCoBan || 0),
                 TongPhuCap: acc.TongPhuCap + parseFloat(row.PhuCap || 0),
                 TongThuong: acc.TongThuong + parseFloat(row.Thuong || 0),
-                TongKhauTru: acc.TongKhauTru + parseFloat(row.KhauTru || 0),
+                TongPhat: acc.TongPhat + parseFloat(row.Phat || 0),
                 TongLuongNam: acc.TongLuongNam + parseFloat(row.TongLuong || 0)
-            }), { TongLuongCoBan: 0, TongPhuCap: 0, TongThuong: 0, TongKhauTru: 0, TongLuongNam: 0 });
+            }), { TongLuongCoBan: 0, TongPhuCap: 0, TongThuong: 0, TongPhat: 0, TongLuongNam: 0 });
 
             res.json({
                 success: true,
@@ -221,11 +222,11 @@ router.get('/reports/salary',
                 query = `
                     SELECT 
                         nv.HoTen, nv.ChucVu,
-                        bl.LuongCoBan, bl.PhuCap, bl.Thuong, bl.KhauTru, bl.TongLuong,
-                        bl.NgayTinhLuong
-                    FROM bang_luong bl
-                    JOIN nhanvien nv ON bl.MaNV = nv.MaTK
-                    WHERE YEAR(bl.NgayTinhLuong) = ? AND MONTH(bl.NgayTinhLuong) = ?
+                        bl.LuongCoBan, bl.PhuCap, bl.Thuong, bl.Phat, bl.TongLuong,
+                        bl.NgayTinh
+                    FROM luong bl
+                    JOIN nhanvien nv ON bl.MaNV = nv.MaNV
+                    WHERE YEAR(bl.NgayTinh) = ? AND MONTH(bl.NgayTinh) = ?
                     ORDER BY nv.HoTen
                 `;
                 params = [year, month];
@@ -233,16 +234,16 @@ router.get('/reports/salary',
                 query = `
                     SELECT 
                         nv.HoTen, nv.ChucVu,
-                        MONTH(bl.NgayTinhLuong) as Thang,
+                        MONTH(bl.NgayTinh) as Thang,
                         SUM(bl.LuongCoBan) as TongLuongCoBan,
                         SUM(bl.PhuCap) as TongPhuCap,
                         SUM(bl.Thuong) as TongThuong,
-                        SUM(bl.KhauTru) as TongKhauTru,
+                        SUM(bl.Phat) as TongPhat,
                         SUM(bl.TongLuong) as TongLuongNam
-                    FROM bang_luong bl
-                    JOIN nhanvien nv ON bl.MaNV = nv.MaTK
-                    WHERE YEAR(bl.NgayTinhLuong) = ?
-                    GROUP BY nv.MaTK, nv.HoTen, nv.ChucVu
+                    FROM luong bl
+                    JOIN nhanvien nv ON bl.MaNV = nv.MaNV
+                    WHERE YEAR(bl.NgayTinh) = ?
+                    GROUP BY nv.MaNV, nv.HoTen, nv.ChucVu
                     ORDER BY TongLuongNam DESC
                 `;
                 params = [year];
@@ -294,15 +295,15 @@ router.get('/reports/bonus',
             const query = `
                 SELECT 
                     nv.HoTen, nv.ChucVu,
-                    ${year ? 'MONTH(bl.NgayTinhLuong) as Thang,' : ''}
-                    ${year ? 'YEAR(bl.NgayTinhLuong) as Nam,' : 'YEAR(bl.NgayTinhLuong) as Nam,'}
+                    ${year ? 'MONTH(bl.NgayTinh) as Thang,' : ''}
+                    ${year ? 'YEAR(bl.NgayTinh) as Nam,' : 'YEAR(bl.NgayTinh) as Nam,'}
                     SUM(bl.Thuong) as TongThuong,
                     COUNT(*) as SoLanThuong
-                FROM bang_luong bl
-                JOIN nhanvien nv ON bl.MaNV = nv.MaTK
+                FROM luong bl
+                JOIN nhanvien nv ON bl.MaNV = nv.MaNV
                 WHERE bl.Thuong > 0
-                ${year ? 'AND YEAR(bl.NgayTinhLuong) = ?' : ''}
-                GROUP BY nv.MaTK, nv.HoTen, nv.ChucVu ${year ? ', Nam, Thang' : ', Nam'}
+                ${year ? 'AND YEAR(bl.NgayTinh) = ?' : ''}
+                GROUP BY nv.MaNV, nv.HoTen, nv.ChucVu ${year ? ', Nam, Thang' : ', Nam'}
                 ORDER BY ${year ? 'Nam, Thang' : 'Nam DESC'}, TongThuong DESC
             `;
 

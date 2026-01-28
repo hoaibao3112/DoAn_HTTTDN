@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import {
-  Card, Spin, message, Button, Modal, Form, Input, Row, Col, Avatar, Typography, Table, Upload
+  Card, Spin, message, Button, Modal, Form, Input, Row, Col, Avatar, Typography, Table, Upload,
+  Tag, Divider, Space, DatePicker, Select, Alert
 } from 'antd';
 import {
-  UserOutlined, LockOutlined, CheckCircleOutlined, LogoutOutlined, DollarCircleOutlined, EyeOutlined
+  UserOutlined, LockOutlined, CheckCircleOutlined, LogoutOutlined,
+  DollarCircleOutlined, EyeOutlined, PrinterOutlined, SendOutlined, EditOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -24,6 +26,14 @@ const Profile = () => {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
+
+  // NEW: Profile Edit & Leave Management
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [leaveHistory, setLeaveHistory] = useState([]);
+  const [leaveLoading, setLeaveLoading] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [leaveSubmitting, setLeaveSubmitting] = useState(false);
   // computed avatar src
   const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
   const [avatarSrc, setAvatarSrc] = useState(undefined);
@@ -47,30 +57,52 @@ const Profile = () => {
   const [detailYear, setDetailYear] = useState(null);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const token = localStorage.getItem('authToken');
-        const userInfoStr = localStorage.getItem('userInfo');
-        if (!token || !userInfoStr) {
-          message.error('Không tìm thấy thông tin đăng nhập!');
-          return;
-        }
-        const { MaTK } = JSON.parse(userInfoStr);
-        const res = await axios.get(`http://localhost:5000/api/users/by-matk/${MaTK}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setUserInfo(res.data);
-        // compute avatar src if present
-        const anh = res.data?.Anh;
-        setAvatarSrc(buildAvatarSrc(anh));
-      } catch (error) {
-        message.error('Lỗi khi tải thông tin cá nhân!');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchProfile();
+    fetchLeaveHistory();
   }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const userInfoStr = localStorage.getItem('userInfo');
+      if (!token || !userInfoStr) {
+        message.error('Không tìm thấy thông tin đăng nhập!');
+        return;
+      }
+      // Use the consolidated hr profile endpoint (no MaTK needed in URL)
+      const res = await axios.get(`http://localhost:5000/api/hr/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        setUserInfo(res.data.data);
+        setAvatarSrc(buildAvatarSrc(res.data.data?.Anh));
+      } else {
+        message.warning('Không tìm thấy thông tin nhân viên!');
+      }
+    } catch (error) {
+      console.error(error);
+      message.error('Lỗi khi tải thông tin cá nhân!');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLeaveHistory = async () => {
+    setLeaveLoading(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await axios.get('http://localhost:5000/api/hr/my-leave', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        setLeaveHistory(res.data.data);
+      }
+    } catch (error) {
+      console.error('Lỗi fetch leave history');
+    } finally {
+      setLeaveLoading(false);
+    }
+  };
 
   // update avatarSrc whenever userInfo changes (helps when refreshed after upload)
   useEffect(() => {
@@ -90,9 +122,14 @@ const Profile = () => {
         return;
       }
       const { MaTK } = JSON.parse(userInfoStr);
-      const salaryRes = await axios.get(`http://localhost:5000/api/salary/history/${MaTK}`);
-      setSalaryList(salaryRes.data);
-      setShowSalaryModal(true);
+      const token = localStorage.getItem('authToken');
+      const salaryRes = await axios.get(`http://localhost:5000/api/hr/my-salary-history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (salaryRes.data.success) {
+        setSalaryList(salaryRes.data.data);
+        setShowSalaryModal(true);
+      }
     } catch (error) {
       message.error('Lỗi khi tải thông tin lương!');
     } finally {
@@ -105,7 +142,7 @@ const Profile = () => {
     try {
       const token = localStorage.getItem('authToken');
       await axios.put(
-        `http://localhost:5000/api/users/change-password`,
+        `http://localhost:5000/api/accounts/change-password`,
         { oldPassword: values.oldPassword, newPassword: values.newPassword },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -136,14 +173,14 @@ const Profile = () => {
       const now = new Date();
       const today = now.toISOString().slice(0, 10);
       const gioVao = now.toTimeString().slice(0, 8);
-      await axios.post('http://localhost:5000/api/attendance', {
+      await axios.post('http://localhost:5000/api/hr/checkin', {
         MaTK,
         ngay: today,
         gio_vao: gioVao,
         gio_ra: "17:00:00",
         trang_thai: "Di_lam",
         ghi_chu: "Chấm công thành công"
-      });
+      }, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
       message.success('Chấm công hôm nay thành công!');
     } catch (error) {
       if (error.response?.data?.error) {
@@ -160,33 +197,45 @@ const Profile = () => {
     }
   };
 
-  const handleResign = async (values) => {
-    setResignLoading(true);
+  const handleSubmitLeave = async (values) => {
+    setLeaveSubmitting(true);
     try {
-      const userInfoStr = localStorage.getItem('userInfo');
-      if (!userInfoStr) {
-        message.error('Không tìm thấy thông tin đăng nhập!');
-        setResignLoading(false);
-        return;
+      const token = localStorage.getItem('authToken');
+      const res = await axios.post('http://localhost:5000/api/hr/xin-nghi-phep', {
+        LoaiDon: values.LoaiDon,
+        NgayBatDau: values.dates[0].format('YYYY-MM-DD'),
+        NgayKetThuc: values.dates[1].format('YYYY-MM-DD'),
+        LyDo: values.LyDo
+      }, { headers: { Authorization: `Bearer ${token}` } });
+
+      if (res.data.success) {
+        message.success('Gửi đơn thành công!');
+        setShowLeaveModal(false);
+        fetchLeaveHistory();
       }
-      const { MaTK } = JSON.parse(userInfoStr);
-      if (!MaTK) {
-        message.error('Không tìm thấy mã tài khoản!');
-        setResignLoading(false);
-        return;
-      }
-      await axios.post('http://localhost:5000/api/leave', {
-        MaTK,
-        ngay_bat_dau: dayjs().format('YYYY-MM-DD'),
-        ngay_ket_thuc: dayjs().format('YYYY-MM-DD'),
-        ly_do: values.ly_do || 'Xin nghỉ việc'
-      });
-      message.success('Gửi đơn xin nghỉ việc thành công!');
-      setShowResignModal(false);
     } catch (error) {
-      message.error('Gửi đơn xin nghỉ việc thất bại!');
+      message.error(error.response?.data?.message || 'Gửi đơn thất bại!');
     } finally {
-      setResignLoading(false);
+      setLeaveSubmitting(false);
+    }
+  };
+
+  const handleUpdateProfile = async (values) => {
+    setEditLoading(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await axios.put('http://localhost:5000/api/hr/profile', values, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        message.success('Cập nhật thông tin thành công!');
+        setShowEditModal(false);
+        fetchProfile();
+      }
+    } catch (error) {
+      message.error('Lỗi khi cập nhật thông tin!');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -227,22 +276,109 @@ const Profile = () => {
       responsive: ['xs', 'sm', 'md', 'lg', 'xl']
     },
     {
-      title: 'Chi tiết',
-      key: 'detail',
+      title: 'Thao tác',
+      key: 'action',
       render: (_, record) => (
-        <Button
-          size="small"
-          icon={<EyeOutlined />}
-          onClick={() => handleShowDetail(record.thang, record.nam)}
-        >
-          Xem chi tiết
-        </Button>
+        <Space>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => handleShowDetail(record.thang, record.nam)}
+          >
+            Chi tiết
+          </Button>
+          <Button
+            size="small"
+            icon={<PrinterOutlined />}
+            onClick={() => handlePrint('monthly', record)}
+          >
+            In
+          </Button>
+        </Space>
       ),
       responsive: ['xs', 'sm', 'md', 'lg', 'xl']
     }
   ];
 
-  if (loading) return <Spin tip="Đang tải thông tin..." style={{ width: '100%', marginTop: 100 }} />;
+  const handlePrint = async (type, record = null) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      let url = `http://localhost:5000/api/hr/my-salary/print/${type}`;
+      if (type === 'monthly' && record) {
+        url += `?year=${record.nam}&month=${record.thang}`;
+      } else if (type === 'yearly') {
+        const year = prompt('Nhập năm muốn in:', new Date().getFullYear());
+        if (!year) return;
+        url += `?year=${year}`;
+      }
+
+      const res = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data.success) {
+        // Thực hiện in (mở tab mới và in)
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Phiếu lương - ${res.data.employee?.HoTen}</title>
+              <style>
+                body { font-family: Arial, sans-serif; padding: 40px; }
+                .header { text-align: center; margin-bottom: 30px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+                .total { font-weight: bold; font-size: 1.2em; margin-top: 20px; text-align: right; }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <h2>CỬA HÀNG SÁCH OFFLINE</h2>
+                <h1>PHIẾU LƯƠNG ${type === 'monthly' ? 'THÁNG' : 'NĂM'}</h1>
+              </div>
+              <p><b>Họ tên:</b> ${res.data.employee?.HoTen}</p>
+              <p><b>Chức vụ:</b> ${res.data.employee?.ChucVu}</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nội dung</th>
+                    <th>Số tiền (VNĐ)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${type === 'monthly' ? `
+                    <tr><td>Lương cơ bản</td><td>${res.data.data[0]?.LuongCoBan?.toLocaleString()}</td></tr>
+                    <tr><td>Phụ cấp</td><td>${res.data.data[0]?.PhuCap?.toLocaleString()}</td></tr>
+                    <tr><td>Thưởng</td><td>${res.data.data[0]?.Thuong?.toLocaleString()}</td></tr>
+                    <tr><td>Phạt/Khấu trừ</td><td>${res.data.data[0]?.Phat?.toLocaleString()}</td></tr>
+                    <tr class="total"><td>TỔNG NHẬN</td><td>${res.data.data[0]?.TongLuong?.toLocaleString()}</td></tr>
+                  ` : `
+                    <tr><td>Tổng lương cơ bản</td><td>${res.data.summary?.TongLuongCoBan?.toLocaleString()}</td></tr>
+                    <tr><td>Tổng phụ cấp</td><td>${res.data.summary?.TongPhuCap?.toLocaleString()}</td></tr>
+                    <tr><td>Tổng thưởng</td><td>${res.data.summary?.TongThuong?.toLocaleString()}</td></tr>
+                    <tr><td>Tổng phạt</td><td>${res.data.summary?.TongPhat?.toLocaleString()}</td></tr>
+                    <tr class="total"><td>TỔNG NHẬN CẢ NĂM</td><td>${res.data.summary?.TongLuongNam?.toLocaleString()}</td></tr>
+                  `}
+                </tbody>
+              </table>
+              <div style="margin-top: 50px; display: flex; justify-content: space-between;">
+                <div>Người lập phiếu</div>
+                <div>Nhân viên ký tên</div>
+              </div>
+              <script>window.print();</script>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+      }
+    } catch (error) {
+      console.error(error);
+      message.error('Không thể in phiếu lương lúc này!');
+    }
+  };
+
+  if (loading) return (
+    <div style={{ padding: '100px 0', textAlign: 'center' }}>
+      <Spin tip="Đang tải thông tin..." />
+    </div>
+  );
   if (!userInfo) return <div>Không tìm thấy thông tin nhân viên!</div>;
 
   return (
@@ -308,7 +444,17 @@ const Profile = () => {
                         key="resign"
                         style={{ borderRadius: 8, padding: '6px 12px', minHeight: 38, fontSize: 14 }}
                       >
-                        Xin nghỉ việc
+                        Nghỉ việc
+                      </Button>
+                      <Button
+                        icon={<SendOutlined />}
+                        type="primary"
+                        ghost
+                        onClick={() => setShowLeaveModal(true)}
+                        key="leave"
+                        style={{ borderRadius: 8, padding: '6px 12px', minHeight: 38, fontSize: 14 }}
+                      >
+                        Xin nghỉ phép
                       </Button>
                       <Button
                         icon={<DollarCircleOutlined />}
@@ -336,7 +482,10 @@ const Profile = () => {
                     }}
                   />
                   <div style={{ marginTop: 8 }}>
-                    <Button size="small" onClick={() => setShowAvatarModal(true)}>Thay ảnh</Button>
+                    <Space>
+                      <Button size="small" onClick={() => setShowAvatarModal(true)}>Thay ảnh</Button>
+                      <Button size="small" type="primary" ghost icon={<EditOutlined />} onClick={() => setShowEditModal(true)}>Sửa thông tin</Button>
+                    </Space>
                   </div>
                   <Title level={2} style={{ marginBottom: 4, color: '#0f172a' }}>{userInfo.TenNV || userInfo.TenTK}</Title>
                   <Text type="secondary" style={{ fontSize: 15 }}>{userInfo.TenNQ}</Text>
@@ -361,6 +510,29 @@ const Profile = () => {
                   <Col span={12}><Text strong>Tình trạng:</Text></Col>
                   <Col span={12}><Text>{userInfo.TinhTrang ? 'Hoạt động' : 'Không hoạt động'}</Text></Col>
                 </Row>
+
+                <Divider orientation="left" style={{ margin: '32px 0 16px' }}>Lịch sử xin nghỉ</Divider>
+                <Table
+                  dataSource={leaveHistory}
+                  rowKey="id"
+                  loading={leaveLoading}
+                  pagination={{ pageSize: 5 }}
+                  size="small"
+                  columns={[
+                    { title: 'Loại', dataIndex: 'LoaiDon', render: v => v === 'Nghi_phep' ? 'Nghỉ phép' : v === 'Nghi_om' ? 'Nghỉ ốm' : v === 'Thai_san' ? 'Thai sản' : 'Nghỉ việc' },
+                    { title: 'Bắt đầu', dataIndex: 'NgayBatDau', render: v => dayjs(v).format('DD/MM/YYYY') },
+                    { title: 'Kết thúc', dataIndex: 'NgayKetThuc', render: v => dayjs(v).format('DD/MM/YYYY') },
+                    {
+                      title: 'Trạng thái',
+                      dataIndex: 'TrangThai',
+                      render: v => {
+                        const colors = { Cho_duyet: 'orange', Da_duyet: 'green', Tu_choi: 'red' };
+                        const labels = { Cho_duyet: 'Chờ duyệt', Da_duyet: 'Đã duyệt', Tu_choi: 'Từ chối' };
+                        return <Tag color={colors[v]}>{labels[v]}</Tag>;
+                      }
+                    }
+                  ]}
+                />
               </Card>
             </Col>
             {/* Modal lương cá nhân */}
@@ -439,8 +611,26 @@ const Profile = () => {
               onCancel={() => setShowSalaryModal(false)}
               footer={null}
               width={800}
-    styles={{ body: { borderRadius: 16, padding: 0, overflow: 'hidden' } }}
+              styles={{ body: { borderRadius: 16, padding: 0, overflow: 'hidden' } }}
             >
+              <Alert
+                message="Cách tính lương"
+                description={
+                  <ul style={{ fontSize: 13, paddingLeft: 20 }}>
+                    <li><b>Tổng lương</b> = (Lương cơ bản / 26 * Số ngày làm) + Phụ cấp + Thưởng - Phạt</li>
+                    <li><b>Tăng ca</b>: Tính 150% lương giờ cơ bản.</li>
+                    <li>Phản hồi về lương vui lòng liên hệ phòng nhân sự.</li>
+                  </ul>
+                }
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+                action={
+                  <Button size="small" type="primary" icon={<PrinterOutlined />} onClick={() => handlePrint('yearly')}>
+                    In lương năm
+                  </Button>
+                }
+              />
               <Table
                 columns={salaryColumns}
                 dataSource={salaryList}
@@ -458,7 +648,7 @@ const Profile = () => {
               onCancel={() => setDetailModal(false)}
               footer={null}
               width={500}
-    styles={{ body: { borderRadius: 16, padding: 0, overflow: 'hidden' } }}
+              styles={{ body: { borderRadius: 16, padding: 0, overflow: 'hidden' } }}
             >
               <Spin spinning={detailLoading}>
                 <Table
@@ -492,8 +682,8 @@ const Profile = () => {
               open={showPwdModal}
               onCancel={() => setShowPwdModal(false)}
               footer={null}
-    destroyOnHidden
-    styles={{ body: { padding: 24, borderRadius: 12 } }}
+              destroyOnHidden
+              styles={{ body: { padding: 24, borderRadius: 12 } }}
             >
               <Form
                 layout="vertical"
@@ -541,18 +731,17 @@ const Profile = () => {
                 </Form.Item>
               </Form>
             </Modal>
-            {/* Modal xin nghỉ việc */}
             <Modal
               title="Xin nghỉ việc"
               open={showResignModal}
               onCancel={() => setShowResignModal(false)}
               footer={null}
-    destroyOnHidden
-    styles={{ body: { padding: 24, borderRadius: 12 } }}
+              destroyOnHidden
+              styles={{ body: { padding: 24, borderRadius: 12 } }}
             >
               <Form
                 layout="vertical"
-                onFinish={handleResign}
+                onFinish={(values) => handleSubmitLeave({ ...values, LoaiDon: 'Nghi_viec', dates: [dayjs(), dayjs()], LyDo: values.ly_do })}
               >
                 <Form.Item
                   name="ly_do"
@@ -562,8 +751,72 @@ const Profile = () => {
                   <Input.TextArea placeholder="Nhập lý do nghỉ việc..." />
                 </Form.Item>
                 <Form.Item>
-                  <Button type="primary" htmlType="submit" loading={resignLoading} block style={{ borderRadius: 8 }}>
+                  <Button type="primary" htmlType="submit" loading={leaveSubmitting} block style={{ borderRadius: 8 }}>
                     Gửi đơn xin nghỉ việc
+                  </Button>
+                </Form.Item>
+              </Form>
+            </Modal>
+
+            {/* NEW: Modal Chỉnh sửa thông tin */}
+            <Modal
+              title="Cập nhật thông tin cá nhân"
+              open={showEditModal}
+              onCancel={() => setShowEditModal(false)}
+              footer={null}
+              destroyOnHidden
+            >
+              <Form
+                layout="vertical"
+                initialValues={{
+                  SDT: userInfo.SDT,
+                  Email: userInfo.Email,
+                  DiaChi: userInfo.DiaChi
+                }}
+                onFinish={handleUpdateProfile}
+              >
+                <Form.Item name="SDT" label="Số điện thoại" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
+                <Form.Item name="Email" label="Email" rules={[{ required: true, type: 'email' }]}>
+                  <Input />
+                </Form.Item>
+                <Form.Item name="DiaChi" label="Địa chỉ" rules={[{ required: true }]}>
+                  <Input.TextArea />
+                </Form.Item>
+                <Form.Item>
+                  <Button type="primary" htmlType="submit" loading={editLoading} block>
+                    Cập nhật
+                  </Button>
+                </Form.Item>
+              </Form>
+            </Modal>
+
+            {/* NEW: Modal Xin nghỉ phép */}
+            <Modal
+              title="Gửi đơn xin nghỉ phép"
+              open={showLeaveModal}
+              onCancel={() => setShowLeaveModal(false)}
+              footer={null}
+              destroyOnHidden
+            >
+              <Form layout="vertical" onFinish={handleSubmitLeave}>
+                <Form.Item name="LoaiDon" label="Loại đơn" rules={[{ required: true }]} initialValue="Nghi_phep">
+                  <Select>
+                    <Select.Option value="Nghi_phep">Nghỉ phép năm</Select.Option>
+                    <Select.Option value="Nghi_om">Nghỉ ốm</Select.Option>
+                    <Select.Option value="Thai_san">Nghỉ thai sản</Select.Option>
+                  </Select>
+                </Form.Item>
+                <Form.Item name="dates" label="Thời gian nghỉ" rules={[{ required: true }]}>
+                  <DatePicker.RangePicker style={{ width: '100%' }} />
+                </Form.Item>
+                <Form.Item name="LyDo" label="Lý do nghỉ" rules={[{ required: true }]}>
+                  <Input.TextArea rows={4} placeholder="Nhập lý do chi tiết..." />
+                </Form.Item>
+                <Form.Item>
+                  <Button type="primary" htmlType="submit" loading={leaveSubmitting} block>
+                    Gửi đơn
                   </Button>
                 </Form.Item>
               </Form>

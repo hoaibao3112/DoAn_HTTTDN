@@ -77,6 +77,18 @@ const hrController = {
         }
     },
 
+    getMySalaryHistory: async (req, res) => {
+        try {
+            const [rows] = await pool.query(
+                'SELECT l.* FROM luong l JOIN nhanvien n ON l.MaNV = n.MaNV WHERE n.MaTK = ? ORDER BY l.Nam DESC, l.Thang DESC',
+                [req.user.MaTK]
+            );
+            res.json({ success: true, data: rows });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
     // ======================= 2.2 HR MANAGER =======================
 
     getAllEmployees: async (req, res) => {
