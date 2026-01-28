@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Table, Button, Modal, Form, Select, Input, notification, DatePicker, Alert } from 'antd';
+import { Table, Button, Modal, Form, Select, Input, notification, DatePicker, Alert, Space } from 'antd';
 import { PlusOutlined, EyeOutlined, SyncOutlined, SearchOutlined } from '@ant-design/icons';
 import '../styles/ReceiptManagement.css';
 
@@ -13,16 +13,18 @@ const NhapHang = () => {
   const [phieuNhap, setPhieuNhap] = useState([]);
   const [nhaCungCap, setNhaCungCap] = useState([]);
   const [sanPham, setSanPham] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [chiTietVisible, setChiTietVisible] = useState(false);
   const [selectedPhieu, setSelectedPhieu] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
 
   const [searchParams, setSearchParams] = useState({
     MaNCC: '',
-    TenNCC: '',
-    fromDate: '',
-    toDate: ''
+    MaCH: '',
+    startDate: '',
+    endDate: ''
   });
 
   // Low-stock
@@ -31,76 +33,107 @@ const NhapHang = () => {
   const [showLowStockDetails, setShowLowStockDetails] = useState(false);
 
   // Tỷ lệ lợi nhuận chung (%) - dùng để tính giá bán
-  const [tyLeLoi, setTyLeLoi] = useState(10); // Mặc định 10%
+  const [tyLeLoi, setTyLeLoi] = useState(20); // Mặc định 20% cho hợp lý hơn
 
-  // State để theo dõi items trong form (dùng để tính tổng tiền realtime)
+  // State để theo dõi items trong form
   const [formItems, setFormItems] = useState([]);
+
+  const API_BASE_URL = 'http://localhost:5000/api/warehouse';
+  const TOKEN = localStorage.getItem('authToken');
+
+  const config = {
+    headers: { Authorization: `Bearer ${TOKEN}` }
+  };
 
   // ----- Effects -----
   useEffect(() => {
     fetchPhieuNhap();
     fetchNhaCungCap();
     fetchSanPham();
-    fetchLowStock(true); // hỏi auto tạo phiếu nếu có thiếu hàng
+    fetchBranches();
+    fetchLowStock(true);
   }, []);
 
   // ----- Fetchers -----
-  const fetchPhieuNhap = async () => {
+  const fetchPhieuNhap = async (params = {}) => {
     try {
-      const res = await axios.get('http://localhost:5000/api/receipt');
-      setPhieuNhap(res.data);
+      setLoading(true);
+      const query = new URLSearchParams(params).toString();
+      const res = await axios.get(`${API_BASE_URL}/purchase-orders?${query}`, config);
+      if (res.data.success) {
+        setPhieuNhap(res.data.data);
+      }
     } catch (error) {
       notification.error({ message: 'Lỗi tải dữ liệu phiếu nhập' });
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchNhaCungCap = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/suppliers');
-      setNhaCungCap(res.data);
+      // Backend common endpoint for suppliers
+      const res = await axios.get('http://localhost:5000/api/suppliers', config);
+      setNhaCungCap(res.data.data || res.data);
     } catch (error) {
+      console.error('Lỗi fetchNhaCungCap:', error.response?.status, error.response?.data || error.message);
       notification.error({ message: 'Lỗi tải danh sách nhà cung cấp' });
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/branches', config);
+      if (res.data.success) {
+        setBranches(res.data.data);
+      }
+    } catch (error) {
+      console.error('Lỗi tải chi nhánh');
     }
   };
 
   const fetchSanPham = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/warehouse/products');
-      setSanPham(res.data);
+      const res = await axios.get(`${API_BASE_URL}/products?pageSize=100`, config);
+      if (res.data.success) {
+        setSanPham(res.data.data.items || res.data.data);
+      } else {
+        console.warn('API fetchSanPham returned unsuccessful:', res.data);
+      }
     } catch (error) {
-      console.error('Lỗi khi lấy danh sách sản phẩm:', error);
-      notification.error({ message: 'Không thể tải danh sách sản phẩm. Vui lòng kiểm tra server.' });
-      setSanPham([]);
+      console.error('Lỗi fetchSanPham:', error.response?.status, error.message);
+      notification.error({
+        message: 'Lỗi tải sản phẩm',
+        description: error.response?.status === 403 ? 'Bạn không có quyền xem sản phẩm' : 'Không thể kết nối đến server'
+      });
     }
   };
 
-  // Gọi API low-stock; nếu askConfirm=true sẽ confirm tạo phiếu luôn khi có thiếu hàng
   const fetchLowStock = async (askConfirm = false) => {
     try {
-      const res = await axios.get('http://localhost:5000/api/product/low-stock', {
-        params: { defaultThreshold: 5, buffer: 5, limit: 200 }
-      });
-      const items = Array.isArray(res.data) ? res.data : [];
-      setLowStock(items);
-      const hasLow = items.length > 0;
-      setShowLowStockBanner(hasLow);
+      const res = await axios.get(`${API_BASE_URL}/stock/alerts`, config);
+      if (res.data.success) {
+        const items = res.data.data || [];
+        setLowStock(items);
+        const hasLow = items.length > 0;
+        setShowLowStockBanner(hasLow);
 
-      if (askConfirm && hasLow) {
-        Modal.confirm({
-          title: `Có ${items.length} sản phẩm dưới/bằng ngưỡng`,
-          content: 'Bạn có muốn tạo phiếu nhập ngay từ danh sách này không?',
-          okText: 'Tạo phiếu',
-          cancelText: 'Để sau',
-          onOk: () => createReceiptFromLowStock(items)
-        });
+        if (askConfirm && hasLow) {
+          Modal.confirm({
+            title: `CẢNH BÁO TỒN KHO: Có ${items.length} sản phẩm sắp hết`,
+            content: 'Bạn có muốn lập phiếu nhập hàng ngay để đảm bảo kinh doanh không?',
+            okText: 'Lập phiếu ngay',
+            cancelText: 'Để sau',
+            onOk: () => createReceiptFromLowStock(items)
+          });
+        }
       }
     } catch (error) {
-      console.error('Lỗi khi lấy low-stock:', error);
+      console.error('Lỗi khi lấy low-stock:', error.response?.status, error.response?.data || error.message);
     }
   };
 
   // ----- Helpers -----
-  // Tính tổng tiền NHẬP = Σ(Giá nhập × Số lượng)
   const calculateTotalNhap = (items) => {
     return (items || []).reduce((total, item) => {
       if (!item) return total;
@@ -110,527 +143,386 @@ const NhapHang = () => {
     }, 0);
   };
 
-  // Tính giá bán dự kiến = Giá nhập × (1 + Tỷ lệ lợi nhuận / 100)
-  const calculateGiaBan = (donGiaNhap, tyLe) => {
-    return Math.round(Number(donGiaNhap || 0) * (1 + Number(tyLe || 0) / 100));
-  };
-
-  // Tính tổng tiền BÁN dự kiến = Σ(Giá bán × Số lượng)
-  const calculateTotalBan = (items, tyLe) => {
-    return (items || []).reduce((total, item) => {
-      if (!item) return total;
-      const giaBan = calculateGiaBan(item.DonGiaNhap, tyLe);
-      const soLuong = Number(item.SoLuong || 0);
-      return total + (giaBan * soLuong);
-    }, 0);
-  };
-
-  // Lấy số lượng đề xuất: ưu tiên SuggestedOrder, fallback Needed (>0), cuối cùng = 1
-  const resolveSuggestedQty = (sp) => {
-    const s = Number(sp?.SuggestedOrder);
-    if (Number.isFinite(s) && s > 0) return s;
-    const n = Number(sp?.Needed);
-    if (Number.isFinite(n) && n > 0) return n;
-    return 1;
-    // Trường hợp bằng ngưỡng: Needed có thể = 0 ⇒ vẫn nhập tối thiểu 1 theo SuggestedOrder đã + buffer từ API
-  };
-
-  // Tạo phiếu từ danh sách thiếu hàng (items là mảng từ API low-stock, nếu không truyền sẽ dùng state lowStock)
   const createReceiptFromLowStock = (items) => {
-    const source = Array.isArray(items) ? items : lowStock;
-    if (!source || source.length === 0) return;
-
-    const itemsPrefill = source.map(sp => ({
+    const itemsPrefill = items.map(sp => ({
       MaSP: sp.MaSP,
       TenSP: sp.TenSP,
-      SoLuong: resolveSuggestedQty(sp),
-      DonGiaNhap: Number(sp.DonGia || 0) // Giá nhập gốc
+      SoLuong: sp.SoLuongCanNhap || 10,
+      DonGiaNhap: Number(sp.DonGiaNhap || sp.DonGia || 0)
     }));
 
-    form.setFieldsValue({
-      items: itemsPrefill
-    });
-    setFormItems(itemsPrefill); // Cập nhật state để tính tổng tiền
-    setTyLeLoi(10); // Reset về 10%
+    form.setFieldsValue({ items: itemsPrefill });
+    setFormItems(itemsPrefill);
     setModalVisible(true);
   };
-
-  // Không cần applyProfitPercentage nữa - tỷ lệ lợi nhuận được áp dụng ở backend
-  // Frontend chỉ cần gửi TyLeLoi chung, backend sẽ tính Giá bán = Giá nhập × (1 + TyLeLoi/100)
 
   // ----- Actions -----
   const handleSubmit = async (values) => {
     try {
-      // Lọc và chuẩn hóa items
       const validItems = (values.items || [])
         .filter(it => it.MaSP && it.SoLuong > 0 && it.DonGiaNhap > 0)
         .map(it => ({
           MaSP: it.MaSP,
           SoLuong: Number(it.SoLuong),
-          DonGiaNhap: Number(it.DonGiaNhap) // Giá nhập gốc
+          DonGiaNhap: Number(it.DonGiaNhap)
         }));
 
       if (validItems.length === 0) {
-        notification.warning({ message: 'Vui lòng thêm ít nhất 1 sản phẩm hợp lệ' });
+        notification.warning({ message: 'Vui lòng cung cấp danh sách sản phẩm hợp lệ' });
         return;
       }
 
       const payload = {
         MaNCC: values.MaNCC,
-        TenTK: values.TenTK,
-        TyLeLoi: tyLeLoi, // Tỷ lệ lợi nhuận chung (%)
-        items: validItems
+        MaCH: values.MaCH,
+        DaThanhToan: Number(values.DaThanhToan || 0),
+        GhiChu: values.GhiChu,
+        TyLeLoi: tyLeLoi,
+        ChiTiet: validItems
       };
 
-      const response = await axios.post('http://localhost:5000/api/receipt', payload);
+      const response = await axios.post(`${API_BASE_URL}/purchase-orders`, payload, config);
 
-      // Hiển thị kết quả chi tiết
-      const { MaPN, TongTienNhap, items: processedItems } = response.data;
-      notification.success({
-        message: 'Tạo phiếu nhập thành công',
-        description: `Mã phiếu: ${MaPN} | Tổng tiền nhập: ${TongTienNhap?.toLocaleString()}đ | Tỷ lệ lời: ${tyLeLoi}%`
-      });
-
-      setModalVisible(false);
-      form.resetFields();
-      setFormItems([]); // Reset formItems
-      setTyLeLoi(10); // Reset về mặc định
-      await fetchPhieuNhap();
-      await fetchLowStock(false);
+      if (response.data.success) {
+        notification.success({
+          message: 'Lập phiếu nhập thành công',
+          description: `Mã phiếu: ${response.data.MaPN} | Tổng tiền: ${response.data.TongTien.toLocaleString()}đ`
+        });
+        setModalVisible(false);
+        form.resetFields();
+        setFormItems([]);
+        fetchPhieuNhap();
+        fetchLowStock(false);
+      }
     } catch (error) {
-      console.error('Lỗi tạo phiếu nhập:', error);
-      const errorMsg = error.response?.data?.details || error.response?.data?.error || 'Lỗi khi tạo phiếu nhập';
-      notification.error({ message: 'Lỗi', description: errorMsg });
+      notification.error({
+        message: 'Lỗi lập phiếu',
+        description: error.response?.data?.message || error.message
+      });
     }
   };
 
   const xemChiTiet = async (id) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/receipt/${id}`);
-      setSelectedPhieu(res.data);
-      setChiTietVisible(true);
+      const res = await axios.get(`${API_BASE_URL}/purchase-orders/${id}`, config);
+      if (res.data.success) {
+        setSelectedPhieu(res.data.data);
+        setChiTietVisible(true);
+      }
     } catch (error) {
       notification.error({ message: 'Lỗi khi lấy chi tiết phiếu nhập' });
     }
   };
 
-  const handleRefresh = async () => {
-    await fetchPhieuNhap();
-    await fetchLowStock(false);
-    notification.info({ message: 'Danh sách đã được làm mới' });
-    setSearchParams({ MaNCC: '', TenNCC: '', fromDate: '', toDate: '' });
-  };
-
-  const handleSearch = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (searchParams.MaNCC) params.append('MaNCC', searchParams.MaNCC);
-      if (searchParams.TenNCC) params.append('TenNCC', searchParams.TenNCC);
-      if (searchParams.fromDate) params.append('fromDate', searchParams.fromDate);
-      if (searchParams.toDate) params.append('toDate', searchParams.toDate);
-
-      const res = await axios.get(`http://localhost:5000/api/receipt/search?${params.toString()}`);
-      setPhieuNhap(res.data);
-    } catch (error) {
-      notification.error({ message: 'Lỗi khi tìm kiếm phiếu nhập' });
-    }
-  };
-
-  const handleDateChange = (dates) => {
-    setSearchParams({
-      ...searchParams,
-      fromDate: dates ? dates[0]?.format('YYYY-MM-DD') : '',
-      toDate: dates ? dates[1]?.format('YYYY-MM-DD') : ''
-    });
+  const handleSearch = () => {
+    const params = {};
+    if (searchParams.MaNCC) params.MaNCC = searchParams.MaNCC;
+    if (searchParams.MaCH) params.MaCH = searchParams.MaCH;
+    if (searchParams.startDate) params.startDate = searchParams.startDate;
+    if (searchParams.endDate) params.endDate = searchParams.endDate;
+    fetchPhieuNhap(params);
   };
 
   // ----- Render -----
+  const columns = [
+    { title: 'ID', dataIndex: 'MaPN', key: 'MaPN', width: 70, align: 'center' },
+    {
+      title: 'Ngày nhập', dataIndex: 'NgayNhap', key: 'NgayNhap', width: 140,
+      render: (val) => new Date(val).toLocaleString('vi-VN')
+    },
+    { title: 'Nhà cung cấp', dataIndex: 'TenNCC', key: 'TenNCC' },
+    { title: 'Kho/Chi nhánh', dataIndex: 'TenCH', key: 'TenCH' },
+    { title: 'Người lập', dataIndex: 'NguoiLap', key: 'NguoiLap', width: 120 },
+    {
+      title: 'Tổng tiền', dataIndex: 'TongTien', key: 'TongTien', align: 'right',
+      render: (v) => <b>{Number(v).toLocaleString()}đ</b>
+    },
+    {
+      title: 'Đã trả', dataIndex: 'DaThanhToan', key: 'DaThanhToan', align: 'right',
+      render: (v) => <span style={{ color: '#52c41a' }}>{Number(v || 0).toLocaleString()}đ</span>
+    },
+    {
+      title: 'Còn nợ', dataIndex: 'ConNo', key: 'ConNo', align: 'right',
+      render: (v) => <span style={{ color: '#ff4d4f' }}>{Number(v || 0).toLocaleString()}đ</span>
+    },
+    {
+      title: 'Thao tác',
+      key: 'action',
+      width: 120,
+      align: 'center',
+      render: (_, record) => (
+        <Button
+          type="link"
+          icon={<EyeOutlined />}
+          onClick={() => xemChiTiet(record.MaPN)}
+        >
+          Chi tiết
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div className="receipt-management-container">
       <div className="receipt-header">
         <div className="search-section">
           <Select
-            placeholder="Chọn nhà cung cấp"
+            placeholder="Nhà cung cấp"
             value={searchParams.MaNCC || undefined}
-            onChange={(value) => setSearchParams({ ...searchParams, MaNCC: value || '' })}
-            style={{ width: 200 }}
+            onChange={(val) => setSearchParams({ ...searchParams, MaNCC: val || '' })}
+            style={{ width: 160 }}
             allowClear
           >
             {nhaCungCap.map(ncc => (
-              <Option key={ncc.MaNCC} value={ncc.MaNCC}>
-                {ncc.TenNCC}
-              </Option>
+              <Option key={ncc.MaNCC} value={ncc.MaNCC}>{ncc.TenNCC}</Option>
             ))}
           </Select>
 
-          <Input
-            placeholder="Tên nhà cung cấp"
-            value={searchParams.TenNCC}
-            onChange={(e) => setSearchParams({ ...searchParams, TenNCC: e.target.value })}
-            style={{ width: 200 }}
-            onPressEnter={handleSearch}
-          />
+          <Select
+            placeholder="Kho/Chi nhánh"
+            value={searchParams.MaCH || undefined}
+            onChange={(val) => setSearchParams({ ...searchParams, MaCH: val || '' })}
+            style={{ width: 160 }}
+            allowClear
+          >
+            {branches.map(b => (
+              <Option key={b.MaCH} value={b.MaCH}>{b.TenCH}</Option>
+            ))}
+          </Select>
 
           <RangePicker
-            format="YYYY-MM-DD"
-            onChange={handleDateChange}
-            style={{ width: 250 }}
+            onChange={(dates) => setSearchParams({
+              ...searchParams,
+              startDate: dates ? dates[0].format('YYYY-MM-DD') : '',
+              endDate: dates ? dates[1].format('YYYY-MM-DD') : ''
+            })}
+            style={{ width: 220 }}
           />
 
-          <Button icon={<SearchOutlined />} onClick={handleSearch}>
-            Tìm kiếm
-          </Button>
-          <Button icon={<SyncOutlined />} onClick={handleRefresh}>
-            Làm mới
-          </Button>
+          <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>Lọc</Button>
+          <Button icon={<SyncOutlined />} onClick={() => {
+            setSearchParams({ MaNCC: '', MaCH: '', startDate: '', endDate: '' });
+            fetchPhieuNhap();
+          }}>Làm mới</Button>
         </div>
 
         <Button
           type="primary"
           icon={<PlusOutlined />}
+          size="large"
+          style={{ height: 45, borderRadius: 8 }}
           onClick={() => setModalVisible(true)}
         >
-          Tạo phiếu nhập
+          Lập phiếu nhập mới
         </Button>
       </div>
 
-      {/* --- Thông báo low-stock: hiển thị khi có sản phẩm dưới/bằng ngưỡng --- */}
-      {showLowStockBanner && lowStock.length > 0 && (
-        <div style={{ margin: '12px 0' }}>
-          <Alert
-            type="warning"
-            showIcon
-            message={`Có ${lowStock.length} sản phẩm dưới/bằng ngưỡng tồn. Vui lòng tạo phiếu nhập.`}
-            description={
-              <div style={{ marginTop: 8 }}>
-                <Button
-                  size="small"
-                  onClick={() => setShowLowStockDetails(prev => !prev)}
-                  style={{ marginRight: 8 }}
-                >
-                  {showLowStockDetails ? 'Ẩn chi tiết' : 'Xem chi tiết'}
-                </Button>
-                <Button
-                  type="primary"
-                  size="small"
-                  onClick={() => createReceiptFromLowStock(lowStock)}
-                >
-                  Tạo phiếu nhập từ thông báo
-                </Button>
-              </div>
-            }
-          />
-          {showLowStockDetails && (
-            <Table
-              dataSource={lowStock}
-              rowKey="MaSP"
-              pagination={false}
-              size="small"
-              style={{ marginTop: 8, background: '#fff' }}
-            >
-              <Column title="ID" dataIndex="MaSP" width={80} />
-              <Column title="Tên sản phẩm" dataIndex="TenSP" />
-              <Column title="Tồn" dataIndex="SoLuong" align="center" width={80} />
-              <Column title="Ngưỡng" dataIndex="MinSoLuong" align="center" width={100} />
-              <Column
-                title="Đề xuất nhập"
-                align="center"
-                width={130}
-                render={(_, r) => resolveSuggestedQty(r)}
-              />
-            </Table>
-          )}
-        </div>
+      {showLowStockBanner && (
+        <Alert
+          className="lowstock-alert"
+          type="warning"
+          showIcon
+          message={<b>Cảnh báo hàng sắp hết: Có {lowStock.length} sản phẩm cần nhập thêm!</b>}
+          description={
+            <div className="lowstock-actions">
+              <Button size="small" onClick={() => setShowLowStockDetails(!showLowStockDetails)}>
+                {showLowStockDetails ? 'Ẩn bảng kê' : 'Xem bảng kê'}
+              </Button>
+              <Button type="primary" size="small" onClick={() => createReceiptFromLowStock(lowStock)}>
+                Lập phiếu nhập hàng loạt
+              </Button>
+            </div>
+          }
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      {showLowStockDetails && (
+        <Table
+          dataSource={lowStock}
+          rowKey="MaSP"
+          pagination={false}
+          size="small"
+          className="lowstock-table"
+        >
+          <Table.Column title="ID" dataIndex="MaSP" width={60} />
+          <Table.Column title="Sản phẩm" dataIndex="TenSP" />
+          <Table.Column title="Hiện tại" dataIndex="SoLuongTon" align="center" />
+          <Table.Column title="Tối thiểu" dataIndex="SoLuongToiThieu" align="center" />
+          <Table.Column title="Cần nhập" align="center" render={(_, r) => <b>{r.SoLuongCanNhap}</b>} />
+        </Table>
       )}
 
       <div className="table-container">
         <Table
+          columns={columns}
           dataSource={phieuNhap}
           rowKey="MaPN"
-          pagination={{ pageSize: 5 }}
-          bordered
+          loading={loading}
+          pagination={{ pageSize: 10 }}
           size="small"
-          scroll={{ x: 600 }}
-        >
-          <Column title="ID Phiếu nhập" dataIndex="MaPN" width={80} align="center" />
-          <Column title="Tên sản phẩm" dataIndex="TenSPDisplay" width={150} ellipsis />
-          <Column title="Tên tác giả" dataIndex="TacGiaDisplay" width={120} align="center" />
-          <Column title="Thể loại" dataIndex="TheLoaiDisplay" width={100} align="center" />
-          <Column title="Số lượng" dataIndex="SoLuongDisplay" width={80} align="center" />
-          <Column
-            title="Đơn giá"
-            dataIndex="DonGiaDisplay"
-            width={80}
-            align="right"
-            render={(value) => ((value ? Number(value) : 0).toLocaleString() + ' đ')}
-          />
-          <Column title="Nhà cung cấp" dataIndex="TenNCC" width={120} align="center" />
-          <Column title="Ghi chú" dataIndex="GhiChu" width={50} align="center" />
-          <Column
-            title="Chi tiết"
-            width={150}
-            align="center"
-            render={(_, record) => (
-              <Button icon={<EyeOutlined />} onClick={() => xemChiTiet(record.MaPN)} type="link">
-                Xem chi tiết
-              </Button>
-            )}
-          />
-          <Column
-            title="Tổng tiền"
-            width={120}
-            align="right"
-            render={(_, record) => ((record.TongTien ? Number(record.TongTien) : 0).toLocaleString() + ' đ')}
-          />
-        </Table>
+        />
       </div>
 
-      {/* Modal tạo phiếu nhập */}
       <Modal
-        title="Tạo phiếu nhập hàng"
+        title="Lập phiếu nhập hàng BookStore"
         open={modalVisible}
-        onCancel={() => { setModalVisible(false); setTyLeLoi(10); setFormItems([]); }}
+        onCancel={() => { setModalVisible(false); form.resetFields(); setFormItems([]); }}
         footer={null}
         width={1000}
-        destroyOnClose
+        destroyOnHidden
         className="receipt-modal"
       >
         <Form
           form={form}
           onFinish={handleSubmit}
           layout="vertical"
-          onValuesChange={(_, allValues) => {
-            // Cập nhật formItems để tính tổng tiền realtime
-            setFormItems(allValues.items || []);
-          }}
+          onValuesChange={(_, all) => setFormItems(all.items || [])}
+          initialValues={{ DaThanhToan: 0 }}
         >
-          <Form.Item
-            name="MaNCC"
-            label="Nhà cung cấp"
-            rules={[{ required: true, message: 'Vui lòng chọn nhà cung cấp' }]}
-          >
-            <Select showSearch optionFilterProp="children" placeholder="Chọn nhà cung cấp">
-              {nhaCungCap.map(ncc => (
-                <Option key={ncc.MaNCC} value={ncc.MaNCC}>
-                  {ncc.TenNCC}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+            <Form.Item name="MaNCC" label="Nhà cung cấp" rules={[{ required: true }]}>
+              <Select placeholder="Chọn NCC" showSearch optionFilterProp="children">
+                {nhaCungCap.map(ncc => (
+                  <Option key={ncc.MaNCC} value={ncc.MaNCC}>{ncc.TenNCC}</Option>
+                ))}
+              </Select>
+            </Form.Item>
 
-          <Form.Item
-            name="TenTK"
-            label="Tên tài khoản"
-            rules={[{ required: true, message: 'Vui lòng nhập tên tài khoản' }]}
-          >
-            <Input placeholder="Người lập phiếu / tài khoản" />
-          </Form.Item>
+            <Form.Item name="MaCH" label="Nhập vào kho/chi nhánh" rules={[{ required: true }]}>
+              <Select placeholder="Chọn kho" showSearch optionFilterProp="children">
+                {branches.map(b => (
+                  <Option key={b.MaCH} value={b.MaCH}>{b.TenCH}</Option>
+                ))}
+              </Select>
+            </Form.Item>
 
-          {/* Phần tỷ lệ lợi nhuận */}
-          <div className="profit-section" style={{ marginBottom: 16, padding: 12, background: '#f5f5f5', borderRadius: 8 }}>
-            <div style={{ marginBottom: 8 }}>
-              <strong>⚙️ Tỷ lệ lợi nhuận (%):</strong>
-              <span style={{ marginLeft: 8, color: '#666' }}>Giá bán = Giá nhập × (1 + %)</span>
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              {[5, 10, 15, 20, 25, 30].map(p => (
-                <Button
-                  key={p}
-                  type={tyLeLoi === p ? 'primary' : 'default'}
-                  onClick={() => setTyLeLoi(p)}
-                >
-                  {p}%
-                </Button>
-              ))}
-              <Input
-                type="number"
-                value={tyLeLoi}
-                onChange={(e) => setTyLeLoi(Number(e.target.value) || 0)}
-                style={{ width: 100 }}
-                min={0}
-                max={100}
-                addonAfter="%"
-              />
-            </div>
+            <Form.Item name="DaThanhToan" label="Số tiền thanh toán ngay (vnđ)">
+              <Input type="number" min={0} placeholder="0" />
+            </Form.Item>
           </div>
 
-          <Form.List name="items" initialValue={[{}]}>
+          <div className="profit-buttons">
+            <span style={{ fontWeight: 600 }}>⚙️ Tỷ lệ lợi nhuận áp dụng:</span>
+            {[10, 20, 30, 40, 50].map(p => (
+              <Button
+                key={p}
+                type={tyLeLoi === p ? 'primary' : 'default'}
+                onClick={() => setTyLeLoi(p)}
+              >
+                {p}%
+              </Button>
+            ))}
+            <Input
+              type="number"
+              value={tyLeLoi}
+              onChange={e => setTyLeLoi(Number(e.target.value))}
+              style={{ width: 80 }}
+              addonAfter="%"
+            />
+          </div>
+
+          <Form.List name="items">
             {(fields, { add, remove }) => (
-              <>
-                <div style={{ marginBottom: 8 }}>
-                  <strong>📦 Danh sách sản phẩm nhập:</strong>
-                </div>
-                {fields.map(({ key, name, ...restField }) => {
-                  // Dùng formItems state để lấy giá trị realtime
-                  const currentItem = formItems[name] || {};
-                  const giaBanDuKien = calculateGiaBan(currentItem.DonGiaNhap, tyLeLoi);
-
-                  return (
-                    <div key={key} className="form-item-row" style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 12, padding: 8, background: '#fafafa', borderRadius: 4 }}>
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'MaSP']}
-                        label="Sản phẩm"
-                        rules={[{ required: true, message: 'Chọn SP' }]}
-                        style={{ marginBottom: 0 }}
+              <div style={{ maxHeight: 400, overflowY: 'auto', marginBottom: 16 }}>
+                {fields.map(({ key, name, ...restField }) => (
+                  <div key={key} className="form-item-row" style={{ background: '#fff', border: '1px solid #eee' }}>
+                    <Form.Item {...restField} name={[name, 'MaSP']} rules={[{ required: true }]} style={{ width: 250, margin: 0 }}>
+                      <Select
+                        showSearch
+                        optionFilterProp="children"
+                        placeholder="Tìm sản phẩm"
+                        onChange={(val) => {
+                          const sp = sanPham.find(s => s.MaSP === val);
+                          const current = form.getFieldValue('items') || [];
+                          current[name] = {
+                            ...current[name],
+                            MaSP: val,
+                            TenSP: sp?.TenSP,
+                            DonGiaNhap: sp?.GiaNhap || 0
+                          };
+                          form.setFieldsValue({ items: current });
+                        }}
                       >
-                        <Select
-                          style={{ width: 200 }}
-                          showSearch
-                          optionFilterProp="children"
-                          placeholder="Chọn sản phẩm"
-                          onChange={(value) => {
-                            const product = sanPham.find(sp => sp.MaSP === value);
-                            const items = form.getFieldValue('items') || [];
-                            const nextItems = items.map((it, idx) =>
-                              idx === name
-                                ? {
-                                  ...it,
-                                  TenSP: product?.TenSP || '',
-                                  DonGiaNhap: Number(product?.DonGia || 0) // Lấy giá hiện tại làm giá nhập mặc định
-                                }
-                                : it
-                            );
-                            form.setFieldsValue({ items: nextItems, totalNhap: calculateTotalNhap(nextItems) });
-                          }}
-                        >
-                          {sanPham.map(sp => (
-                            <Option key={sp.MaSP} value={sp.MaSP}>
-                              {sp.MaSP} - {sp.TenSP}
-                            </Option>
-                          ))}
-                        </Select>
-                      </Form.Item>
+                        {sanPham.map(s => <Option key={s.MaSP} value={s.MaSP}>{s.MaSP} - {s.TenSP}</Option>)}
+                      </Select>
+                    </Form.Item>
 
-                      <Form.Item {...restField} name={[name, 'TenSP']} label="Tên SP" style={{ marginBottom: 0 }}>
-                        <Input disabled style={{ width: 150 }} />
-                      </Form.Item>
+                    <Form.Item {...restField} name={[name, 'SoLuong']} rules={[{ required: true }]} style={{ margin: 0 }}>
+                      <Input type="number" placeholder="SL" min={1} style={{ width: 80 }} />
+                    </Form.Item>
 
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'SoLuong']}
-                        label="Số lượng"
-                        rules={[{ required: true, message: 'Nhập SL' }]}
-                        style={{ marginBottom: 0 }}
-                      >
-                        <Input type="number" style={{ width: 80 }} min={1} />
-                      </Form.Item>
+                    <Form.Item {...restField} name={[name, 'DonGiaNhap']} rules={[{ required: true }]} style={{ margin: 0 }}>
+                      <Input type="number" placeholder="Giá nhập" min={0} style={{ width: 140 }} />
+                    </Form.Item>
 
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'DonGiaNhap']}
-                        label="Giá nhập (đ)"
-                        rules={[{ required: true, message: 'Nhập giá' }]}
-                        style={{ marginBottom: 0 }}
-                      >
-                        <Input type="number" style={{ width: 120 }} min={0} />
-                      </Form.Item>
-
-                      {/* Hiển thị giá bán dự kiến */}
-                      <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
-                        <span style={{ fontSize: 12, color: '#666' }}>Giá bán dự kiến</span>
-                        <span style={{
-                          padding: '4px 11px',
-                          background: '#e6f7ff',
-                          border: '1px solid #91d5ff',
-                          borderRadius: 4,
-                          fontWeight: 'bold',
-                          color: '#1890ff'
-                        }}>
-                          {giaBanDuKien.toLocaleString()}đ
-                        </span>
+                    <div style={{ width: 150 }}>
+                      <span style={{ fontSize: 11, color: '#999' }}>Giá bán (dự kiến {tyLeLoi}%)</span>
+                      <div style={{ fontWeight: 700, color: '#1677ff' }}>
+                        {(Math.round(Number(formItems[name]?.DonGiaNhap || 0) * (1 + tyLeLoi / 100))).toLocaleString()}đ
                       </div>
-
-                      <Button danger onClick={() => remove(name)} style={{ marginBottom: 0 }}>Xóa</Button>
                     </div>
-                  );
-                })}
 
-                <Button
-                  type="dashed"
-                  onClick={() => add({})}
-                  block
-                  style={{ marginBottom: 16 }}
-                >
-                  + Thêm sản phẩm
-                </Button>
-              </>
+                    <Button danger onClick={() => remove(name)}>Xóa</Button>
+                  </div>
+                ))}
+                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>Thêm sản phẩm</Button>
+              </div>
             )}
           </Form.List>
 
-          {/* Hiển thị tổng tiền */}
-          <div style={{ marginTop: 16, padding: 12, background: '#f0f5ff', borderRadius: 8, border: '1px solid #adc6ff' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span><strong>💰 Tổng tiền NHẬP (giá gốc):</strong></span>
-              <span style={{ fontSize: 16, fontWeight: 'bold', color: '#fa541c' }}>
-                {calculateTotalNhap(formItems).toLocaleString()}đ
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span><strong>📈 Tổng tiền BÁN dự kiến (+{tyLeLoi}%):</strong></span>
-              <span style={{ fontSize: 16, fontWeight: 'bold', color: '#52c41a' }}>
-                {calculateTotalBan(formItems, tyLeLoi).toLocaleString()}đ
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span><strong>📊 Lợi nhuận dự kiến:</strong></span>
-              <span style={{ fontSize: 16, fontWeight: 'bold', color: '#1890ff' }}>
-                {(calculateTotalBan(formItems, tyLeLoi) - calculateTotalNhap(formItems)).toLocaleString()}đ
-              </span>
-            </div>
+          <div className="total-display" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 18 }}>
+            <span>Tổng cộng:</span>
+            <span>{calculateTotalNhap(formItems).toLocaleString()}đ</span>
           </div>
 
-          <Form.Item name="totalNhap" hidden>
-            <Input />
+          <Form.Item name="GhiChu" label="Ghi chú" style={{ marginTop: 16 }}>
+            <Input.TextArea rows={2} placeholder="Nhập ghi chú phiếu nhập..." />
           </Form.Item>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <Button type="primary" htmlType="submit" size="large">
-              ✅ Lưu phiếu nhập
-            </Button>
-            <Button onClick={() => { setModalVisible(false); setTyLeLoi(10); setFormItems([]); }} size="large">
-              Hủy
-            </Button>
+          <div style={{ textAlign: 'right', marginTop: 24 }}>
+            <Space size="middle">
+              <Button size="large" onClick={() => setModalVisible(false)}>Hủy bỏ</Button>
+              <Button type="primary" htmlType="submit" size="large">Xác nhận nhập kho</Button>
+            </Space>
           </div>
         </Form>
       </Modal>
 
-      {/* Modal chi tiết */}
       <Modal
-        title="Chi tiết phiếu nhập"
+        title={`Chi tiết phiếu nhập #${selectedPhieu?.MaPN}`}
         open={chiTietVisible}
         onCancel={() => setChiTietVisible(false)}
         footer={null}
-        width={800}
-        destroyOnClose
+        width={900}
       >
         {selectedPhieu && (
           <div>
-            <div className="detail-info">
-              <h3>Nhà cung cấp: {selectedPhieu.TenNCC || 'Không có'}</h3>
-              <p>Địa chỉ: {selectedPhieu.DiaChi || 'Không có'}</p>
-              <p>SĐT: {selectedPhieu.SDT || 'Không có'}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 20, padding: 16, background: '#f9f9f9', borderRadius: 8 }}>
+              <div>
+                <p><b>Nhà cung cấp:</b> {selectedPhieu.TenNCC}</p>
+                <p><b>Địa chỉ:</b> {selectedPhieu.DiaChiNCC || 'N/A'}</p>
+                <p><b>SĐT:</b> {selectedPhieu.SDTNCC || 'N/A'}</p>
+              </div>
+              <div>
+                <p><b>Nhập tại:</b> {selectedPhieu.TenCH}</p>
+                <p><b>Người lập:</b> {selectedPhieu.NguoiLap}</p>
+                <p><b>Ngày lập:</b> {new Date(selectedPhieu.NgayNhap).toLocaleString('vi-VN')}</p>
+              </div>
             </div>
 
-            <Table dataSource={selectedPhieu.items} rowKey="MaSP" pagination={false}>
-              <Column title="ID Sản phẩm" dataIndex="MaSP" />
-              <Column title="Tên sản phẩm" dataIndex="TenSP" />
-              <Column title="Tên tác giả" dataIndex="TacGia" />
-              <Column title="Thể loại" dataIndex="TheLoai" />
-              <Column title="Số lượng" dataIndex="SoLuong" />
-              <Column
-                title="Đơn giá nhập"
-                dataIndex="DonGiaNhap"
-                render={(v) => `${(Number(v) || 0).toLocaleString()} đ`}
-              />
-              <Column
-                title="Thành tiền"
-                render={(_, r) => ((Number(r.SoLuong) || 0) * (Number(r.DonGiaNhap) || 0)).toLocaleString() + ' đ'}
-              />
+            <Table dataSource={selectedPhieu.items} rowKey="MaSP" pagination={false} size="small">
+              <Table.Column title="Mã SP" dataIndex="MaSP" width={80} />
+              <Table.Column title="Tên sách" dataIndex="TenSP" />
+              <Table.Column title="Số lượng" dataIndex="SoLuong" align="center" />
+              <Table.Column title="Giá nhập" dataIndex="DonGiaNhap" align="right" render={v => Number(v).toLocaleString() + 'đ'} />
+              <Table.Column title="Thành tiền" align="right" render={(_, r) => (r.SoLuong * r.DonGiaNhap).toLocaleString() + 'đ'} />
             </Table>
 
-            <div className="total-amount">
-              Tổng tiền: {(Number(selectedPhieu.TongTien) || 0).toLocaleString()} đ
+            <div style={{ textAlign: 'right', marginTop: 20, fontSize: 16 }}>
+              <p>Tổng tiền hàng: <b>{Number(selectedPhieu.TongTien).toLocaleString()}đ</b></p>
+              <p>Đã thanh toán: <b style={{ color: '#52c41a' }}>{Number(selectedPhieu.DaThanhToan).toLocaleString()}đ</b></p>
+              <p>Còn nợ NCC: <b style={{ color: '#ff4d4f' }}>{Number(selectedPhieu.ConNo).toLocaleString()}đ</b></p>
             </div>
           </div>
         )}

@@ -42,10 +42,19 @@ const ProductManagement = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const API_URL = 'http://localhost:5000/api/warehouse/products';
-  const AUTHORS_API_URL = 'http://localhost:5000/api/catalog/authors';
-  const CATEGORIES_API_URL = 'http://localhost:5000/api/catalog/categories';
-  const PUBLISHERS_API_URL = 'http://localhost:5000/api/warehouse/publishers';
+  const API_BASE_URL = 'http://localhost:5000';
+  const API_URL = `${API_BASE_URL}/api/warehouse/products`;
+  const AUTHORS_API_URL = `${API_BASE_URL}/api/catalog/authors`;
+  const CATEGORIES_API_URL = `${API_BASE_URL}/api/catalog/categories`;
+  const PUBLISHERS_API_URL = `${API_BASE_URL}/api/warehouse/publishers`;
+
+  const getImageUrl = (path) => {
+    if (!path || path === 'null') return PLACEHOLDER_IMAGE;
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    // Ensure path starts with /
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${API_BASE_URL}${normalizedPath}`;
+  };
 
   // Hàm để lấy token từ localStorage
   const getAuthToken = useCallback(() => {
@@ -108,9 +117,8 @@ const ProductManagement = () => {
       if (Array.isArray(data)) {
         const processedProducts = data.map((product) => ({
           ...product,
-          HinhAnh: product.HinhAnh && product.HinhAnh !== 'null'
-            ? `/img/products/${product.HinhAnh}`
-            : PLACEHOLDER_IMAGE,
+          ...product,
+          HinhAnh: product.HinhAnh || PLACEHOLDER_IMAGE,
           // ✅ SỬA LOGIC: Nếu SoLuong > 0 thì "Còn hàng", ngược lại "Hết hàng"
           TinhTrang: (product.SoLuong && product.SoLuong > 0) ? 'Còn hàng' : 'Hết hàng',
           MinSoLuong: product.MinSoLuong || 0,
@@ -482,7 +490,7 @@ const ProductManagement = () => {
       align: 'center',
       render: (text) => (
         <img
-          src={text}
+          src={getImageUrl(text)}
           alt="Product"
           style={{
             width: 40,
@@ -835,7 +843,7 @@ const ProductManagement = () => {
                   {editingProduct && editingProduct.HinhAnh && !(editingProduct.HinhAnh instanceof File) && (
                     <div style={{ marginTop: 8 }}>
                       <img
-                        src={editingProduct.HinhAnh}
+                        src={getImageUrl(editingProduct.HinhAnh)}
                         alt="preview"
                         style={{ width: 80, height: 80, objectFit: 'cover', border: '1px solid #d9d9d9', borderRadius: 4 }}
                       />
@@ -850,7 +858,7 @@ const ProductManagement = () => {
                       {editingProduct.images.map((img, idx) => (
                         <div key={img.id || `${img.filename}-${idx}`} style={{ position: 'relative', textAlign: 'center' }}>
                           <img
-                            src={img.url}
+                            src={getImageUrl(img.url || img.filename)}
                             alt={img.filename}
                             style={{ width: 80, height: 80, objectFit: 'cover', border: '1px solid #d9d9d9', borderRadius: 4 }}
                           />

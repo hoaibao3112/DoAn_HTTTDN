@@ -117,36 +117,57 @@ const warehouseController = {
     // ======================= 3.3: PURCHASE ORDERS (Nhập hàng) =======================
 
     createPurchaseOrder: async (req, res) => {
-        const { MaNCC, MaCH, ChiTiet, DaThanhToan, GhiChu } = req.body;
+        const { MaNCC, MaCH, ChiTiet, DaThanhToan, GhiChu, TyLeLoi } = req.body;
         const conn = await pool.getConnection();
         try {
             await conn.beginTransaction();
 
-            const [totalTien] = [ChiTiet.reduce((acc, item) => acc + (item.SoLuong * item.DonGiaNhap), 0)];
-            const conNo = totalTien - (DaThanhToan || 0);
+            // Validate Branch exists
+            const [branch] = await conn.query('SELECT MaCH FROM cua_hang WHERE MaCH = ?', [MaCH]);
+            if (branch.length === 0) {
+                throw new Error('Cửa hàng/Chi nhánh không tồn tại');
+            }
+
+            const totalTien = ChiTiet.reduce((acc, item) => acc + (Number(item.SoLuong) * Number(item.DonGiaNhap)), 0);
+            const conNo = totalTien - (Number(DaThanhToan) || 0);
 
             // 1. Create phieunhap
             const [pnResult] = await conn.query(
-                'INSERT INTO phieunhap (MaNCC, MaCH, TongTien, DaThanhToan, ConNo, MaNV) VALUES (?, ?, ?, ?, ?, ?)',
-                [MaNCC, MaCH, totalTien, DaThanhToan || 0, conNo, req.user.MaTK]
+                'INSERT INTO phieunhap (MaNCC, MaCH, TongTien, DaThanhToan, ConNo, MaTK, GhiChu) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [MaNCC, MaCH, totalTien, Number(DaThanhToan) || 0, conNo, req.user.MaTK, GhiChu || null]
             );
             const MaPN = pnResult.insertId;
 
             for (const item of ChiTiet) {
+                const soLuong = Number(item.SoLuong);
+                const giaNhap = Number(item.DonGiaNhap);
+
                 // 2. Insert chitietphieunhap
                 await conn.query(
                     'INSERT INTO chitietphieunhap (MaPN, MaSP, DonGiaNhap, SoLuong) VALUES (?, ?, ?, ?)',
-                    [MaPN, item.MaSP, item.DonGiaNhap, item.SoLuong]
+                    [MaPN, item.MaSP, giaNhap, soLuong]
                 );
 
                 // 3. Update ton_kho
                 await conn.query(
                     'INSERT INTO ton_kho (MaSP, MaCH, SoLuongTon) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?',
-                    [item.MaSP, MaCH, item.SoLuong, item.SoLuong]
+                    [item.MaSP, MaCH, soLuong, soLuong]
                 );
 
-                // 4. Update latest GiaNhap in sanpham
-                await conn.query('UPDATE sanpham SET GiaNhap = ? WHERE MaSP = ?', [item.DonGiaNhap, item.MaSP]);
+                // 4. Update product cost and status
+                // If TyLeLoi is provided, also update selling price (DonGia)
+                if (TyLeLoi && Number(TyLeLoi) > 0) {
+                    const newDonGia = Math.round(giaNhap * (1 + Number(TyLeLoi) / 100));
+                    await conn.query(
+                        'UPDATE sanpham SET GiaNhap = ?, DonGia = ?, TinhTrang = 1 WHERE MaSP = ?',
+                        [giaNhap, newDonGia, item.MaSP]
+                    );
+                } else {
+                    await conn.query(
+                        'UPDATE sanpham SET GiaNhap = ?, TinhTrang = 1 WHERE MaSP = ?',
+                        [giaNhap, item.MaSP]
+                    );
+                }
             }
 
             // 5. Create cong_no_ncc if debt exists
@@ -162,14 +183,15 @@ const warehouseController = {
                 HanhDong: 'Them',
                 BangDuLieu: 'phieunhap',
                 MaBanGhi: MaPN,
-                DuLieuMoi: { MaNCC, MaCH, TongTien: totalTien },
+                DuLieuMoi: { MaNCC, MaCH, TongTien: totalTien, ConNo: conNo },
                 DiaChi_IP: req.ip
             });
 
             await conn.commit();
-            res.json({ success: true, MaPN });
+            res.json({ success: true, MaPN, TongTien: totalTien, ConNo: conNo });
         } catch (error) {
             await conn.rollback();
+            console.error('Error creating purchase order:', error);
             res.status(500).json({ success: false, message: error.message });
         } finally {
             conn.release();
@@ -452,7 +474,7 @@ const warehouseController = {
                 success: true,
                 data: {
                     ...header[0],
-                    ChiTiet: details
+                    items: details
                 }
             });
         } catch (error) {

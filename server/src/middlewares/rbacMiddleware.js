@@ -84,7 +84,6 @@ export const checkPermission = (featureId, action) => {
             }
 
             // ========== KIỂM TRA QUYỀN TRONG DATABASE ==========
-            // Query rõ ràng: SELECT cột action cụ thể
             const query = `
         SELECT ${action} AS hasPermission 
         FROM phanquyen_chitiet 
@@ -92,8 +91,6 @@ export const checkPermission = (featureId, action) => {
       `;
 
             const [rows] = await pool.query(query, [MaNQ, featureId]);
-
-            // Kiểm tra kết quả
             const hasPermission = rows.length > 0 && rows[0].hasPermission === 1;
 
             if (!hasPermission) {
