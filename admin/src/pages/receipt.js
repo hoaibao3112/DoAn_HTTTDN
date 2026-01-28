@@ -225,36 +225,38 @@ const NhapHang = () => {
 
   // ----- Render -----
   const columns = [
-    { title: 'ID', dataIndex: 'MaPN', key: 'MaPN', width: 70, align: 'center' },
+    { title: 'ID', dataIndex: 'MaPN', key: 'MaPN', width: 80, align: 'center' },
     {
-      title: 'Ngày nhập', dataIndex: 'NgayNhap', key: 'NgayNhap', width: 140,
-      render: (val) => new Date(val).toLocaleString('vi-VN')
+      title: 'Ngày nhập', dataIndex: 'NgayNhap', key: 'NgayNhap', width: 180,
+      render: (val) => <span style={{ color: '#64748b' }}>{new Date(val).toLocaleString('vi-VN')}</span>
     },
-    { title: 'Nhà cung cấp', dataIndex: 'TenNCC', key: 'TenNCC' },
-    { title: 'Kho/Chi nhánh', dataIndex: 'TenCH', key: 'TenCH' },
-    { title: 'Người lập', dataIndex: 'NguoiLap', key: 'NguoiLap', width: 120 },
+    { title: 'Nhà cung cấp', dataIndex: 'TenNCC', key: 'TenNCC', minWidth: 200 },
+    { title: 'Kho/Chi nhánh', dataIndex: 'TenCH', key: 'TenCH', width: 180 },
+    { title: 'Người lập', dataIndex: 'NguoiLap', key: 'NguoiLap', width: 140 },
     {
-      title: 'Tổng tiền', dataIndex: 'TongTien', key: 'TongTien', align: 'right',
-      render: (v) => <b>{Number(v).toLocaleString()}đ</b>
-    },
-    {
-      title: 'Đã trả', dataIndex: 'DaThanhToan', key: 'DaThanhToan', align: 'right',
-      render: (v) => <span style={{ color: '#52c41a' }}>{Number(v || 0).toLocaleString()}đ</span>
+      title: 'Tổng tiền', dataIndex: 'TongTien', key: 'TongTien', align: 'right', width: 150,
+      render: (v) => <b style={{ color: '#0f172a' }}>{Number(v).toLocaleString()}đ</b>
     },
     {
-      title: 'Còn nợ', dataIndex: 'ConNo', key: 'ConNo', align: 'right',
-      render: (v) => <span style={{ color: '#ff4d4f' }}>{Number(v || 0).toLocaleString()}đ</span>
+      title: 'Đã trả', dataIndex: 'DaThanhToan', key: 'DaThanhToan', align: 'right', width: 130,
+      render: (v) => <span style={{ color: '#10b981', fontWeight: '500' }}>{Number(v || 0).toLocaleString()}đ</span>
+    },
+    {
+      title: 'Còn nợ', dataIndex: 'ConNo', key: 'ConNo', align: 'right', width: 130,
+      render: (v) => <span style={{ color: '#ef4444', fontWeight: '500' }}>{Number(v || 0).toLocaleString()}đ</span>
     },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 120,
+      width: 100,
       align: 'center',
+      fixed: 'right',
       render: (_, record) => (
         <Button
-          type="link"
+          type="text"
           icon={<EyeOutlined />}
           onClick={() => xemChiTiet(record.MaPN)}
+          style={{ color: '#3b82f6' }}
         >
           Chi tiết
         </Button>
@@ -299,18 +301,31 @@ const NhapHang = () => {
             style={{ width: 220 }}
           />
 
-          <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>Lọc</Button>
-          <Button icon={<SyncOutlined />} onClick={() => {
-            setSearchParams({ MaNCC: '', MaCH: '', startDate: '', endDate: '' });
-            fetchPhieuNhap();
-          }}>Làm mới</Button>
+          <Button
+            type="primary"
+            icon={<SearchOutlined />}
+            onClick={handleSearch}
+            className="filter-btn"
+          >
+            Lọc
+          </Button>
+          <Button
+            icon={<SyncOutlined />}
+            onClick={() => {
+              setSearchParams({ MaNCC: '', MaCH: '', startDate: '', endDate: '' });
+              fetchPhieuNhap();
+            }}
+            className="reset-btn"
+          >
+            Làm mới
+          </Button>
         </div>
 
         <Button
           type="primary"
           icon={<PlusOutlined />}
           size="large"
-          style={{ height: 45, borderRadius: 8 }}
+          className="create-btn"
           onClick={() => setModalVisible(true)}
         >
           Lập phiếu nhập mới
@@ -359,8 +374,10 @@ const NhapHang = () => {
           dataSource={phieuNhap}
           rowKey="MaPN"
           loading={loading}
-          pagination={{ pageSize: 10 }}
-          size="small"
+          pagination={pagination}
+          onChange={(p) => fetchPhieuNhap({ page: p.current, pageSize: p.pageSize })}
+          scroll={{ x: 1200 }}
+          className="main-table"
         />
       </div>
 
