@@ -10,9 +10,9 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // ======================= RETURN/REFUND MANAGEMENT =======================
-router.get('/returns', checkPermission(FEATURES.RETURNS, PERMISSIONS.VIEW), returnController.getAllReturns);
-router.get('/returns/:id', checkPermission(FEATURES.RETURNS, PERMISSIONS.VIEW), returnController.getReturnById);
-router.post('/returns', checkPermission(FEATURES.RETURNS, PERMISSIONS.CREATE), returnController.createReturn);
-router.put('/returns/:id/approve', checkPermission(FEATURES.RETURNS, PERMISSIONS.APPROVE), returnController.approveReturn);
+router.get('/', checkPermission(FEATURES.RETURNS, PERMISSIONS.VIEW), returnController.getAllReturns);
+router.get('/:id', checkPermission(FEATURES.RETURNS, PERMISSIONS.VIEW), returnController.getReturnById);
+router.post('/', checkPermission(FEATURES.RETURNS, PERMISSIONS.CREATE), returnController.createReturn);
+router.put('/:id/approve', checkPermission(FEATURES.RETURNS, PERMISSIONS.APPROVE), returnController.approveReturn);
 
 export default router;

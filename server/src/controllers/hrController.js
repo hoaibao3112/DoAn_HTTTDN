@@ -61,17 +61,19 @@ const hrController = {
         }
 
         try {
+            const MinhChung = req.file ? req.file.filename : null;
+
             // Get employee MaNV from MaTK
             const [emp] = await pool.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
             if (emp.length === 0) return res.status(400).json({ success: false, message: 'Nhân viên không tồn tại' });
 
             await pool.query(
-                `INSERT INTO xin_nghi_phep (MaNV, LoaiDon, NgayBatDau, NgayKetThuc, LyDo, TrangThai)
-                 VALUES (?, ?, ?, ?, ?, 'Cho_duyet')`,
-                [emp[0].MaNV, LoaiDon, NgayBatDau, NgayKetThuc, LyDo]
+                `INSERT INTO xin_nghi_phep (MaNV, LoaiDon, NgayBatDau, NgayKetThuc, LyDo, MinhChung, TrangThai)
+                 VALUES (?, ?, ?, ?, ?, ?, 'Cho_duyet')`,
+                [emp[0].MaNV, LoaiDon, NgayBatDau, NgayKetThuc, LyDo, MinhChung]
             );
 
-            res.json({ success: true, message: 'Gửi đơn thành công' });
+            res.json({ success: true, message: 'Gửi đơn thành công', MinhChung });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }

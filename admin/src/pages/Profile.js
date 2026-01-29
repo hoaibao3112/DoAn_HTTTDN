@@ -2,11 +2,11 @@ import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import {
   Card, Spin, message, Button, Modal, Form, Input, Row, Col, Avatar, Typography, Table, Upload,
-  Tag, Divider, Space, DatePicker, Select, Alert
+  Tag, Divider, Space, DatePicker, Select
 } from 'antd';
 import {
   UserOutlined, LockOutlined, CheckCircleOutlined,
-  DollarCircleOutlined, EyeOutlined, PrinterOutlined, EditOutlined
+  DollarCircleOutlined, EyeOutlined, PrinterOutlined, CalendarOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -30,8 +30,6 @@ const Profile = () => {
   const [detailModal, setDetailModal] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [attendanceDetail, setAttendanceDetail] = useState([]);
-  const [detailMonth, setDetailMonth] = useState(null);
-  const [detailYear, setDetailYear] = useState(null);
 
   // NEW: Profile Edit & Leave Management
   const [showEditModal, setShowEditModal] = useState(false);
@@ -39,6 +37,7 @@ const Profile = () => {
   const [leaveHistory, setLeaveHistory] = useState([]);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [leaveSubmitting, setLeaveSubmitting] = useState(false);
+  const [leaveFileList, setLeaveFileList] = useState([]);
 
   // computed avatar src
   const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
@@ -197,16 +196,27 @@ const Profile = () => {
     setLeaveSubmitting(true);
     try {
       const token = localStorage.getItem('authToken');
-      const res = await axios.post('http://localhost:5000/api/hr/xin-nghi-phep', {
-        LoaiDon: values.LoaiDon,
-        NgayBatDau: values.dates[0].format('YYYY-MM-DD'),
-        NgayKetThuc: values.dates[1].format('YYYY-MM-DD'),
-        LyDo: values.LyDo
-      }, { headers: { Authorization: `Bearer ${token}` } });
+      const formData = new FormData();
+      formData.append('LoaiDon', values.LoaiDon);
+      formData.append('NgayBatDau', values.dates[0].format('YYYY-MM-DD'));
+      formData.append('NgayKetThuc', values.dates[1].format('YYYY-MM-DD'));
+      formData.append('LyDo', values.LyDo || '');
+
+      if (leaveFileList.length > 0) {
+        formData.append('MinhChung', leaveFileList[0].originFileObj);
+      }
+
+      const res = await axios.post('http://localhost:5000/api/hr/xin-nghi-phep', formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
 
       if (res.data.success) {
         message.success('Gửi đơn thành công!');
         setShowLeaveModal(false);
+        setLeaveFileList([]);
         fetchLeaveHistory();
       }
     } catch (error) {
@@ -243,8 +253,6 @@ const Profile = () => {
       const { MaTK } = JSON.parse(userInfoStr || '{}');
       const res = await axios.get(`http://localhost:5000/api/attendance/detail/${MaTK}/${thang}/${nam}`);
       setAttendanceDetail(res.data);
-      setDetailMonth(thang);
-      setDetailYear(nam);
     } catch (error) {
       message.error('Không lấy được chi tiết ngày công!');
       setAttendanceDetail([]);
@@ -380,6 +388,7 @@ const Profile = () => {
                     {!todayAttendance ? 'Chấm công Vào' : (!todayAttendance.GioRa ? 'Chấm công Ra' : 'Đã hoàn thành')}
                   </Button>
                   <Button icon={<DollarCircleOutlined />} type="dashed" loading={salaryLoading} onClick={fetchSalary}>Xem lương</Button>
+                  <Button icon={<CalendarOutlined />} onClick={() => setShowLeaveModal(true)}>Xin nghỉ phép</Button>
                 </Space>
               ]}
             >
@@ -514,6 +523,17 @@ const Profile = () => {
           </Form.Item>
           <Form.Item name="dates" label="Thời gian"><DatePicker.RangePicker /></Form.Item>
           <Form.Item name="LyDo" label="Lý do"><Input.TextArea /></Form.Item>
+          <Form.Item label="Minh chứng (nếu có)">
+            <Upload
+              fileList={leaveFileList}
+              onChange={({ fileList }) => setLeaveFileList(fileList)}
+              beforeUpload={() => false}
+              maxCount={1}
+              listType="picture"
+            >
+              <Button icon={<PrinterOutlined />}>Chọn file (Ảnh/PDF)</Button>
+            </Upload>
+          </Form.Item>
           <Form.Item><Button type="primary" htmlType="submit" loading={leaveSubmitting} block>Gửi</Button></Form.Item>
         </Form>
       </Modal>

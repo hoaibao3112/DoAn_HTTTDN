@@ -5,6 +5,36 @@ import pool from '../config/connectDatabase.js';
 import { authenticateToken } from '../utils/generateToken.js';
 import { checkPermission } from '../middlewares/rbacMiddleware.js';
 import { FEATURES, PERMISSIONS } from '../constants/permissions.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
+// Multuer Config for Leave Proofs
+const leaveStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = 'uploads/xin_nghi_phep';
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'proof-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const uploadLeave = multer({
+    storage: leaveStorage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+    fileFilter: (req, file, cb) => {
+        const filetypes = /jpeg|jpg|png|pdf/;
+        const mimetype = filetypes.test(file.mimetype);
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        if (mimetype && extname) return cb(null, true);
+        cb(new Error("Chỉ hỗ trợ upload ảnh (jpg, png) hoặc file PDF"));
+    }
+});
 
 const router = express.Router();
 
@@ -18,7 +48,19 @@ router.get('/profile', hrController.getProfile);
 router.put('/profile', hrController.updateProfile);
 
 // Leave Requests (Self) - Nhân viên tự nộp đơn xin nghỉ
-router.post('/xin-nghi-phep', hrController.submitLeave);
+router.post('/xin-nghi-phep', (req, res, next) => {
+    uploadLeave.single('MinhChung')(req, res, (err) => {
+        if (err instanceof multer.MulterError) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(400).json({ success: false, message: 'File quá lớn. Tối đa 10MB.' });
+            }
+            return res.status(400).json({ success: false, message: 'Lỗi upload: ' + err.message });
+        } else if (err) {
+            return res.status(400).json({ success: false, message: err.message });
+        }
+        next();
+    });
+}, hrController.submitLeave);
 router.get('/my-leave', hrController.getMyLeave);
 
 // Salary (Self) - Nhân viên xem lương của mình

@@ -22,10 +22,15 @@ const LeavePage = () => {
   const fetchLeave = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/leave');
-      // Sắp xếp theo id giảm dần (mới nhất trên cùng)
-      const sortedData = res.data.sort((a, b) => b.id - a.id);
-      setData(sortedData);
+      const token = localStorage.getItem('authToken');
+      const res = await axios.get('http://localhost:5000/api/hr/leave-requests', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        // Sắp xếp theo id giảm dần (mới nhất trên cùng)
+        const sortedData = res.data.data.sort((a, b) => b.id - a.id);
+        setData(sortedData);
+      }
     } catch {
       message.error('Lỗi khi tải dữ liệu nghỉ phép');
     } finally {
@@ -33,7 +38,7 @@ const LeavePage = () => {
     }
   };
 
-  useEffect(() => { 
+  useEffect(() => {
     if (hasPermission('Nghĩ Phép', 'Đọc')) {
       fetchLeave();
     } else {
@@ -49,9 +54,12 @@ const LeavePage = () => {
     }
     setProcessingId(id);
     try {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-      await axios.put(`http://localhost:5000/api/leave/${id}/approve`, {
-        nguoi_duyet: userInfo.TenTK || 'admin'
+      const token = localStorage.getItem('authToken');
+      await axios.put(`http://localhost:5000/api/hr/leave-requests/${id}/approve`, {
+        TrangThai: 'Da_duyet',
+        YKienDuyet: 'Đồng ý'
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       message.success('Đã duyệt đơn nghỉ phép');
       fetchLeave();
@@ -70,9 +78,12 @@ const LeavePage = () => {
     }
     setProcessingId(id);
     try {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-      await axios.put(`http://localhost:5000/api/leave/${id}/reject`, {
-        nguoi_duyet: userInfo.TenTK || 'admin'
+      const token = localStorage.getItem('authToken');
+      await axios.put(`http://localhost:5000/api/hr/leave-requests/${id}/approve`, {
+        TrangThai: 'Tu_choi',
+        YKienDuyet: 'Không đồng ý'
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       message.success('Đã từ chối đơn nghỉ phép');
       fetchLeave();
@@ -85,59 +96,72 @@ const LeavePage = () => {
 
   // Cột bảng
   const columns = [
-    { 
-      title: 'Mã TK', 
-      dataIndex: 'MaTK', 
-      width: 90, 
+    {
+      title: 'Mã NV',
+      dataIndex: 'MaNV',
+      width: 90,
       fixed: 'left',
       render: (text) => <span className="font-semibold text-indigo-600">{text}</span>
     },
-    { 
-      title: 'Tên tài khoản', 
-      dataIndex: 'TenTK', 
+    {
+      title: 'Họ tên',
+      dataIndex: 'HoTen',
       width: 150,
       render: (text) => <span className="font-medium">{text}</span>
     },
-    { 
-      title: 'Từ ngày', 
-      dataIndex: 'ngay_bat_dau', 
+    {
+      title: 'Từ ngày',
+      dataIndex: 'NgayBatDau',
       render: d => (
         <span className="flex items-center gap-1">
           <CalendarOutlined className="text-blue-500" />
           {moment(d).format('DD/MM/YYYY')}
         </span>
       ),
-      width: 120 
+      width: 120
     },
-    { 
-      title: 'Đến ngày', 
-      dataIndex: 'ngay_ket_thuc', 
+    {
+      title: 'Đến ngày',
+      dataIndex: 'NgayKetThuc',
       render: d => (
         <span className="flex items-center gap-1">
           <CalendarOutlined className="text-blue-500" />
           {moment(d).format('DD/MM/YYYY')}
         </span>
       ),
-      width: 120 
+      width: 120
     },
-    { 
-      title: 'Số ngày', 
+    {
+      title: 'Số ngày',
       key: 'so_ngay',
       render: (_, record) => {
-        const days = moment(record.ngay_ket_thuc).diff(moment(record.ngay_bat_dau), 'days') + 1;
+        const days = moment(record.NgayKetThuc).diff(moment(record.NgayBatDau), 'days') + 1;
         return <Tag color="purple">{days} ngày</Tag>;
       },
       width: 90
     },
-    { 
-      title: 'Lý do', 
-      dataIndex: 'ly_do', 
+    {
+      title: 'Lý do',
+      dataIndex: 'LyDo',
       width: 200,
       ellipsis: true,
     },
-    { 
-      title: 'Trạng thái', 
-      dataIndex: 'trang_thai',
+    {
+      title: 'Minh chứng',
+      dataIndex: 'MinhChung',
+      width: 100,
+      render: (v) => v ? (
+        <a href={`http://localhost:5000/uploads/xin_nghi_phep/${v}`} target="_blank" rel="noreferrer">
+          <img src={`http://localhost:5000/uploads/xin_nghi_phep/${v}`} alt="Minh chứng" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: '4px' }} onError={(e) => {
+            e.target.onerror = null;
+            e.target.parentNode.innerHTML = '<span class="text-blue-500 underline">Xem file</span>';
+          }} />
+        </a>
+      ) : <span className="text-gray-400">Không có</span>
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'TrangThai',
       render: v => {
         if (v === 'Da_duyet') return <Tag color="success" icon={<CheckCircleOutlined />}>Đã duyệt</Tag>;
         if (v === 'Tu_choi') return <Tag color="error" icon={<CloseCircleOutlined />}>Từ chối</Tag>;
@@ -145,25 +169,13 @@ const LeavePage = () => {
       },
       width: 120
     },
-    { 
-      title: 'Người duyệt', 
-      dataIndex: 'nguoi_duyet', 
-      width: 120,
-      render: (text) => text || <span className="text-gray-400">-</span>
-    },
-    { 
-      title: 'Ngày duyệt', 
-      dataIndex: 'ngay_duyet', 
-      render: d => d ? moment(d).format('DD/MM/YYYY HH:mm') : <span className="text-gray-400">-</span>,
-      width: 150 
-    },
     {
       title: 'Thao tác',
       key: 'action',
       fixed: 'right',
       width: 180,
       render: (_, record) =>
-        record.trang_thai === 'Cho_duyet' && hasPermission('Nghĩ Phép', 'Sửa') ? (
+        record.TrangThai === 'Cho_duyet' && hasPermission('Nghĩ Phép', 'Sửa') ? (
           <Space size="small">
             <Button
               icon={<CheckCircleOutlined />}
@@ -195,17 +207,14 @@ const LeavePage = () => {
       return;
     }
     try {
-      const userInfoStr = localStorage.getItem('userInfo');
-      const MaTK = userInfoStr ? JSON.parse(userInfoStr).MaTK : null;
-      if (!MaTK) {
-        message.error('Không tìm thấy mã tài khoản!');
-        return;
-      }
-      await axios.post('http://localhost:5000/api/leave', {
-        MaTK,
-        ngay_bat_dau: values.date_range[0].format('YYYY-MM-DD'),
-        ngay_ket_thuc: values.date_range[1].format('YYYY-MM-DD'),
-        ly_do: values.ly_do,
+      const token = localStorage.getItem('authToken');
+      await axios.post('http://localhost:5000/api/hr/xin-nghi-phep', {
+        LoaiDon: 'Nghi_phep',
+        NgayBatDau: values.date_range[0].format('YYYY-MM-DD'),
+        NgayKetThuc: values.date_range[1].format('YYYY-MM-DD'),
+        LyDo: values.ly_do,
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       message.success('Gửi đơn nghỉ phép thành công');
       setOpen(false);
@@ -217,7 +226,7 @@ const LeavePage = () => {
   };
 
   // Filter data
-  const filteredData = filterStatus 
+  const filteredData = filterStatus
     ? data.filter(item => item.trang_thai === filterStatus)
     : data;
 
@@ -273,8 +282,8 @@ const LeavePage = () => {
             rowKey="id"
             loading={loading}
             scroll={{ x: 1200 }}
-            pagination={{ 
-              pageSize: 10, 
+            pagination={{
+              pageSize: 10,
               showSizeChanger: true,
               showTotal: (total) => `Tổng ${total} đơn`,
               pageSizeOptions: ['10', '20', '50']
@@ -284,13 +293,13 @@ const LeavePage = () => {
         </div>
       </div>
 
-      <Modal 
-        open={open} 
+      <Modal
+        open={open}
         onCancel={() => {
           setOpen(false);
           form.resetFields();
-        }} 
-        footer={null} 
+        }}
+        footer={null}
         title={
           <div className="modal-title">
             <CalendarOutlined /> Gửi đơn xin nghỉ phép
@@ -299,29 +308,29 @@ const LeavePage = () => {
         width={600}
         destroyOnClose
       >
-        <Form 
+        <Form
           form={form}
-          layout="vertical" 
+          layout="vertical"
           onFinish={onFinish}
           className="leave-form"
         >
-          <Form.Item 
-            name="date_range" 
-            label="Thời gian nghỉ" 
+          <Form.Item
+            name="date_range"
+            label="Thời gian nghỉ"
             rules={[{ required: true, message: 'Vui lòng chọn thời gian nghỉ!' }]}
           >
-            <RangePicker 
+            <RangePicker
               style={{ width: '100%' }}
               format="DD/MM/YYYY"
               placeholder={['Từ ngày', 'Đến ngày']}
             />
           </Form.Item>
-          <Form.Item 
-            name="ly_do" 
-            label="Lý do nghỉ" 
+          <Form.Item
+            name="ly_do"
+            label="Lý do nghỉ"
             rules={[{ required: true, message: 'Vui lòng nhập lý do nghỉ!' }]}
           >
-            <TextArea 
+            <TextArea
               rows={4}
               placeholder="Nhập lý do xin nghỉ phép..."
               maxLength={500}
