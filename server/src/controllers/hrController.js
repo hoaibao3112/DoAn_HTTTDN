@@ -6,7 +6,17 @@ const hrController = {
 
     getProfile: async (req, res) => {
         try {
-            const [rows] = await pool.query('SELECT * FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
+            const [rows] = await pool.query(`
+                SELECT 
+                    nv.*, 
+                    tk.TenTK, tk.Email as AccEmail, tk.MaNQ, tk.NgayTao,
+                    nq.TenNQ
+                FROM nhanvien nv
+                JOIN taikhoan tk ON nv.MaTK = tk.MaTK
+                LEFT JOIN nhomquyen nq ON tk.MaNQ = nq.MaNQ
+                WHERE nv.MaTK = ?
+            `, [req.user.MaTK]);
+
             if (rows.length === 0) return res.status(404).json({ success: false, message: 'Profile not found' });
             res.json({ success: true, data: rows[0] });
         } catch (error) {
@@ -15,15 +25,30 @@ const hrController = {
     },
 
     updateProfile: async (req, res) => {
-        const { SDT, Email, DiaChi, Anh } = req.body;
+        const { SDT, Email, DiaChi } = req.body;
+        const connection = await pool.getConnection();
         try {
-            const [result] = await pool.query(
-                'UPDATE nhanvien SET SDT = ?, Email = ?, DiaChi = ?, Anh = ? WHERE MaTK = ?',
-                [SDT, Email, DiaChi, Anh, req.user.MaTK]
+            await connection.beginTransaction();
+
+            // Update nhanvien
+            await connection.query(
+                'UPDATE nhanvien SET SDT = ?, Email = ?, DiaChi = ? WHERE MaTK = ?',
+                [SDT, Email, DiaChi, req.user.MaTK]
             );
+
+            // Optionally update taikhoan email if they should be in sync
+            await connection.query(
+                'UPDATE taikhoan SET Email = ? WHERE MaTK = ?',
+                [Email, req.user.MaTK]
+            );
+
+            await connection.commit();
             res.json({ success: true, message: 'Cập nhật hồ sơ thành công' });
         } catch (error) {
+            await connection.rollback();
             res.status(500).json({ success: false, message: error.message });
+        } finally {
+            connection.release();
         }
     },
 
@@ -230,39 +255,67 @@ const hrController = {
 
     calculateMonthlySalary: async (req, res) => {
         const { month, year } = req.body;
+        if (!month || !year) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp tháng và năm' });
+        }
+
         try {
-            // Formula: TongLuong = (LuongCoBan / 26 * SoNgayLam) + PhuCap + Thuong - Phat + (SoGioTangCa * (LuongCoBan / 208) * 1.5)
-            // This is a simplified mass-calculation. In reality, we'd loop through employees.
+            // Formula: TongLuong = (LuongCoBan / 26 * PayableDays) + PhuCap + Thuong - Phat + (SoGioTangCa * (LuongCoBan / 208) * 1.5)
+            // PayableDays include: Di_lam, Tre, Ve_som, Nghi_phep
             const [employees] = await pool.query('SELECT MaNV, LuongCoBan, PhuCap FROM nhanvien WHERE TinhTrang = 1');
 
             for (const emp of employees) {
-                // Get attendance stats for the month
+                // Get detailed attendance stats for the month
                 const [stats] = await pool.query(
                     `SELECT 
-                        COUNT(CASE WHEN TrangThai = 'Di_lam' THEN 1 END) as DaysWorked,
+                        COUNT(CASE WHEN TrangThai IN ('Di_lam', 'Tre', 'Ve_som', 'Nghi_phep') THEN 1 END) as PayableDays,
+                        COUNT(CASE WHEN TrangThai IN ('Tre', 'Ve_som') THEN 1 END) as LateEarlyCount,
+                        COUNT(CASE WHEN TrangThai = 'Nghi_khong_phep' THEN 1 END) as UnpaidAbsenceCount,
                         SUM(SoGioTangCa) as OT_Hours
                      FROM cham_cong 
                      WHERE MaNV = ? AND MONTH(Ngay) = ? AND YEAR(Ngay) = ?`,
                     [emp.MaNV, month, year]
                 );
 
-                const daysWorked = stats[0].DaysWorked || 0;
-                const otHours = stats[0].OT_Hours || 0;
+                const { PayableDays = 0, LateEarlyCount = 0, OT_Hours = 0, UnpaidAbsenceCount = 0 } = stats[0];
 
-                const base = parseFloat(emp.LuongCoBan);
+                const base = parseFloat(emp.LuongCoBan) || 0;
                 const dailyRate = base / 26;
                 const hourlyRate = base / 208;
 
-                const tongLuong = (dailyRate * daysWorked) + parseFloat(emp.PhuCap) + (otHours * hourlyRate * 1.5);
+                // Professional Business Rules:
+                // 1. Base Pay based on actual work + paid leave
+                const basePay = dailyRate * PayableDays;
+
+                // 2. OT Pay (standard 1.5x)
+                const otPay = OT_Hours * hourlyRate * 1.5;
+
+                // 3. Fines (Late/Early: 20,000 VND per instance)
+                const lateFine = LateEarlyCount * 20000;
+
+                // 4. Bonus: Logic can be added here (currently 0 or manual)
+                // If they work all 26 days without any late/absence, maybe a 200k bonus?
+                const diligenceBonus = (PayableDays >= 26 && LateEarlyCount === 0 && UnpaidAbsenceCount === 0) ? 200000 : 0;
+
+                const tongLuong = basePay + parseFloat(emp.PhuCap || 0) + otPay + diligenceBonus - lateFine;
 
                 await pool.query(
-                    `INSERT INTO luong (MaNV, Thang, Nam, LuongCoBan, PhuCap, SoNgayLam, SoGioTangCa, TongLuong, TrangThai)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Chua_chi_tra')
-                     ON DUPLICATE KEY UPDATE TongLuong = VALUES(TongLuong), SoNgayLam = VALUES(SoNgayLam), SoGioTangCa = VALUES(SoGioTangCa)`,
-                    [emp.MaNV, month, year, base, emp.PhuCap, daysWorked, otHours, Math.round(tongLuong)]
+                    `INSERT INTO luong (MaNV, Thang, Nam, LuongCoBan, PhuCap, SoNgayLam, SoGioTangCa, Thuong, Phat, TongLuong, TrangThai)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Chua_chi_tra')
+                     ON DUPLICATE KEY UPDATE 
+                        TongLuong = VALUES(TongLuong), 
+                        SoNgayLam = VALUES(SoNgayLam), 
+                        SoGioTangCa = VALUES(SoGioTangCa),
+                        Thuong = VALUES(Thuong),
+                        Phat = VALUES(Phat)`,
+                    [
+                        emp.MaNV, month, year, base, emp.PhuCap || 0,
+                        PayableDays, OT_Hours, diligenceBonus, lateFine,
+                        Math.round(tongLuong)
+                    ]
                 );
             }
-            res.json({ success: true, message: 'Tính lương hoàn tất' });
+            res.json({ success: true, message: `Đã tính lương tháng ${month}/${year} cho ${employees.length} nhân viên.` });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }

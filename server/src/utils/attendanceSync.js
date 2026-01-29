@@ -27,24 +27,24 @@ export const syncMissedAttendancesForDate = async (dateParam) => {
 
         console.log(`[Sync] Starting missed attendance sync for date: ${targetDate}`);
 
-        // Lấy tất cả tài khoản nhân viên đang hoạt động
-        const [accounts] = await pool.query('SELECT MaTK FROM taikhoan WHERE TinhTrang = 1');
+        // Lấy tất cả nhân viên đang hoạt động
+        const [employees] = await pool.query('SELECT MaNV, MaCa FROM nhanvien WHERE TinhTrang = 1');
 
-        for (const acc of accounts) {
-            const MaTK = acc.MaTK;
+        for (const emp of employees) {
+            const { MaNV, MaCa } = emp;
 
             // Kiểm tra xem đã có bản ghi chấm công chưa
             const [existing] = await pool.query(
-                'SELECT id FROM cham_cong WHERE MaTK = ? AND DATE(ngay) = ?',
-                [MaTK, targetDate]
+                'SELECT MaCC FROM cham_cong WHERE MaNV = ? AND Ngay = ?',
+                [MaNV, targetDate]
             );
 
             if (existing.length > 0) continue;
 
             // Kiểm tra xem ngày đó có đơn nghỉ phép đã duyệt không
             const [leaveRows] = await pool.query(
-                'SELECT id FROM xin_nghi_phep WHERE MaTK = ? AND trang_thai = ? AND DATE(?) BETWEEN DATE(ngay_bat_dau) AND DATE(ngay_ket_thuc)',
-                [MaTK, 'Da_duyet', targetDate]
+                'SELECT id FROM xin_nghi_phep WHERE MaNV = ? AND TrangThai = ? AND DATE(?) BETWEEN DATE(NgayBatDau) AND DATE(NgayKetThuc)',
+                [MaNV, 'Da_duyet', targetDate]
             );
 
             const statusToInsert = leaveRows.length > 0 ? 'Nghi_phep' : 'Nghi_khong_phep';
@@ -53,8 +53,8 @@ export const syncMissedAttendancesForDate = async (dateParam) => {
                 : 'Hệ thống tự động đánh dấu vắng mặt';
 
             await pool.query(
-                'INSERT INTO cham_cong (MaTK, ngay, trang_thai, ghi_chu) VALUES (?, ?, ?, ?)',
-                [MaTK, targetDate, statusToInsert, ghiChu]
+                'INSERT INTO cham_cong (MaNV, MaCa, Ngay, TrangThai, GhiChu, CreatedBy) VALUES (?, ?, ?, ?, ?, ?)',
+                [MaNV, MaCa, targetDate, statusToInsert, ghiChu, 'System_Sync']
             );
         }
 

@@ -93,13 +93,20 @@ const attendanceController = {
         const { Ngay, GioVao, GhiChu } = req.body;
 
         try {
-            // Get employee MaNV
-            const [emp] = await pool.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
+            // Get employee MaNV and their assigned Shift (MaCa)
+            const [emp] = await pool.query(
+                `SELECT nv.MaNV, nv.MaCa, ca.GioBatDau 
+                 FROM nhanvien nv 
+                 LEFT JOIN ca_lam_viec ca ON nv.MaCa = ca.MaCa 
+                 WHERE nv.MaTK = ?`,
+                [req.user.MaTK]
+            );
+
             if (emp.length === 0) {
                 return res.status(400).json({ success: false, message: 'Nhân viên không tồn tại' });
             }
 
-            const MaNV = emp[0].MaNV;
+            const { MaNV, MaCa, GioBatDau } = emp[0];
             const checkDate = Ngay || new Date().toISOString().split('T')[0];
             const checkTime = GioVao || new Date().toTimeString().split(' ')[0];
 
@@ -116,21 +123,22 @@ const attendanceController = {
                 });
             }
 
-            // Determine status (Late if after 8:30 AM)
-            const hourMinute = checkTime.substring(0, 5);
-            const TrangThai = hourMinute > '08:30' ? 'Tre' : 'Di_lam';
+            // Determine status (Late if after Shift start time)
+            // Default to 08:30 if no shift found (legacy/fallback)
+            const threshold = GioBatDau || '08:30:00';
+            const TrangThai = checkTime > threshold ? 'Tre' : 'Di_lam';
 
             const [result] = await pool.query(
-                `INSERT INTO cham_cong (MaNV, Ngay, GioVao, TrangThai, GhiChu, CreatedBy)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [MaNV, checkDate, checkTime, TrangThai, GhiChu, req.user.TenTK]
+                `INSERT INTO cham_cong (MaNV, MaCa, Ngay, GioVao, TrangThai, GhiChu, CreatedBy)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [MaNV, MaCa || 1, checkDate, checkTime, TrangThai, GhiChu, req.user.TenTK]
             );
 
             res.json({
                 success: true,
                 MaCC: result.insertId,
                 message: TrangThai === 'Tre' ? 'Chấm công thành công (Đi trễ)' : 'Chấm công thành công',
-                data: { Ngay: checkDate, GioVao: checkTime, TrangThai }
+                data: { Ngay: checkDate, GioVao: checkTime, TrangThai, MaCa: MaCa || 1 }
             });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -152,9 +160,12 @@ const attendanceController = {
             const checkDate = Ngay || new Date().toISOString().split('T')[0];
             const checkTime = GioRa || new Date().toTimeString().split(' ')[0];
 
-            // Find today's attendance record
+            // Find today's attendance record and join with shift details
             const [attendance] = await pool.query(
-                'SELECT * FROM cham_cong WHERE MaNV = ? AND Ngay = ?',
+                `SELECT cc.*, ca.GioKetThuc, ca.PhutNghi 
+                 FROM cham_cong cc
+                 LEFT JOIN ca_lam_viec ca ON cc.MaCa = ca.MaCa
+                 WHERE cc.MaNV = ? AND cc.Ngay = ?`,
                 [MaNV, checkDate]
             );
 
@@ -172,25 +183,46 @@ const attendanceController = {
                 });
             }
 
+            const record = attendance[0];
+
             // Calculate work hours
-            const gioVao = attendance[0].GioVao;
+            const gioVao = record.GioVao;
             const [hourIn, minIn] = gioVao.split(':').map(Number);
             const [hourOut, minOut] = checkTime.split(':').map(Number);
 
-            const totalMinutes = (hourOut * 60 + minOut) - (hourIn * 60 + minIn);
+            let totalMinutes = (hourOut * 60 + minOut) - (hourIn * 60 + minIn);
+
+            // Automatic break deduction: if work > 5 hours, subtract PhutNghi
+            let breakMinutes = 0;
+            if (totalMinutes > 300) { // 5 hours = 300 minutes
+                breakMinutes = record.PhutNghi || 0;
+                totalMinutes -= breakMinutes;
+            }
+
             const soGioLam = (totalMinutes / 60).toFixed(2);
+
+            // Determine if "Ve sớm"
+            let transitionStatus = record.TrangThai;
+            if (record.GioKetThuc && checkTime < record.GioKetThuc) {
+                // If it was "Di_lam" (on time) but now "Ve_som"
+                // Or if it was already "Tre", it stays "Tre" but we could append "Ve_som" if we wanted.
+                // For simplicity, if they leave early, we mark it as "Ve_som" unless they were already "Tre"
+                if (transitionStatus === 'Di_lam') {
+                    transitionStatus = 'Ve_som';
+                }
+            }
 
             await pool.query(
                 `UPDATE cham_cong 
-                 SET GioRa = ?, SoGioLam = ?, SoGioTangCa = ?, GhiChu = COALESCE(?, GhiChu)
+                 SET GioRa = ?, SoGioLam = ?, SoGioTangCa = ?, TrangThai = ?, GhiChu = COALESCE(?, GhiChu)
                  WHERE MaCC = ?`,
-                [checkTime, soGioLam, SoGioTangCa || 0, GhiChu, attendance[0].MaCC]
+                [checkTime, soGioLam, SoGioTangCa || 0, transitionStatus, GhiChu, record.MaCC]
             );
 
             res.json({
                 success: true,
-                message: 'Chấm công ra thành công',
-                data: { Ngay: checkDate, GioRa: checkTime, SoGioLam: soGioLam }
+                message: transitionStatus === 'Ve_som' ? 'Chấm công ra thành công (Về sớm)' : 'Chấm công ra thành công',
+                data: { Ngay: checkDate, GioRa: checkTime, SoGioLam: soGioLam, TrangThai: transitionStatus }
             });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -199,13 +231,13 @@ const attendanceController = {
 
     // ======================= MANUAL ATTENDANCE (Admin) =======================
     createAttendance: async (req, res) => {
-        const { MaNV, Ngay, GioVao, GioRa, SoGioLam, SoGioTangCa, TrangThai, GhiChu } = req.body;
+        const { MaNV, Ngay, GioVao, GioRa, SoGioLam, SoGioTangCa, TrangThai, GhiChu, MaCa } = req.body;
 
         // Validation
-        if (!MaNV || !Ngay || !GioVao) {
+        if (!MaNV || !Ngay) {
             return res.status(400).json({
                 success: false,
-                message: 'Thiếu thông tin: MaNV, Ngay, GioVao là bắt buộc'
+                message: 'Thiếu thông tin: MaNV, Ngay là bắt buộc'
             });
         }
 
@@ -223,10 +255,32 @@ const attendanceController = {
                 });
             }
 
+            // Get employee shift if not provided
+            let finalMaCa = MaCa;
+            let finalGioVao = GioVao;
+            let finalTrangThai = TrangThai || 'Di_lam';
+
+            if (!finalMaCa || !finalGioVao) {
+                const [emp] = await pool.query(
+                    `SELECT nv.MaCa, ca.GioBatDau 
+                     FROM nhanvien nv 
+                     LEFT JOIN ca_lam_viec ca ON nv.MaCa = ca.MaCa 
+                     WHERE nv.MaNV = ?`,
+                    [MaNV]
+                );
+
+                if (emp.length > 0) {
+                    if (!finalMaCa) finalMaCa = emp[0].MaCa || 1;
+                    if (!finalGioVao && !['Nghi_phep', 'Nghi_khong_phep', 'Vang'].includes(finalTrangThai)) {
+                        finalGioVao = emp[0].GioBatDau || '08:00:00';
+                    }
+                }
+            }
+
             const [result] = await pool.query(
-                `INSERT INTO cham_cong (MaNV, Ngay, GioVao, GioRa, SoGioLam, SoGioTangCa, TrangThai, GhiChu, CreatedBy)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [MaNV, Ngay, GioVao, GioRa, SoGioLam || 0, SoGioTangCa || 0, TrangThai || 'Di_lam', GhiChu, req.user.TenTK]
+                `INSERT INTO cham_cong (MaNV, MaCa, Ngay, GioVao, GioRa, SoGioLam, SoGioTangCa, TrangThai, GhiChu, CreatedBy)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [MaNV, finalMaCa || 1, Ngay, finalGioVao, GioRa, SoGioLam || 0, SoGioTangCa || 0, finalTrangThai, GhiChu, req.user.TenTK]
             );
 
             await logActivity({
@@ -234,7 +288,7 @@ const attendanceController = {
                 HanhDong: 'Them',
                 BangDuLieu: 'cham_cong',
                 MaBanGhi: result.insertId,
-                DuLieuMoi: { MaNV, Ngay, GioVao },
+                DuLieuMoi: { MaNV, Ngay, GioVao: finalGioVao, MaCa: finalMaCa },
                 DiaChi_IP: req.ip
             });
 
@@ -257,7 +311,12 @@ const attendanceController = {
 
             await pool.query(
                 `UPDATE cham_cong 
-                 SET GioVao = ?, GioRa = ?, SoGioLam = ?, SoGioTangCa = ?, TrangThai = ?, GhiChu = ?
+                 SET GioVao = COALESCE(?, GioVao), 
+                     GioRa = COALESCE(?, GioRa), 
+                     SoGioLam = COALESCE(?, SoGioLam), 
+                     SoGioTangCa = COALESCE(?, SoGioTangCa), 
+                     TrangThai = COALESCE(?, TrangThai), 
+                     GhiChu = COALESCE(?, GhiChu)
                  WHERE MaCC = ?`,
                 [GioVao, GioRa, SoGioLam, SoGioTangCa, TrangThai, GhiChu, id]
             );
@@ -325,6 +384,7 @@ const attendanceController = {
                     COUNT(*) as TongNgayChamCong,
                     SUM(CASE WHEN TrangThai = 'Di_lam' THEN 1 ELSE 0 END) as SoNgayDiLam,
                     SUM(CASE WHEN TrangThai = 'Tre' THEN 1 ELSE 0 END) as SoNgayTre,
+                    SUM(CASE WHEN TrangThai = 'Ve_som' THEN 1 ELSE 0 END) as SoNgayVeSom,
                     SUM(CASE WHEN TrangThai = 'Nghi_phep' THEN 1 ELSE 0 END) as SoNgayNghiPhep,
                     SUM(CASE WHEN TrangThai = 'Nghi_khong_phep' THEN 1 ELSE 0 END) as SoNgayNghiKhongPhep,
                     SUM(SoGioLam) as TongGioLam,
@@ -349,7 +409,7 @@ const attendanceController = {
 
             // 2. Get attendance records for the month
             const [attendance] = await pool.query(
-                `SELECT MaNV, DAY(Ngay) as Ngay, TrangThai, GioVao, GioRa, SoGioLam, SoGioTangCa 
+                `SELECT MaCC, MaNV, DAY(Ngay) as Ngay, TrangThai, GioVao, GioRa, SoGioLam, SoGioTangCa 
                  FROM cham_cong 
                  WHERE MONTH(Ngay) = ? AND YEAR(Ngay) = ?`,
                 [month, year]
@@ -362,6 +422,7 @@ const attendanceController = {
                     .filter(a => a.MaNV === emp.MaNV)
                     .forEach(a => {
                         empDays[a.Ngay] = {
+                            id: a.MaCC,
                             trang_thai: a.TrangThai,
                             gio_vao: a.GioVao,
                             gio_ra: a.GioRa,

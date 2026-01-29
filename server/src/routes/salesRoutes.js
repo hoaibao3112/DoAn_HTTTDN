@@ -43,5 +43,7 @@ router.post('/customers', checkPermission(FEATURES.CUSTOMERS, PERMISSIONS.CREATE
 // ======================= 4.4 INVOICE MANAGEMENT =======================
 router.get('/hoadon', checkPermission(FEATURES.INVOICES, PERMISSIONS.VIEW), salesController.getAllInvoices);
 router.get('/hoadon/:id', checkPermission(FEATURES.INVOICES, PERMISSIONS.VIEW), salesController.getInvoiceById);
+router.put('/hoadon/:id/trangthai', checkPermission(FEATURES.INVOICES, PERMISSIONS.UPDATE), salesController.updateInvoiceStatus);
+router.put('/hoadon/:id/huy', checkPermission(FEATURES.INVOICES, PERMISSIONS.UPDATE), salesController.cancelInvoice);
 
 export default router;

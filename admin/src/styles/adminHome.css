@@ -1,46 +1,39 @@
-
-
-:root{
-  --bg-start: #f6f9ff;
-  --bg-end: #eef7fb;
-  --panel-bg: #ffffff;
-  --muted: #64748b;
-  --text: #0f172a;
-  --accent-1: #6366f1; /* indigo */
-  --accent-2: #06b6d4; /* cyan */
-  --accent-3: #ff7a59; /* warm */
-  --glass: rgba(255,255,255,0.65);
-  --shadow-1: 0 12px 36px rgba(2,6,23,0.06);
-  --shadow-2: 0 8px 22px rgba(2,6,23,0.06);
+:root {
+  --app-bg: #f8fafc;
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --primary: #6366f1;
+  --secondary: #06b6d4;
+  --accent: #f43f5e;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --glass: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
 }
 
-/* ---------- Container: main area (clears sidebar) ---------- */
-/* Increase margin-left if your sidebar is wider; this keeps content out of sidebar */
 .admin-home {
-  padding: 30px;
+  padding: 24px;
   display: flex;
-  justify-content: flex-start;
+  flex-direction: column;
   gap: 24px;
-  font-size: 14px;
-  font-family: "Segoe UI", Roboto, Arial, sans-serif;
-  margin-left: 0; /* controlled by body.sidebar-open / body.sidebar-closed */
-  transition: padding 160ms ease, margin-left 220ms ease;
-  box-sizing: border-box;
   min-height: 100vh;
-
-  /* Keep a soft gradient background here. If you want to use the ChaoMung image
-     as a background, set it inline in the React component to avoid css-loader
-     attempting to resolve '/img/...' during build. */
-  background-image: linear-gradient(180deg, rgba(246,249,255,0.95), rgba(238,247,251,0.9));
-  color: var(--text);
+  background-color: var(--app-bg);
+  background-image:
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.05) 0px, transparent 50%);
+  font-family: 'Inter', -apple-system, sans-serif;
+  color: var(--text-main);
+  /* REFRESH: Removed margin-left to prevent double-offset with .main-content */
 }
-
-/* fallback when sidebar hasn't toggled body class for some reason */
-body.sidebar-open .admin-home { margin-left: 220px; }
-body.sidebar-closed .admin-home { margin-left: 64px; }
 
 /* ensure popovers mounted into body appear above sidebar */
-.portal-safe, .ant-modal, .popover, .rc-dropdown, .dropdown {
+.portal-safe,
+.ant-modal,
+.popover,
+.rc-dropdown,
+.dropdown {
   z-index: 3000 !important;
   transform: none !important;
 }
@@ -50,245 +43,276 @@ body.sidebar-closed .admin-home { margin-left: 64px; }
    moderate specificity so it can override darker rules from page CSS. */
 .modal-overlay,
 .modal.portal-modal,
-.modal.portal-modal + .modal-overlay {
+.modal.portal-modal+.modal-overlay {
   background-color: rgba(16, 24, 40, 0.12) !important;
   backdrop-filter: blur(6px) !important;
 }
 
-/* ---------- Left column: small info panel ---------- */
-.admin-home > .admin-left {
-  min-width: 240px;
-  max-width: 320px;
-  align-self: flex-start;
-}
-
-.admin-left > div {
-  background: linear-gradient(180deg, rgba(255,255,255,0.96), var(--panel-bg));
-  border-radius: 14px;
-  padding: 18px;
-  box-shadow: var(--shadow-2);
-  border: 1px solid rgba(15,23,42,0.04);
-}
-
-/* avatar placeholder */
-.admin-left .avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 700;
-  font-size: 18px;
-  box-shadow: 0 6px 18px rgba(99,102,241,0.12);
-  margin-bottom: 10px;
-}
-
-.admin-left h3 { margin: 0 0 6px 0; font-size: 16px; }
-.admin-left p { margin: 0; color: var(--muted); font-size: 13px; }
-
-/* ---------- Right column (main content) ---------- */
-.admin-home > .admin-right {
-  flex: 1 1 auto;
-  min-width: 520px;
+/* ---------- Dashboard Layout ---------- */
+.dashboard-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-
-/* ---------- Hero card (centered inside right column) ---------- */
-.admin-right .hero {
-  display: flex;
-  align-items: center;
   gap: 32px;
-  width: 100%;
-  max-width: none;         /* allow full use of right column */
-  margin: 0 auto;
-  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,251,255,0.96));
-  border-radius: 18px;
-  box-shadow: var(--shadow-1);
-  padding: 36px 48px;      /* taller / longer feel */
+  animation: fadeIn 0.8s ease-out;
+}
+
+/* ---------- Welcome Banner ---------- */
+.welcome-banner {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  border-radius: 24px;
+  padding: 48px;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   position: relative;
-  overflow: visible;
-  border: 1px solid rgba(15,23,42,0.03);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
 }
 
-/* decorative soft wave on top-right */
-.admin-right .hero::before {
-  content: "";
+.welcome-banner::after {
+  content: '';
   position: absolute;
-  right: -48px;
-  top: -48px;
-  width: 420px;
-  height: 160px;
-  background: linear-gradient(90deg, rgba(99,102,241,0.10), rgba(6,182,212,0.09));
-  border-radius: 60% 40% 50% 50%;
-  filter: blur(20px);
-  z-index: 0;
-  pointer-events: none;
+  top: -50%;
+  right: -10%;
+  width: 400px;
+  height: 400px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  filter: blur(60px);
 }
 
-/* ---------- Hero image (bigger) ---------- */
-.hero-image {
-  width: 560px;            /* larger default width */
-  max-width: 55%;
-  height: auto;
-  border-radius: 12px;
-  flex-shrink: 0;
-  box-shadow: 0 18px 44px rgba(2,132,199,0.08);
-  transition: transform 300ms ease, box-shadow 300ms ease;
+.banner-content {
+  z-index: 1;
+  max-width: 600px;
+}
+
+.banner-content h1 {
+  font-size: 42px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  color: white;
+  letter-spacing: -1px;
+}
+
+.banner-content p {
+  font-size: 18px;
+  opacity: 0.9;
+  line-height: 1.6;
+}
+
+.banner-image-container {
   z-index: 1;
 }
 
-.hero-image:hover {
-  transform: translateY(-6px) scale(1.02);
-  box-shadow: 0 24px 64px rgba(2,132,199,0.11);
+.banner-image {
+  width: 320px;
+  height: auto;
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.2));
+  transition: transform 0.5s ease;
 }
 
-/* ---------- Text area ---------- */
-.hero-text { flex: 1; z-index: 2; display: flex; flex-direction: column; gap: 12px; }
-
-/* gradient headline, larger */
-.hero-text h1 {
-  margin: 0 0 6px 0;
-  font-size: 44px;
-  font-weight: 800;
-  line-height: 1.03;
-  background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  letter-spacing: 0.2px;
+.welcome-banner:hover .banner-image {
+  transform: translateY(-10px) rotate(2deg);
 }
 
-/* ---------- Date/time badge (larger, clear) ---------- */
-.datetime {
+/* ---------- Date Time Badge ---------- */
+.datetime-badge {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  background: linear-gradient(90deg, rgba(6,182,212,0.14), rgba(99,102,241,0.10));
-  color: #06203a;
-  font-weight: 700;
-  margin-bottom: 6px;
-  font-size: 18px;
-  padding: 10px 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(15,23,42,0.04);
-  box-shadow: 0 8px 20px rgba(99,102,241,0.06);
+  padding: 8px 20px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 99px;
+  margin-top: 24px;
+  font-weight: 600;
 }
 
-/* allow splitting date/time into two lines if desired */
-.datetime .time { font-weight: 800; }
-.datetime .date { font-weight: 600; opacity: 0.9; font-size: 14px; }
-
-/* ...existing code... */
-.subtitle {
-  color: var(--text);        /* dùng màu chữ chính để rõ ràng */
-  font-size: 20px;          /* tăng kích thước */
-  font-weight: 700;         /* in đậm */
-  line-height: 1.45;
-  margin-bottom: 18px;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.6); /* nhẹ để nổi bật trên nền sáng */
+/* ---------- Metrics Grid ---------- */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
 }
-/* ...existing code... */
 
-/* quick actions */
-.quick-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.metric-card {
+  background: white;
+  padding: 24px;
+  border-radius: 20px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: all 0.3s ease;
+  border: 1px solid var(--glass-border);
+}
 
-.btn {
-  padding: 10px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(15,23,42,0.06);
-  background: rgba(255,255,255,0.95);
-  cursor: pointer;
-  font-weight: 700;
-  transition: box-shadow 160ms ease, background 160ms ease;
-  color: var(--text);
-  box-shadow: 0 6px 18px rgba(15,23,42,0.05);
+.metric-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary);
+}
+
+.metric-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+
+.metric-card.sales .metric-icon {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary);
+}
+
+.metric-card.orders .metric-icon {
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--secondary);
+}
+
+.metric-card.products .metric-icon {
+  background: rgba(244, 63, 94, 0.1);
+  color: var(--accent);
+}
+
+.metric-card.users .metric-icon {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.metric-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-label {
+  color: var(--text-muted);
   font-size: 14px;
-  transform: none !important; /* prevent inherited transforms from sidebar hover */
+  font-weight: 500;
 }
 
-.btn.primary {
-  background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
-  color: #fff;
-  border: none;
-  box-shadow: 0 12px 36px rgba(99,102,241,0.16);
+.metric-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 4px 0;
 }
 
-.btn.ghost {
-  background: transparent;
-  border: 1px dashed rgba(15,23,42,0.06);
-  color: var(--muted);
+.metric-trend {
+  font-size: 12px;
+  font-weight: 600;
 }
 
-/* subtle cards */
-.card {
-  background: var(--panel-bg);
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: var(--shadow-2);
-  border: 1px solid rgba(15,23,42,0.03);
+.trend-up {
+  color: #10b981;
 }
 
-/* fade in */
+.trend-down {
+  color: #f43f5e;
+}
+
+/* ---------- Quick Access ---------- */
+.quick-access-section {
+  background: white;
+  padding: 32px;
+  border-radius: 24px;
+  box-shadow: var(--shadow-md);
+}
+
+.section-header {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-main);
+}
+
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 20px;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  background: var(--app-bg);
+  border: 1px solid transparent;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  color: var(--text-main);
+}
+
+.action-btn:hover {
+  background: white;
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+  transform: scale(1.05);
+}
+
+.action-btn i {
+  font-size: 24px;
+  color: var(--primary);
+}
+
+.action-btn span {
+  font-weight: 600;
+  font-size: 14px;
+}
+
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ---------- Responsive ---------- */
-@media (max-width: 1200px) {
-  .admin-home { margin-left: 240px; padding: 24px; }
-  .hero-image { width: 480px; max-width: 50%; }
-  .hero-text h1 { font-size: 40px; }
-}
-
-@media (max-width: 980px) {
-  .admin-home { margin-left: 200px; padding: 20px; }
-  .hero-text h1 { font-size: 36px; }
-  .hero-image { width: 420px; max-width: 48%; }
-}
-
-@media (max-width: 768px) {
-  .admin-home {
-    margin-left: 0;            /* sidebar overlays on mobile */
+@media (max-width: 1024px) {
+  .welcome-banner {
     flex-direction: column;
-    align-items: stretch;
-    padding: 16px;
-  }
-
-  .admin-home > .admin-left,
-  .admin-home > .admin-right {
-    max-width: 100%;
-    min-width: 0;
-    flex: 1 1 auto;
-  }
-
-  .admin-right .hero {
-    flex-direction: column-reverse;
     text-align: center;
-    padding: 18px;
+    padding: 32px;
   }
 
-  .hero-image {
-    width: 100%;
-    max-height: 320px;
-    object-fit: cover;
-    border-radius: 10px;
+  .banner-image {
+    width: 240px;
+    margin-top: 24px;
   }
 
-  .hero-text h1 { font-size: 26px; }
-  .datetime { font-size: 16px; padding: 8px 12px; }
-  .quick-actions { justify-content: center; }
+  .banner-content h1 {
+    font-size: 32px;
+  }
 }
 
 /* ---------- Sidebar-collapsed variants (common patterns) ---------- */
 /* Adjust margin-left when sidebar is collapsed; update selectors if your project uses different class names */
-.sidebar.closed ~ .main-content .admin-home,
-.sidebar.closed + .main-content .admin-home,
+.sidebar.closed~.main-content .admin-home,
+.sidebar.closed+.main-content .admin-home,
 body.sidebar-closed .admin-home,
 .app-admin.sidebar-closed .admin-home {
   margin-left: 96px !important;

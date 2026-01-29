@@ -10,7 +10,8 @@ const statusColors = {
   Nghi_phep: '#2196F3',
   Nghi_khong_phep: '#F44336',
   Lam_them: '#673AB7',
-  Di_tre: '#FF9800',
+  Tre: '#FF9800',
+  Ve_som: '#FFC107',
   Chua_cham_cong: '#B0BEC5',
 };
 
@@ -19,7 +20,8 @@ const statusLabels = {
   Nghi_phep: 'Nghỉ phép',
   Nghi_khong_phep: 'Nghỉ KP',
   Lam_them: 'Tăng ca',
-  Di_tre: 'Đi trễ',
+  Tre: 'Đi trễ',
+  Ve_som: 'Về sớm',
   Chua_cham_cong: '',
 };
 
@@ -28,7 +30,8 @@ const frontendToApiStatus = {
   'Nghỉ phép': 'Nghi_phep',
   'Nghỉ KP': 'Nghi_khong_phep',
   'Tăng ca': 'Lam_them',
-  'Đi trễ': 'Di_tre',
+  'Đi trễ': 'Tre',
+  'Về sớm': 'Ve_som',
 };
 
 // Thứ trong tuần
@@ -73,8 +76,10 @@ const AttendancePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const token = localStorage.getItem('authToken');
         const res = await axios.get(
-          `http://localhost:5000/api/attendance_admin/monthly?month=${month}&year=${year}`
+          `http://localhost:5000/api/hr/attendance/monthly?month=${month}&year=${year}`,
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         setEmployees(res.data);
         if (res.data.length > 0) setSelectedEmployee(res.data[0]);
@@ -122,21 +127,33 @@ const AttendancePage = () => {
 
     try {
       const updates = Object.entries(pendingChanges).map(([ngay, data]) => ({
-        MaTK: selectedEmployee.MaNV,
-        ngay,
-        trang_thai: data.trang_thai,
-        ghi_chu: data.ghi_chu,
+        MaNV: selectedEmployee.MaNV,
+        Ngay: ngay,
+        TrangThai: data.trang_thai,
+        GhiChu: data.ghi_chu,
       }));
 
       await Promise.all(
-        updates.map((update) =>
-          axios.put('http://localhost:5000/api/attendance_admin/update', update)
-        )
+        updates.map((update) => {
+          const dayNum = parseInt(update.Ngay.split('-')[2]);
+          const existingId = selectedEmployee.days?.[dayNum]?.id;
+
+          if (existingId) {
+            return axios.put(`http://localhost:5000/api/hr/attendance/${existingId}`, update, {
+              headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+            });
+          } else {
+            return axios.post('http://localhost:5000/api/hr/attendance', update, {
+              headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+            });
+          }
+        })
       );
 
       // Reload dữ liệu sau khi lưu
       const res = await axios.get(
-        `http://localhost:5000/api/attendance_admin/monthly?month=${month}&year=${year}`
+        `http://localhost:5000/api/hr/attendance/monthly?month=${month}&year=${year}`,
+        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
       );
       setEmployees(res.data);
       const found = res.data.find((nv) => nv.MaNV === selectedEmployee.MaNV);
@@ -148,17 +165,33 @@ const AttendancePage = () => {
     }
   };
 
-  // Hàm gọi API tính lương
   const fetchSalary = async () => {
     if (!selectedEmployee) return;
     setLoadingSalary(true);
     setSalaryInfo(null);
     try {
+      const token = localStorage.getItem('authToken');
+      // Fetch summary which contains calculated values
       const res = await axios.get(
-        `http://localhost:5000/api/salary/monthly?month=${month}&year=${year}`
+        `http://localhost:5000/api/hr/attendance/summary?month=${month}&year=${year}&MaNV=${selectedEmployee.MaNV}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      const info = res.data.find((s) => s.MaNV === selectedEmployee.MaNV);
-      setSalaryInfo(info || null);
+      if (res.data.success && res.data.data.length > 0) {
+        // Map backend summary stats to frontend salary form
+        const stats = res.data.data[0];
+        setSalaryInfo({
+          ...stats,
+          TenNV: selectedEmployee.TenNV,
+          soNgayLam: (stats.SoNgayDiLam || 0) + (stats.SoNgayTre || 0) + (stats.SoNgayVeSom || 0) + (stats.SoNgayNghiPhep || 0),
+          soGioTangCa: stats.TongGioTangCa || 0,
+          soNgayDiTre: (stats.SoNgayTre || 0) + (stats.SoNgayVeSom || 0),
+          soNgayNghiKhongPhep: stats.SoNgayNghiKhongPhep || 0,
+          luong_co_ban: selectedEmployee.LuongCoBan || 0,
+          phu_cap: selectedEmployee.PhuCap || 0,
+          thuong: 0,
+          phat: ((stats.SoNgayTre || 0) + (stats.SoNgayVeSom || 0)) * 20000
+        });
+      }
     } catch (err) {
       setSalaryInfo(null);
     }
@@ -176,8 +209,6 @@ const AttendancePage = () => {
     }));
   };
 
-  // Kiểm tra nhân viên đã chi trả lương chưa
-  const isDaPaid = salaryInfo?.trang_thai === 'Da_tra';
 
   // Xử lý nhập thưởng
   const handleThuongChange = (e) => {
@@ -194,35 +225,36 @@ const AttendancePage = () => {
   // Tính lại tổng lương khi phụ cấp thay đổi (và làm tròn về trăm đồng)
   const getTongLuong = () => {
     if (!salaryInfo) return 0;
+
+    const base = salaryInfo.luong_co_ban || 0;
+    const dailyRate = base / 26;
+    const hourlyRate = base / 208;
+
+    const basePay = dailyRate * (salaryInfo.soNgayLam || 0);
+    const otPay = (salaryInfo.soGioTangCa || 0) * hourlyRate * 1.5;
+
     const tong =
-      (salaryInfo.luong_co_ban || 0) +
+      basePay +
       (salaryInfo.phu_cap || 0) +
-      (salaryInfo.thuong || 0) -
+      (salaryInfo.thuong || 0) +
+      otPay -
       (salaryInfo.phat || 0);
+
     return roundToHundred(tong);
   };
 
   // Xác nhận chi trả lương
   const handlePaySalary = async () => {
     try {
-      const tong_luong = getTongLuong();
-      await axios.put('http://localhost:5000/api/salary/update', {
-        MaNV: salaryInfo.MaNV,
-        thang: month,
-        nam: year,
-        luong_co_ban: salaryInfo.luong_co_ban,
-        phu_cap: salaryInfo.phu_cap,
-        thuong: salaryInfo.thuong,
-        phat: salaryInfo.phat,
-        tong_luong,
-        trang_thai: 'Da_tra'
-      });
-      setSalaryInfo((prev) => ({
-        ...prev,
-        tong_luong,
-        trang_thai: 'Da_tra'
-      }));
-      alert('Đã xác nhận chi trả lương cho tài khoản này!');
+      const token = localStorage.getItem('authToken');
+      // The backend has calculateMonthlySalary which inserts into 'luong'
+      await axios.post('http://localhost:5000/api/hr/calculate-salary', {
+        month,
+        year
+      }, { headers: { Authorization: `Bearer ${token}` } });
+
+      alert('Đã tính lương và cập nhật trạng thái cho tháng này!');
+      fetchSalary();
     } catch (err) {
       alert('Cập nhật trạng thái lương thất bại!');
     }
@@ -327,7 +359,7 @@ const AttendancePage = () => {
       console.error('Failed to generate PDF (html2canvas/jsPDF)', err);
       alert('Tạo PDF thất bại. Hãy thử lại hoặc cài `html2canvas` (npm i html2canvas) nếu cần.');
     } finally {
-      try { if (container) document.body.removeChild(container); } catch (e) {}
+      try { if (container) document.body.removeChild(container); } catch (e) { }
     }
   };
 
@@ -348,7 +380,7 @@ const AttendancePage = () => {
               value={months.find((m) => m.value === month)}
               onChange={(v) => setMonth(v.value)}
               placeholder="Chọn tháng"
-              styles={{ 
+              styles={{
                 control: (base) => ({ ...base, minHeight: 32 }),
                 menu: (base) => ({ ...base, zIndex: 9999 })
               }}
@@ -359,7 +391,7 @@ const AttendancePage = () => {
               value={years.find((y) => y.value === year)}
               onChange={(v) => setYear(v.value)}
               placeholder="Chọn năm"
-              styles={{ 
+              styles={{
                 control: (base) => ({ ...base, minHeight: 32 }),
                 menu: (base) => ({ ...base, zIndex: 9999 })
               }}
@@ -537,6 +569,12 @@ const AttendancePage = () => {
                   style={{ background: selectedStatus === 'Đi trễ' ? '#FF9800' : '#fff' }}
                 >
                   Đi trễ
+                </button>
+                <button
+                  onClick={() => setSelectedStatus('Về sớm')}
+                  style={{ background: selectedStatus === 'Về sớm' ? '#FFC107' : '#fff' }}
+                >
+                  Về sớm
                 </button>
                 <button
                   onClick={() => setSelectedStatus('Tăng ca')}

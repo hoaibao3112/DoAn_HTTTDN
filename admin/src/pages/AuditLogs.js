@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { PermissionContext } from '../components/PermissionContext';
 import { FEATURES } from '../constants/permissions';
 import '../styles/AuditLogs.css';
 
+// Mock data
 const AuditLogs = () => {
     const { hasPermissionById } = useContext(PermissionContext);
     const [logs, setLogs] = useState([]);
@@ -11,27 +12,12 @@ const AuditLogs = () => {
     const [selectedLog, setSelectedLog] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
 
-    const [filters, setFilters] = useState({
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date().toISOString().split('T')[0],
-        user: 'all',
-        action: 'all',
-        module: 'all'
-    });
-
-    const [stats, setStats] = useState({
-        total: 12842,
-        created: 156,
-        deleted: 12,
-        warnings: 0
-    });
-
     // Mock data
-    const mockLogs = [
+    const mockLogs = useMemo(() => [
         {
             id: 1,
             timestamp: '2024-05-20 14:32:01',
-            user: { name: 'Nguyễn Văn A', avatar: '/avatar1.jpg' },
+            user: { name: 'Nguyễn Văn A', avatar: null },
             action: 'CREATE',
             module: 'Kho hàng',
             ip: '192.168.1.15',
@@ -42,7 +28,7 @@ const AuditLogs = () => {
                     old: null,
                     new: {
                         id: 'PROD-4402',
-                        title: 'Đắt Rừng Phương Nam',
+                        title: 'Đất Rừng Phương Nam',
                         price: 125000,
                         stock: 24,
                         category: 'Văn học VN',
@@ -55,7 +41,7 @@ const AuditLogs = () => {
         {
             id: 2,
             timestamp: '2024-05-20 14:30:45',
-            user: { name: 'Lê Thị B', avatar: '/avatar2.jpg' },
+            user: { name: 'Lê Thị B', avatar: null },
             action: 'UPDATE',
             module: 'Sản phẩm',
             ip: '172.16.0.42',
@@ -72,7 +58,7 @@ const AuditLogs = () => {
         {
             id: 3,
             timestamp: '2024-05-20 14:28:12',
-            user: { name: 'Trần Văn C', avatar: '/avatar3.jpg' },
+            user: { name: 'Trần Văn C', avatar: null },
             action: 'DELETE',
             module: 'Hóa đơn',
             ip: '192.168.1.55',
@@ -88,7 +74,7 @@ const AuditLogs = () => {
         {
             id: 4,
             timestamp: '2024-05-20 14:25:30',
-            user: { name: 'Lê Thị B', avatar: '/avatar2.jpg' },
+            user: { name: 'Lê Thị B', avatar: null },
             action: 'UPDATE',
             module: 'Sản phẩm',
             ip: '172.16.0.42',
@@ -117,13 +103,24 @@ const AuditLogs = () => {
                 }
             }
         }
-    ];
+    ], []);
 
-    useEffect(() => {
-        fetchLogs();
-    }, []);
+    const [filters, setFilters] = useState({
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
+        user: 'all',
+        action: 'all',
+        module: 'all'
+    });
 
-    const fetchLogs = async () => {
+    const [stats, setStats] = useState({
+        total: 12842,
+        created: 156,
+        deleted: 12,
+        warnings: 0
+    });
+
+    const fetchLogs = useCallback(async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('authToken');
@@ -132,8 +129,37 @@ const AuditLogs = () => {
                 params: filters
             });
 
-            if (response.data.success) {
-                setLogs(response.data.data || mockLogs);
+            if (response.data.success && response.data.data) {
+                // Transform backend data to frontend format
+                const transformedLogs = response.data.data.map(item => ({
+                    id: item.MaNK || item.id,
+                    timestamp: item.ThoiGian ? new Date(item.ThoiGian).toLocaleString('vi-VN') : item.timestamp,
+                    user: {
+                        name: item.TenTK || item.user?.name || 'Hệ thống',
+                        avatar: item.user?.avatar || null
+                    },
+                    action: item.HanhDong || item.action,
+                    module: item.BangDuLieu || item.module,
+                    ip: item.DiaChi_IP || item.ip,
+                    details: {
+                        table: item.BangDuLieu || item.details?.table,
+                        recordId: item.MaBanGhi || item.details?.recordId,
+                        action: item.HanhDong || item.details?.action,
+                        changes: {
+                            old: typeof item.DuLieuCu === 'string' ? JSON.parse(item.DuLieuCu) : (item.DuLieuCu || item.details?.changes?.old),
+                            new: typeof item.DuLieuMoi === 'string' ? JSON.parse(item.DuLieuMoi) : (item.DuLieuMoi || item.details?.changes?.new)
+                        }
+                    }
+                }));
+                setLogs(transformedLogs.length > 0 ? transformedLogs : mockLogs);
+
+                // Update stats if provided by backend
+                if (response.data.pagination) {
+                    setStats(prev => ({
+                        ...prev,
+                        total: response.data.pagination.total || prev.total
+                    }));
+                }
             } else {
                 setLogs(mockLogs);
             }
@@ -143,7 +169,11 @@ const AuditLogs = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [filters, mockLogs]);
+
+    useEffect(() => {
+        fetchLogs();
+    }, [fetchLogs]);
 
     const applyFilters = () => {
         fetchLogs();

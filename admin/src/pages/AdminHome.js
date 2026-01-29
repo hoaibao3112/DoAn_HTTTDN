@@ -1,193 +1,155 @@
-// ...existing code...
 import React, { useEffect, useState } from 'react';
+import { NavLink } from 'react-router-dom';
+import axios from 'axios';
 import '../styles/adminHome.css';
-
-const ROLE_LABEL = {
-  1: 'Quản trị viên',
-  2: 'Nhân viên thủ kho',
-  3: 'Nhân viên xử lý đơn hàng'
-};
-
-const getRoleLabel = (code) => {
-  const n = typeof code === 'string' && /^\d+$/.test(code) ? Number(code) : code;
-  return ROLE_LABEL[n] || 'Nhân viên';
-};
-
-const initialsFromName = (name) => {
-  if (!name) return 'NV';
-  const parts = String(name).trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-};
-
-const tryParseJSON = (raw) => {
-  if (!raw) return null;
-  if (typeof raw !== 'string') return raw;
-  const s = raw.trim();
-  try {
-    if (s.startsWith('{') || s.startsWith('[')) return JSON.parse(s);
-  } catch {}
-  try {
-    const parsedOnce = JSON.parse(raw);
-    if (typeof parsedOnce === 'string' && parsedOnce.trim().startsWith('{')) {
-      return JSON.parse(parsedOnce);
-    }
-    return parsedOnce;
-  } catch {
-    return raw;
-  }
-};
-
-const findFieldIgnoreCase = (obj = {}, candidates = []) => {
-  if (!obj || typeof obj !== 'object') return undefined;
-  const map = {};
-  Object.keys(obj).forEach(k => { map[k.toLowerCase()] = obj[k]; });
-  for (const name of candidates) {
-    const v = map[name.toLowerCase()];
-    if (v !== undefined) return v;
-  }
-  return undefined;
-};
-
-const loadUserFromLocalStorage = () => {
-  const keys = ['userInfo', 'lotoget', 'user', 'authUser'];
-  let parsed = null;
-  for (const key of keys) {
-    const raw = localStorage.getItem(key);
-    if (!raw) continue;
-    parsed = tryParseJSON(raw);
-    if (parsed) return parsed;
-  }
-  return null;
-};
+import heroIllustration from './bookstore_dashboard_hero_1769598928400.png';
 
 const AdminHome = () => {
   const [now, setNow] = useState(new Date());
-  const [userName, setUserName] = useState('Quản trị viên');
-  const [userRoleLabel, setUserRoleLabel] = useState('Quản trị viên');
-  const [avatarText, setAvatarText] = useState('NV');
-
-  // logo states
-  const PUBLIC = process.env.PUBLIC_URL || '';
-  const logoCandidates = [
-    '/img/logo/anhdong.gif',
-    `${PUBLIC}/img/logo/anhdong.gif`,
-    '/img/logo/animated.gif',
-    `${PUBLIC}/img/logo/animated.gif`,
-    '/img/logo/ChaoMung.jpg',
-    `${PUBLIC}/img/logo/ChaoMung.jpg`,
-    '/img/logo.png',
-    `${PUBLIC}/img/logo.png`,
-    '/img/logo.svg',
-    `${PUBLIC}/img/logo.svg`
-  ];
-  const [logoSrc, setLogoSrc] = useState(logoCandidates[0]);
-  const [showLogo, setShowLogo] = useState(true);
+  const [user, setUser] = useState({ name: 'Quản trị viên', role: 'Admin' });
+  const [stats, setStats] = useState({
+    sales: '12,500,000đ',
+    orders: '42',
+    products: '156',
+    customers: '1,204'
+  });
 
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
+    const timer = setInterval(() => setNow(new Date()), 1000);
 
-  // probe logo candidates (so animated gif is found if exists)
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      for (let i = 0; i < logoCandidates.length; i++) {
-        const url = logoCandidates[i];
-        const ok = await new Promise((resolve) => {
-          const img = new Image();
-          img.onload = () => resolve(true);
-          img.onerror = () => resolve(false);
-          img.src = url;
-        });
-        if (!mounted) return;
-        if (ok) {
-          setLogoSrc(url);
-          setShowLogo(true);
-          return;
-        }
-      }
-      if (mounted) setShowLogo(false);
-    })();
-    return () => { mounted = false; };
-  }, []); // run once
-
-  const handleLogoError = () => {
-    const idx = logoCandidates.indexOf(logoSrc);
-    if (idx >= 0 && idx < logoCandidates.length - 1) {
-      setLogoSrc(logoCandidates[idx + 1]);
-    } else {
-      setShowLogo(false);
-    }
-  };
-
-  useEffect(() => {
+    // Load user info
     try {
-      const rawUser = loadUserFromLocalStorage();
-      let src = rawUser;
-      if (src && typeof src === 'object') {
-        const nested = src.userInfo || src.user || src.data || src.Data;
-        if (nested && typeof nested === 'object') src = nested;
-      }
-
-      const name = findFieldIgnoreCase(src, ['TenTK', 'HoTen', 'name', 'username', 'fullName', 'ten']) || 'Quản trị viên';
-      const roleCode = findFieldIgnoreCase(src, ['MaQuyen', 'maQuyen', 'maquyen', 'role', 'roleId', 'permission', 'quyen']);
-
-      setUserName(name);
-      setAvatarText(initialsFromName(name));
-      if (roleCode !== undefined && roleCode !== null && roleCode !== '') {
-        setUserRoleLabel(getRoleLabel(roleCode));
-      } else {
-        setUserRoleLabel(String(name).toLowerCase().includes('admin') ? 'Quản trị viên' : 'Nhân viên');
+      const stored = localStorage.getItem('userInfo');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setUser({
+          name: parsed.TenTK || parsed.HoTen || 'Quản trị viên',
+          role: parsed.TenNQ || 'Cán bộ quản lý'
+        });
       }
     } catch (e) {
-      console.warn('AdminHome: load user failed', e);
-      setUserName('Quản trị viên');
-      setUserRoleLabel('Quản trị viên');
-      setAvatarText('NV');
+      console.warn('Failed to load user info', e);
     }
+
+    // Optional: Fetch real stats if API exists
+    // fetchStats();
+
+    return () => clearInterval(timer);
   }, []);
+
+  const getGreeting = () => {
+    const hour = now.getHours();
+    if (hour < 12) return 'Chào buổi sáng';
+    if (hour < 18) return 'Chào buổi chiều';
+    return 'Chào buổi tối';
+  };
 
   const formatTime = (d) => d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const formatDate = (d) => d.toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
     <div className="admin-home">
-      <div className="admin-left">
-        <div className="card" style={{ padding: 16 }}>
-          <div className="avatar">{avatarText}</div>
-          <h3 style={{ marginTop: 6, marginBottom: 4 }}>{userName}</h3>
-          <p style={{ margin: 0, color: 'var(--muted)' }}>{userRoleLabel}</p>
-          <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid rgba(15,23,42,0.04)' }} />
+      <div className="dashboard-container">
+        {/* Welcome Section */}
+        <div className="welcome-banner">
+          <div className="banner-content">
+            <h1 className="fade-in">{getGreeting()}, {user.name}! 👋</h1>
+            <p>Chào mừng bạn quay trở lại hệ thống quản lý Nhà Sách Antigravity. Chúc bạn có một ngày làm việc thật hiệu quả và đầy năng lượng!</p>
+
+            <div className="datetime-badge">
+              <span className="time">{formatTime(now)}</span>
+              <span className="divider">|</span>
+              <span className="date">{formatDate(now)}</span>
+            </div>
+          </div>
+          <div className="banner-image-container">
+            <img src={heroIllustration} alt="Dashboard Illustration" className="banner-image" />
+          </div>
         </div>
-      </div>
 
-      <div className="admin-right">
-        <div className="hero">
-          {showLogo && (
-            <img
-              src={logoSrc}
-              alt="Logo"
-              className="hero-image"
-              onError={handleLogoError}
-              aria-hidden={false}
-            />
-          )}
+        {/* Stats Grid */}
+        <div className="metrics-grid">
+          <div className="metric-card sales">
+            <div className="metric-icon">
+              <i className="fas fa-dollar-sign"></i>
+            </div>
+            <div className="metric-info">
+              <span className="metric-label">Doanh thu hôm nay</span>
+              <span className="metric-value">{stats.sales}</span>
+              <span className="metric-trend trend-up">
+                <i className="fas fa-arrow-up"></i> +12% so với hôm qua
+              </span>
+            </div>
+          </div>
 
-          <div className="hero-text">
-            <h1 className="fade-in">Xin chào, {userName} 👋</h1>
-            <div className="datetime" aria-live="polite">
-              <span className="time" style={{ fontSize: 20 }}>{formatTime(now)}</span>
-              <span className="date" style={{ marginLeft: 12, fontSize: 14 }}>{formatDate(now)}</span>
+          <div className="metric-card orders">
+            <div className="metric-icon">
+              <i className="fas fa-shopping-cart"></i>
             </div>
-            <p className="subtitle">
-              Chào mừng bạn đã đến<br />
-              Chúc bạn có một ngày làm việc hiệu quả!.
-            </p>
-            <div className="quick-actions">
-              {/* thêm nút nếu cần */}
+            <div className="metric-info">
+              <span className="metric-label">Đơn hàng mới</span>
+              <span className="metric-value">{stats.orders}</span>
+              <span className="metric-trend trend-up">
+                <i className="fas fa-arrow-up"></i> +5 đơn mới
+              </span>
             </div>
+          </div>
+
+          <div className="metric-card products">
+            <div className="metric-icon">
+              <i className="fas fa-book"></i>
+            </div>
+            <div className="metric-info">
+              <span className="metric-label">Sản phẩm trong kho</span>
+              <span className="metric-value">{stats.products}</span>
+              <span className="metric-trend text-muted">Đang kinh doanh</span>
+            </div>
+          </div>
+
+          <div className="metric-card users">
+            <div className="metric-icon">
+              <i className="fas fa-users"></i>
+            </div>
+            <div className="metric-info">
+              <span className="metric-label">Khách hàng</span>
+              <span className="metric-value">{stats.customers}</span>
+              <span className="metric-trend trend-up">
+                <i className="fas fa-plus"></i> 12 thành viên mới
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Access Grid */}
+        <div className="quick-access-section">
+          <div className="section-header">
+            <h2>Truy cập nhanh</h2>
+          </div>
+          <div className="quick-actions-grid">
+            <NavLink to="/admin/pos" className="action-btn">
+              <i className="fas fa-cash-register"></i>
+              <span>Bán hàng (POS)</span>
+            </NavLink>
+            <NavLink to="/admin/products" className="action-btn">
+              <i className="fas fa-plus-circle"></i>
+              <span>Thêm sản phẩm</span>
+            </NavLink>
+            <NavLink to="/admin/invoices" className="action-btn">
+              <i className="fas fa-file-invoice"></i>
+              <span>Quản lý hóa đơn</span>
+            </NavLink>
+            <NavLink to="/admin/stock" className="action-btn">
+              <i className="fas fa-warehouse"></i>
+              <span>Kiểm kê kho</span>
+            </NavLink>
+            <NavLink to="/admin/statistical" className="action-btn">
+              <i className="fas fa-chart-line"></i>
+              <span>Báo cáo doanh thu</span>
+            </NavLink>
+            <NavLink to="/admin/profile" className="action-btn">
+              <i className="fas fa-user-circle"></i>
+              <span>Hồ sơ cá nhân</span>
+            </NavLink>
           </div>
         </div>
       </div>
@@ -196,4 +158,3 @@ const AdminHome = () => {
 };
 
 export default AdminHome;
-// ...existing code...

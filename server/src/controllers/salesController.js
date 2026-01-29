@@ -123,7 +123,7 @@ const salesController = {
         try {
             const { search, MaCH, fromDate, toDate } = req.query;
             let sql = `
-                SELECT hd.*, kh.HoTen as TenKH, nv.HoTen as TenNV, ch.TenCH
+                SELECT hd.*, kh.HoTen as TenKH, kh.SDT as SDTKH, nv.HoTen as TenNV, ch.TenCH
                 FROM hoadon hd
                 LEFT JOIN khachhang kh ON hd.MaKH = kh.MaKH
                 LEFT JOIN nhanvien nv ON hd.MaNV = nv.MaNV
@@ -163,7 +163,7 @@ const salesController = {
         try {
             // Get invoice header
             const [hd] = await pool.query(`
-                SELECT hd.*, kh.HoTen as TenKH, kh.SDT as SDTKH, nv.HoTen as TenNV, ch.TenCH, ch.DiaChi as DiaChiCH, ch.SDT as SDTCH
+                SELECT hd.*, kh.HoTen as TenKH, kh.SDT as SDTKH, kh.Email as EmailKH, nv.HoTen as TenNV, ch.TenCH, ch.DiaChi as DiaChiCH, ch.SDT as SDTCH
                 FROM hoadon hd
                 LEFT JOIN khachhang kh ON hd.MaKH = kh.MaKH
                 LEFT JOIN nhanvien nv ON hd.MaNV = nv.MaNV
@@ -192,6 +192,64 @@ const salesController = {
             });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    updateInvoiceStatus: async (req, res) => {
+        const { id } = req.params;
+        const { trangthai, ghichu } = req.body;
+        try {
+            await pool.query(
+                'UPDATE hoadon SET TrangThai = ?, GhiChu = ? WHERE MaHD = ?',
+                [trangthai, ghichu, id]
+            );
+            res.json({ success: true, message: 'Cập nhật trạng thái thành công' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    cancelInvoice: async (req, res) => {
+        const { id } = req.params;
+        const { lyDo } = req.body;
+        const conn = await pool.getConnection();
+        try {
+            await conn.beginTransaction();
+
+            const [hd] = await conn.query('SELECT MaKH, ThanhToan, TrangThai FROM hoadon WHERE MaHD = ?', [id]);
+            if (!hd.length) throw new Error('Hóa đơn không tồn tại');
+            if (hd[0].TrangThai === 'Da_huy') throw new Error('Hóa đơn đã bị hủy');
+
+            // 1. Restore stock
+            const [details] = await conn.query('SELECT MaSP, SoLuong, MaCH FROM chitiethoadon JOIN hoadon ON chitiethoadon.MaHD = hoadon.MaHD WHERE hoadon.MaHD = ?', [id]);
+            for (const item of details) {
+                await conn.query(
+                    'UPDATE ton_kho SET SoLuongTon = SoLuongTon + ? WHERE MaSP = ? AND MaCH = ?',
+                    [item.SoLuong, item.MaSP, item.MaCH]
+                );
+            }
+
+            // 2. Update status
+            await conn.query(
+                'UPDATE hoadon SET TrangThai = "Da_huy", GhiChu = ? WHERE MaHD = ?',
+                [lyDo || 'Hủy bởi quản trị viên', id]
+            );
+
+            // 3. Revert loyalty
+            if (hd[0].MaKH) {
+                await conn.query(
+                    'UPDATE khachhang SET TongChiTieu = TongChiTieu - ? WHERE MaKH = ?',
+                    [hd[0].ThanhToan, hd[0].MaKH]
+                );
+            }
+
+            await conn.commit();
+            res.json({ success: true, message: 'Hủy hóa đơn thành công và đã hoàn kho' });
+        } catch (error) {
+            await conn.rollback();
+            res.status(500).json({ success: false, message: error.message });
+        } finally {
+            conn.release();
         }
     }
 };
