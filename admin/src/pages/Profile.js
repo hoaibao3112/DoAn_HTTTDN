@@ -349,7 +349,9 @@ const Profile = () => {
 
   if (loading) return (
     <div style={{ padding: '100px 0', textAlign: 'center' }}>
-      <Spin tip="Đang tải thông tin..." />
+      <Spin>
+        <div style={{ marginTop: 20 }}>Đang tải thông tin...</div>
+      </Spin>
     </div>
   );
   if (!userInfo) return <div style={{ padding: 50, textAlign: 'center' }}>Không tìm thấy thông tin nhân viên!</div>;
@@ -364,7 +366,7 @@ const Profile = () => {
         <Row justify="center" style={{ background: '#f4f6fb', padding: '24px' }}>
           <Col xs={24} md={20} lg={16}>
             <Card
-              bordered={false}
+              variant="outlined"
               style={{ borderRadius: 24, boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}
               actions={[
                 <Space key="actions" style={{ padding: '12px 24px' }}>

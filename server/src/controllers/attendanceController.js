@@ -187,6 +187,9 @@ const attendanceController = {
 
             // Calculate work hours
             const gioVao = record.GioVao;
+            if (!gioVao) {
+                return res.status(400).json({ success: false, message: 'Dữ liệu chấm công vào bị thiếu (GioVao null)' });
+            }
             const [hourIn, minIn] = gioVao.split(':').map(Number);
             const [hourOut, minOut] = checkTime.split(':').map(Number);
 

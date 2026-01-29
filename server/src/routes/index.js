@@ -46,6 +46,9 @@ export const initRoutes = (app) => {
   app.use('/api/hr', hrRoutes);
   app.use('/api/attendance_admin', hrRoutes);
 
+  // Legacy/Frontend Compatibility for Salary
+  app.use('/api/salary', hrRoutes);
+
   // ======================= WAREHOUSE MANAGEMENT (CONSOLIDATED) =======================
   // Includes: products, stock, purchase-orders, transfers, inventory-check
   app.use('/api/warehouse', warehouseRoutes);

@@ -263,25 +263,32 @@ const warehouseController = {
     // ======================= 3.6: STOCKTAKE (Kiểm kê) =======================
 
     performInventoryCheck: async (req, res) => {
-        const { MaCH, ChiTiet } = req.body;
+        const { MaCH, ChiTiet, items } = req.body;
+        const details = ChiTiet || items;
+
+        if (!details || !Array.isArray(details)) {
+            return res.status(400).json({ success: false, message: 'Danh sách kiểm kê không hợp lệ' });
+        }
+
         const conn = await pool.getConnection();
         try {
             await conn.beginTransaction();
 
-            for (const item of ChiTiet) {
+            for (const item of details) {
                 // Force update ton_kho to match physical reality
                 await conn.query(
                     'INSERT INTO ton_kho (MaSP, MaCH, SoLuongTon) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE SoLuongTon = ?',
                     [item.MaSP, MaCH, item.SoLuongThucTe, item.SoLuongThucTe]
                 );
 
-                // Log the discrepancy (could be a separate table 'kiem_ke' if desired, here we just audit)
+                // Log the discrepancy
+                // Note: MaBanGhi is an INT in DB, so we pass null for string IDs like MaSP
                 await logActivity({
                     MaTK: req.user.MaTK,
                     HanhDong: 'Kiem_Ke',
                     BangDuLieu: 'ton_kho',
-                    MaBanGhi: item.MaSP,
-                    GhiChu: `Cửa hàng ${MaCH}: Thực tế ${item.SoLuongThucTe} vs Hệ thống ${item.SoLuongHeThong}. Lý do: ${item.LyDo}`,
+                    MaBanGhi: null,
+                    GhiChu: `SP: ${item.MaSP} | Cửa hàng ${MaCH}: Thực tế ${item.SoLuongThucTe} vs Hệ thống ${item.SoLuongHeThong || 'N/A'}. Lý do: ${item.LyDo || item.GhiChu || 'Không có'}`,
                     DiaChi_IP: req.ip
                 });
             }
@@ -290,7 +297,13 @@ const warehouseController = {
             res.json({ success: true, message: 'Inventory sync complete' });
         } catch (error) {
             await conn.rollback();
-            res.status(500).json({ success: false, message: error.message });
+            console.error('INVENTORY CHECK ERROR:', error); // Log to server console
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi hệ thống khi cập nhật kho',
+                error: error.message,
+                sqlMessage: error.sqlMessage // Include DB error details for user
+            });
         } finally {
             conn.release();
         }

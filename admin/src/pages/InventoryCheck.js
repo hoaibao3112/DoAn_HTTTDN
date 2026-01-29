@@ -12,16 +12,6 @@ const InventoryCheck = () => {
     const [selectedBranch, setSelectedBranch] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Mock inventory data
-    const mockInventory = [
-        { MaSP: 'BK-001', TenSP: 'Nhà Giả Kim (Tái Bản 2023)', TonHeThong: 50, ThucTe: 50, ChenhLech: 0, Note: '' },
-        { MaSP: 'BK-002', TenSP: 'Đắc Nhân Tâm', TonHeThong: 30, ThucTe: 28, ChenhLech: -2, Note: 'Hư hỏng / Rách' },
-        { MaSP: 'BK-003', TenSP: 'Sapiens: Lược Sử Loài Người', TonHeThong: 20, ThucTe: 21, ChenhLech: 1, Note: 'Khách trả không ghi số' },
-        { MaSP: 'BK-004', TenSP: 'Tuổi Trẻ Đáng Giá Bao Nhiêu', TonHeThong: 100, ThucTe: 95, ChenhLech: -5, Note: 'Mất cắp nghi vấn' },
-        { MaSP: 'BK-005', TenSP: 'Tôi Thấy Hoa Vàng Trên Cỏ Xanh', TonHeThong: 40, ThucTe: 40, ChenhLech: 0, Note: '' },
-        { MaSP: 'BK-006', TenSP: 'Lược Sử Thời Gian', TonHeThong: 15, ThucTe: 0, ChenhLech: -15, Note: 'Chưa kiểm' }
-    ];
-
     useEffect(() => {
         fetchBranches();
     }, []);
@@ -40,19 +30,49 @@ const InventoryCheck = () => {
         }
     };
 
-    const startInventoryCheck = () => {
+    const startInventoryCheck = async () => {
         if (!selectedBranch) {
             alert('Vui lòng chọn chi nhánh');
             return;
         }
 
-        setCheckSession({
-            MaCH: selectedBranch,
-            NgayKiemKe: new Date().toISOString().split('T')[0],
-            NguoiKiemKe: JSON.parse(localStorage.getItem('userInfo') || '{}').HoTen || 'Nguyễn Văn A'
-        });
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('authToken');
+            // Fetch real stock for this branch
+            const response = await axios.get(`http://localhost:5000/api/warehouse/stock?MaCH=${selectedBranch}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
 
-        setInventoryItems(mockInventory);
+            if (response.data.success) {
+                const stockData = response.data.data.map(item => ({
+                    MaSP: item.MaSP,
+                    TenSP: item.TenSP,
+                    TonHeThong: item.SoLuongTon || 0,
+                    ThucTe: item.SoLuongTon || 0, // Default to system qty
+                    ChenhLech: 0,
+                    Note: ''
+                }));
+
+                if (stockData.length === 0) {
+                    alert('Chi nhánh này hiện chưa có sản phẩm nào trong kho!');
+                    setLoading(false);
+                    return;
+                }
+
+                setCheckSession({
+                    MaCH: selectedBranch,
+                    NgayKiemKe: new Date().toISOString().split('T')[0],
+                    NguoiKiemKe: JSON.parse(localStorage.getItem('userInfo') || '{}').HoTen || 'Nhân viên quản lý'
+                });
+                setInventoryItems(stockData);
+            }
+        } catch (error) {
+            console.error('Error fetching inventory:', error);
+            alert('Không thể tải dữ liệu tồn thực tế của chi nhánh!');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const updateActualQty = (productId, value) => {

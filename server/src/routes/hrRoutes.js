@@ -366,6 +366,55 @@ router.get('/monthly',
     attendanceController.getMonthlyAttendance
 );
 
+// ======================= STATISTICAL DASHBOARD ALIASES =======================
+
+// These match /api/salary/... when prefixed in index.js
+router.get('/monthly/:year',
+    checkPermission(FEATURES.SALARY, PERMISSIONS.VIEW),
+    async (req, res) => {
+        const { year } = req.params;
+        try {
+            const [rows] = await pool.query(`
+                SELECT 
+                    MONTH(NgayTinh) as month,
+                    SUM(TongLuong) as total
+                FROM luong
+                WHERE YEAR(NgayTinh) = ?
+                GROUP BY month
+                ORDER BY month
+            `, [year]);
+            res.json({ success: true, data: rows });
+        } catch (error) {
+            res.status(500).json({ success: false, message: 'Lỗi khi lấy tổng lương theo năm', error: error.message });
+        }
+    }
+);
+
+router.get('/per-month/:year/:month',
+    checkPermission(FEATURES.SALARY, PERMISSIONS.VIEW),
+    async (req, res) => {
+        const { year, month } = req.params;
+        try {
+            const [rows] = await pool.query(`
+                SELECT 
+                    l.*, 
+                    nv.HoTen as TenNV, nv.MaNV
+                FROM luong l
+                JOIN nhanvien nv ON l.MaNV = nv.MaNV
+                WHERE YEAR(l.NgayTinh) = ? AND MONTH(l.NgayTinh) = ?
+            `, [year, month]);
+            res.json({ success: true, data: rows });
+        } catch (error) {
+            res.status(500).json({ success: false, message: 'Lỗi khi lấy chi tiết lương theo tháng', error: error.message });
+        }
+    }
+);
+
+router.post('/compute/:year/:month',
+    checkPermission(FEATURES.SALARY, PERMISSIONS.CREATE),
+    hrController.calculateMonthlySalary
+);
+
 export default router;
 
 
