@@ -12,6 +12,8 @@ const statusColors = {
   Lam_them: '#673AB7',
   Tre: '#FF9800',
   Ve_som: '#FFC107',
+  Thai_san: '#9C27B0',
+  Om_dau: '#E91E63',
   Chua_cham_cong: '#B0BEC5',
 };
 
@@ -22,6 +24,8 @@ const statusLabels = {
   Lam_them: 'Tăng ca',
   Tre: 'Đi trễ',
   Ve_som: 'Về sớm',
+  Thai_san: 'Thai sản',
+  Om_dau: 'Ốm đau',
   Chua_cham_cong: '',
 };
 
@@ -32,6 +36,8 @@ const frontendToApiStatus = {
   'Tăng ca': 'Lam_them',
   'Đi trễ': 'Tre',
   'Về sớm': 'Ve_som',
+  'Thai sản': 'Thai_san',
+  'Ốm đau': 'Om_dau',
 };
 
 // Thứ trong tuần
@@ -582,6 +588,18 @@ const AttendancePage = () => {
                 >
                   Tăng ca
                 </button>
+                <button
+                  onClick={() => setSelectedStatus('Thai sản')}
+                  style={{ background: selectedStatus === 'Thai sản' ? '#9C27B0' : '#fff', color: selectedStatus === 'Thai sản' ? '#fff' : '#000' }}
+                >
+                  Thai sản
+                </button>
+                <button
+                  onClick={() => setSelectedStatus('Ốm đau')}
+                  style={{ background: selectedStatus === 'Ốm đau' ? '#E91E63' : '#fff', color: selectedStatus === 'Ốm đau' ? '#fff' : '#000' }}
+                >
+                  Ốm đau
+                </button>
               </div>
               <button
                 className="save-btn"
@@ -641,8 +659,16 @@ const AttendancePage = () => {
                         <td>{salaryInfo.soNgayNghiKhongPhep}</td>
                       </tr>
                       <tr>
-                        <td>Số ngày đi trễ</td>
+                        <td>Số ngày đi trễ/về sớm</td>
                         <td>{salaryInfo.soNgayDiTre}</td>
+                      </tr>
+                      <tr>
+                        <td>Số ngày nghỉ thai sản</td>
+                        <td>{salaryInfo.SoNgayThaiSan || 0}</td>
+                      </tr>
+                      <tr>
+                        <td>Số ngày nghỉ ốm/bảo hiểm</td>
+                        <td>{salaryInfo.SoNgayOmDau || 0}</td>
                       </tr>
                       <tr>
                         <td>Lương cơ bản</td>

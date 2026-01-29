@@ -501,7 +501,15 @@ const Profile = () => {
 
       <Modal title="Xin nghỉ phép" open={showLeaveModal} onCancel={() => setShowLeaveModal(false)} footer={null}>
         <Form layout="vertical" onFinish={handleSubmitLeave}>
-          <Form.Item name="LoaiDon" label="Loại đơn" initialValue="Nghi_phep"><Select><Select.Option value="Nghi_phep">Nghỉ phép</Select.Option></Select></Form.Item>
+          <Form.Item name="LoaiDon" label="Loại đơn" initialValue="Nghi_phep">
+            <Select>
+              <Select.Option value="Nghi_phep">Nghỉ phép (Có lương)</Select.Option>
+              <Select.Option value="Nghi_khong_phep">Nghỉ không phép (Trừ lương)</Select.Option>
+              <Select.Option value="Thai_san">Nghỉ thai sản (BHXH trả)</Select.Option>
+              <Select.Option value="Om_dau">Nghỉ ốm/Bảo hiểm (BHXH trả)</Select.Option>
+              <Select.Option value="Nghi_viec">Hợp đồng / Nghỉ việc</Select.Option>
+            </Select>
+          </Form.Item>
           <Form.Item name="dates" label="Thời gian"><DatePicker.RangePicker /></Form.Item>
           <Form.Item name="LyDo" label="Lý do"><Input.TextArea /></Form.Item>
           <Form.Item><Button type="primary" htmlType="submit" loading={leaveSubmitting} block>Gửi</Button></Form.Item>

@@ -243,11 +243,39 @@ const hrController = {
             // Get reviewer MaNV from token's MaTK
             const [reviewer] = await pool.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
 
-            await pool.query(
-                `UPDATE xin_nghi_phep SET TrangThai = ?, NguoiDuyet = ?, NgayDuyet = NOW(), YKienDuyet = ? WHERE id = ?`,
-                [TrangThai, reviewer[0]?.MaNV || null, YKienDuyet, id]
-            );
-            res.json({ success: true, message: 'Duyệt thành công' });
+            const connection = await pool.getConnection();
+            try {
+                await connection.beginTransaction();
+
+                await connection.query(
+                    `UPDATE xin_nghi_phep SET TrangThai = ?, NguoiDuyet = ?, NgayDuyet = NOW(), YKienDuyet = ? WHERE id = ?`,
+                    [TrangThai, reviewer[0]?.MaNV || null, YKienDuyet, id]
+                );
+
+                // If resignation approved, update employee status
+                if (TrangThai === 'Da_duyet') {
+                    const [request] = await connection.query('SELECT MaNV, LoaiDon FROM xin_nghi_phep WHERE id = ?', [id]);
+                    if (request.length > 0 && request[0].LoaiDon === 'Nghi_viec') {
+                        await connection.query(
+                            'UPDATE nhanvien SET TinhTrang = 0, NgayNghiViec = NOW() WHERE MaNV = ?',
+                            [request[0].MaNV]
+                        );
+                        // Also deactivate account
+                        await connection.query(
+                            'UPDATE taikhoan SET TinhTrang = 0 WHERE MaTK = (SELECT MaTK FROM nhanvien WHERE MaNV = ?)',
+                            [request[0].MaNV]
+                        );
+                    }
+                }
+
+                await connection.commit();
+                res.json({ success: true, message: 'Duyệt thành công' });
+            } catch (error) {
+                await connection.rollback();
+                throw error;
+            } finally {
+                connection.release();
+            }
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }
@@ -271,13 +299,18 @@ const hrController = {
                         COUNT(CASE WHEN TrangThai IN ('Di_lam', 'Tre', 'Ve_som', 'Nghi_phep') THEN 1 END) as PayableDays,
                         COUNT(CASE WHEN TrangThai IN ('Tre', 'Ve_som') THEN 1 END) as LateEarlyCount,
                         COUNT(CASE WHEN TrangThai = 'Nghi_khong_phep' THEN 1 END) as UnpaidAbsenceCount,
+                        COUNT(CASE WHEN TrangThai = 'Thai_san' THEN 1 END) as MaternityDays,
+                        COUNT(CASE WHEN TrangThai = 'Om_dau' THEN 1 END) as SickLeaveDays,
                         SUM(SoGioTangCa) as OT_Hours
                      FROM cham_cong 
                      WHERE MaNV = ? AND MONTH(Ngay) = ? AND YEAR(Ngay) = ?`,
                     [emp.MaNV, month, year]
                 );
 
-                const { PayableDays = 0, LateEarlyCount = 0, OT_Hours = 0, UnpaidAbsenceCount = 0 } = stats[0];
+                const {
+                    PayableDays = 0, LateEarlyCount = 0, OT_Hours = 0,
+                    UnpaidAbsenceCount = 0, MaternityDays = 0, SickLeaveDays = 0
+                } = stats[0];
 
                 const base = parseFloat(emp.LuongCoBan) || 0;
                 const dailyRate = base / 26;

@@ -387,6 +387,8 @@ const attendanceController = {
                     SUM(CASE WHEN TrangThai = 'Ve_som' THEN 1 ELSE 0 END) as SoNgayVeSom,
                     SUM(CASE WHEN TrangThai = 'Nghi_phep' THEN 1 ELSE 0 END) as SoNgayNghiPhep,
                     SUM(CASE WHEN TrangThai = 'Nghi_khong_phep' THEN 1 ELSE 0 END) as SoNgayNghiKhongPhep,
+                    SUM(CASE WHEN TrangThai = 'Thai_san' THEN 1 ELSE 0 END) as SoNgayThaiSan,
+                    SUM(CASE WHEN TrangThai = 'Om_dau' THEN 1 ELSE 0 END) as SoNgayOmDau,
                     SUM(SoGioLam) as TongGioLam,
                     SUM(SoGioTangCa) as TongGioTangCa
                  FROM cham_cong
