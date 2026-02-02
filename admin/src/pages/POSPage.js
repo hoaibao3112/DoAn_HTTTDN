@@ -24,6 +24,13 @@ const POSPage = () => {
     });
     const [categories, setCategories] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState('all');
+    
+    // KHUYẾN MÃI
+    const [availablePromotions, setAvailablePromotions] = useState([]);
+    const [selectedPromotion, setSelectedPromotion] = useState(null);
+    const [voucherCode, setVoucherCode] = useState('');
+    const [showPromotions, setShowPromotions] = useState(false);
+    const [promotionDiscount, setPromotionDiscount] = useState(0);
 
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
     const cashierName = userInfo.HoTen || 'Nguyễn Văn A';
@@ -34,6 +41,17 @@ const POSPage = () => {
         fetchCategories();
         checkOpenSession();
     }, []);
+
+    // Kiểm tra khuyến mãi tự động khi giỏ hàng thay đổi
+    useEffect(() => {
+        if (cart.length > 0) {
+            checkAvailablePromotions();
+        } else {
+            setAvailablePromotions([]);
+            setSelectedPromotion(null);
+            setPromotionDiscount(0);
+        }
+    }, [cart]);
 
     const getImageUrl = (path) => {
         if (!path) return '/placeholder-book.jpg';
@@ -71,6 +89,91 @@ const POSPage = () => {
         } catch (error) {
             console.error('Error fetching categories:', error);
         }
+    };
+
+    // =============== KHUYẾN MÃI ===============
+    
+    const checkAvailablePromotions = async () => {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await axios.post(
+                'http://localhost:5000/api/promotions/check-available',
+                {
+                    MaCH: 1, // Mặc định chi nhánh 1
+                    TongTien: calculateSubtotal(),
+                    MaKH: customer?.MaKH || null,
+                    ChiTiet: cart.map(item => ({
+                        MaSP: item.MaSP,
+                        DonGia: item.DonGia,
+                        SoLuong: item.quantity
+                    }))
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (response.data.success && response.data.data) {
+                setAvailablePromotions(response.data.data);
+                
+                // Tự động chọn khuyến mãi tốt nhất (đầu tiên)
+                if (response.data.data.length > 0 && !selectedPromotion) {
+                    const bestPromo = response.data.data[0];
+                    setSelectedPromotion(bestPromo);
+                    setPromotionDiscount(bestPromo.giaTriGiamDuKien || 0);
+                }
+            }
+        } catch (error) {
+            console.error('Error checking promotions:', error);
+        }
+    };
+
+    const applyVoucherCode = async () => {
+        if (!voucherCode.trim()) {
+            alert('Vui lòng nhập mã giảm giá!');
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await axios.post(
+                'http://localhost:5000/api/promotions/validate-voucher',
+                {
+                    MaCode: voucherCode.toUpperCase(),
+                    MaCH: 1,
+                    TongTien: calculateSubtotal(),
+                    MaKH: customer?.MaKH || null,
+                    ChiTiet: cart.map(item => ({
+                        MaSP: item.MaSP,
+                        DonGia: item.DonGia,
+                        SoLuong: item.quantity
+                    }))
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (response.data.success) {
+                const promoData = response.data.data;
+                setSelectedPromotion(promoData);
+                setPromotionDiscount(promoData.GiaTriGiam || 0);
+                setVoucherCode('');
+                alert(`Áp dụng mã thành công! Giảm ${promoData.GiaTriGiam.toLocaleString()}đ`);
+                setShowPromotions(false);
+            }
+        } catch (error) {
+            console.error('Error applying voucher:', error);
+            alert(error.response?.data?.message || 'Mã giảm giá không hợp lệ!');
+        }
+    };
+
+    const selectPromotion = (promo) => {
+        setSelectedPromotion(promo);
+        setPromotionDiscount(promo.giaTriGiamDuKien || 0);
+        setShowPromotions(false);
+    };
+
+    const removePromotion = () => {
+        setSelectedPromotion(null);
+        setPromotionDiscount(0);
+        setVoucherCode('');
     };
 
     const searchCustomer = async () => {
@@ -176,13 +279,12 @@ const POSPage = () => {
     };
 
     const calculateDiscount = () => {
-        if (!customer || !customer.DiemTichLuy) return 0;
-        // Use points as discount (example: 100 points = 50,000 VND)
-        return Math.min(customer.DiemTichLuy * 500, calculateSubtotal() * 0.1);
+        // Tính giảm giá từ khuyến mãi
+        return promotionDiscount || 0;
     };
 
     const calculateTax = () => {
-        return (calculateSubtotal() - calculateDiscount()) * 0.08; // 8% VAT
+        return (calculateSubtotal() - calculateDiscount()) * 0; // Tạm thời 0% VAT
     };
 
     const calculateTotal = () => {
@@ -258,7 +360,7 @@ const POSPage = () => {
                         paymentMethod === 'momo' ? 'MoMo' :
                             paymentMethod === 'zalopay' ? 'ZaloPay' : 'The',
                 TienKhachDua: parseFloat(customerGiven) || calculateTotal(),
-                DiemSuDung: customer ? Math.floor(calculateDiscount() / 500) : 0
+                DiemSuDung: 0
             };
 
             const response = await axios.post(
@@ -268,7 +370,31 @@ const POSPage = () => {
             );
 
             if (response.data.success) {
-                alert(`Thanh toán thành công! Mã hóa đơn: ${response.data.MaHD || 'N/A'}`);
+                const MaHD = response.data.MaHD;
+
+                // Lưu lịch sử khuyến mãi (nếu có)
+                if (selectedPromotion && promotionDiscount > 0) {
+                    try {
+                        await axios.post(
+                            'http://localhost:5000/api/promotions/save-usage',
+                            {
+                                MaHD: MaHD,
+                                MaKM: selectedPromotion.MaKM,
+                                MaMGG: selectedPromotion.MaMGG || null,
+                                MaKH: customer?.MaKH || null,
+                                LoaiKM: selectedPromotion.LoaiKM,
+                                GiaTriGiam: promotionDiscount,
+                                TongTienTruocGiam: calculateSubtotal(),
+                                TongTienSauGiam: calculateTotal()
+                            },
+                            { headers: { Authorization: `Bearer ${token}` } }
+                        );
+                    } catch (promoError) {
+                        console.error('Error saving promotion usage:', promoError);
+                    }
+                }
+
+                alert(`Thanh toán thành công! Mã hóa đơn: ${MaHD || 'N/A'}`);
 
                 // Reset
                 setCart([]);
@@ -276,6 +402,10 @@ const POSPage = () => {
                 setCustomerSearch('');
                 setCustomerGiven('');
                 setPaymentMethod('cash');
+                setSelectedPromotion(null);
+                setPromotionDiscount(0);
+                setVoucherCode('');
+                setAvailablePromotions([]);
 
                 // Print receipt (optional)
                 printReceipt(response.data);
@@ -429,12 +559,84 @@ const POSPage = () => {
                                 <span>Tổng cộng</span>
                                 <span className="total-value">{calculateSubtotal().toLocaleString()}đ</span>
                             </div>
-                            {customer && calculateDiscount() > 0 && (
+                            
+                            {/* Khuyến mãi Section */}
+                            <div className="promotion-section">
+                                <div className="promotion-header">
+                                    <span className="material-icons">local_offer</span>
+                                    <span>Khuyến mãi</span>
+                                    <button 
+                                        className="btn-toggle-promotions"
+                                        onClick={() => setShowPromotions(!showPromotions)}
+                                    >
+                                        <span className="material-icons">
+                                            {showPromotions ? 'expand_less' : 'expand_more'}
+                                        </span>
+                                    </button>
+                                </div>
+
+                                {showPromotions && (
+                                    <div className="promotion-panel">
+                                        {/* Nhập mã giảm giá */}
+                                        <div className="voucher-input-box">
+                                            <input
+                                                type="text"
+                                                placeholder="Nhập mã giảm giá..."
+                                                value={voucherCode}
+                                                onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                                                onKeyPress={(e) => e.key === 'Enter' && applyVoucherCode()}
+                                            />
+                                            <button onClick={applyVoucherCode}>Áp dụng</button>
+                                        </div>
+
+                                        {/* Danh sách khuyến mãi khả dụng */}
+                                        {availablePromotions.length > 0 && (
+                                            <div className="available-promotions-list">
+                                                <p className="promo-label">Khuyến mãi khả dụng:</p>
+                                                {availablePromotions.map((promo, index) => (
+                                                    <div 
+                                                        key={index}
+                                                        className={`promo-item ${selectedPromotion?.MaKM === promo.MaKM ? 'selected' : ''}`}
+                                                        onClick={() => selectPromotion(promo)}
+                                                    >
+                                                        <div className="promo-info">
+                                                            <strong>{promo.TenKM}</strong>
+                                                            <small>{promo.MoTa}</small>
+                                                        </div>
+                                                        <div className="promo-value">
+                                                            -{(promo.giaTriGiamDuKien || 0).toLocaleString()}đ
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Hiển thị KM đang áp dụng */}
+                                {selectedPromotion && promotionDiscount > 0 && (
+                                    <div className="applied-promotion">
+                                        <div className="promo-applied-info">
+                                            <span className="material-icons">check_circle</span>
+                                            <span>{selectedPromotion.TenKM}</span>
+                                        </div>
+                                        <button 
+                                            className="btn-remove-promo"
+                                            onClick={removePromotion}
+                                        >
+                                            <span className="material-icons">close</span>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {promotionDiscount > 0 && (
                                 <div className="total-row discount">
                                     <span>Giảm giá</span>
-                                    <span className="total-value">-{calculateDiscount().toLocaleString()}đ</span>
+                                    <span className="total-value discount-value">-{promotionDiscount.toLocaleString()}đ</span>
                                 </div>
                             )}
+                            
                             <div className="total-row final">
                                 <span>THÀNH TIỀN</span>
                                 <span className="total-final">{calculateTotal().toLocaleString()}đ</span>

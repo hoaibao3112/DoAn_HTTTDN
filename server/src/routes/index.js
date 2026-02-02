@@ -14,6 +14,8 @@ import branchRoutes from './branchRoutes.js';
 import catalogRoutes from './catalogRoutes.js';
 import chatRoutes from './chat.js';
 import paymentRoutes from './paymentRoutes.js';
+import promotionRoutes from './promotionRoutes.js';
+import loyaltyRoutes from './loyaltyRoutes.js';
 
 export const initRoutes = (app) => {
   // Root path - Server status
@@ -69,6 +71,12 @@ export const initRoutes = (app) => {
   app.use('/api/orders', salesRoutes);
   app.use('/api/returns', returnRoutes);
   app.use('/api/customers', customerRoutes);
+
+  // ======================= PROMOTIONS & VOUCHERS =======================
+  app.use('/api/promotions', promotionRoutes);
+
+  // ======================= LOYALTY & MEMBERSHIP =======================
+  app.use('/api/loyalty', loyaltyRoutes);
 
   // ======================= BRANCH MANAGEMENT =======================
   app.use('/api/branches', branchRoutes);
