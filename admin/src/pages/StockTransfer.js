@@ -20,6 +20,8 @@ const StockTransfer = () => {
     });
 
     const [selectedProducts, setSelectedProducts] = useState([]);
+    const [viewingTransfer, setViewingTransfer] = useState(null);
+    const [showDetailModal, setShowDetailModal] = useState(false);
 
     useEffect(() => {
         fetchBranches();
@@ -47,8 +49,11 @@ const StockTransfer = () => {
             const response = await axios.get('http://localhost:5000/api/warehouse/products', {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            console.log('Products response:', response.data);
             if (response.data.success) {
-                setProducts(response.data.data?.items || response.data.data || []);
+                const productList = response.data.data?.items || response.data.data || [];
+                console.log('Products loaded:', productList.length);
+                setProducts(productList);
             }
         } catch (error) {
             console.error('Error fetching products:', error);
@@ -71,11 +76,15 @@ const StockTransfer = () => {
                     sku: transfer.MaSP || 'N/A',
                     fromBranch: transfer.TenCHNguon || `Chi nhánh ${transfer.MaCHNguon}`,
                     toBranch: transfer.TenCHDich || `Chi nhánh ${transfer.MaCHDich}`,
-                    quantity: transfer.SoLuongKho || 0,
+                    quantity: transfer.SoLuong || 0,
                     transferQty: transfer.SoLuong || 0,
-                    status: transfer.TrangThai === 'Da_duyet' ? 'approved' :
-                        transfer.TrangThai === 'Cho_duyet' ? 'pending' : 'exceeded',
-                    createdDate: transfer.NgayTao
+                    status: transfer.TrangThai === 'Da_nhan' ? 'approved' :
+                        transfer.TrangThai === 'Cho_duyet' ? 'pending' : 
+                        transfer.TrangThai === 'Dang_chuyen' ? 'pending' : 'exceeded',
+                    createdDate: transfer.NgayChuyen,
+                    nguoiChuyen: transfer.TenNguoiChuyen,
+                    nguoiNhan: transfer.TenNguoiNhan,
+                    ghiChu: transfer.GhiChu
                 }));
                 setTransfers(mappedTransfers);
             } else {
@@ -89,8 +98,15 @@ const StockTransfer = () => {
     };
 
     const addProductToTransfer = (product) => {
+        console.log('Thêm sản phẩm:', product);
+        console.log('Danh sách hiện tại:', selectedProducts);
+        
         if (!selectedProducts.find(p => p.MaSP === product.MaSP)) {
-            setSelectedProducts([...selectedProducts, { ...product, transferQty: 1 }]);
+            const newList = [...selectedProducts, { ...product, transferQty: 1 }];
+            console.log('Danh sách mới:', newList);
+            setSelectedProducts(newList);
+        } else {
+            console.log('Sản phẩm đã có trong danh sách');
         }
     };
 
@@ -147,6 +163,44 @@ const StockTransfer = () => {
 
     const getTotalTransferQty = () => {
         return selectedProducts.reduce((sum, p) => sum + p.transferQty, 0);
+    };
+
+    const viewTransferDetail = async (transferId) => {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await axios.get(
+                `http://localhost:5000/api/warehouse/transfers/${transferId}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (response.data.success) {
+                setViewingTransfer(response.data.data);
+                setShowDetailModal(true);
+            }
+        } catch (error) {
+            console.error('Error fetching transfer detail:', error);
+            alert('Lỗi khi tải chi tiết chuyển kho');
+        }
+    };
+
+    const approveTransfer = async (transferId) => {
+        if (!window.confirm('Xác nhận duyệt yêu cầu chuyển kho này?')) {
+            return;
+        }
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await axios.put(
+                `http://localhost:5000/api/warehouse/transfers/${transferId}/approve`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (response.data.success) {
+                alert('Đã duyệt chuyển kho thành công!');
+                fetchTransfers();
+            }
+        } catch (error) {
+            console.error('Error approving transfer:', error);
+            alert('Lỗi khi duyệt chuyển kho: ' + (error.response?.data?.message || error.message));
+        }
     };
 
     const getStatusBadge = (status) => {
@@ -267,7 +321,13 @@ const StockTransfer = () => {
                                     {filteredProducts.slice(0, 5).map(product => (
                                         <div key={product.MaSP} className="product-result-item">
                                             <div className="product-info">
-                                                <img src={product.Anh || '/placeholder.jpg'} alt={product.TenSP} />
+                                                <img src={
+                                                    product.HinhAnh 
+                                                        ? (product.HinhAnh.startsWith('http') || product.HinhAnh.startsWith('/uploads') 
+                                                            ? `http://localhost:5000${product.HinhAnh.startsWith('/') ? product.HinhAnh : '/' + product.HinhAnh}`
+                                                            : `http://localhost:5000/product-images/${product.HinhAnh}`)
+                                                        : '/placeholder.jpg'
+                                                } alt={product.TenSP} />
                                                 <div>
                                                     <h5>{product.TenSP}</h5>
                                                     <p>{product.MaSP}</p>
@@ -307,7 +367,13 @@ const StockTransfer = () => {
                                                 <tr key={product.MaSP}>
                                                     <td>
                                                         <div className="product-cell">
-                                                            <img src={product.Anh || '/placeholder.jpg'} alt={product.TenSP} />
+                                                            <img src={
+                                                                product.HinhAnh 
+                                                                    ? (product.HinhAnh.startsWith('http') || product.HinhAnh.startsWith('/uploads') 
+                                                                        ? `http://localhost:5000${product.HinhAnh.startsWith('/') ? product.HinhAnh : '/' + product.HinhAnh}`
+                                                                        : `http://localhost:5000/product-images/${product.HinhAnh}`)
+                                                                    : '/placeholder.jpg'
+                                                            } alt={product.TenSP} />
                                                             <div>
                                                                 <strong>{product.TenSP}</strong>
                                                                 <p>{product.MaSP}</p>
@@ -398,11 +464,154 @@ const StockTransfer = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td colSpan="7" className="empty-state">Chưa có lịch sử chuyển kho</td>
-                                </tr>
+                                {transfers
+                                    .filter(t => selectedTab === 'all' || t.status === selectedTab)
+                                    .length > 0 ? (
+                                    transfers
+                                        .filter(t => selectedTab === 'all' || t.status === selectedTab)
+                                        .map(transfer => (
+                                            <tr key={transfer.id}>
+                                                <td>{transfer.id}</td>
+                                                <td>{transfer.fromBranch}</td>
+                                                <td>{transfer.toBranch}</td>
+                                                <td>{transfer.quantity}</td>
+                                                <td>{new Date(transfer.createdDate).toLocaleDateString('vi-VN')}</td>
+                                                <td>
+                                                    <span className={`status-badge ${getStatusBadge(transfer.status).class}`}>
+                                                        {getStatusBadge(transfer.status).text}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    {transfer.status === 'pending' && hasPermissionById(FEATURES.STOCK, 'sua') && (
+                                                        <button 
+                                                            className="btn-icon" 
+                                                            onClick={() => approveTransfer(transfer.id)}
+                                                            title="Duyệt chuyển kho"
+                                                        >
+                                                            <span className="material-icons">check_circle</span>
+                                                        </button>
+                                                    )}
+                                                    <button 
+                                                        className="btn-icon"
+                                                        onClick={() => viewTransferDetail(transfer.id)}
+                                                        title="Xem chi tiết"
+                                                    >
+                                                        <span className="material-icons">visibility</span>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="7" className="empty-state">
+                                            {selectedTab === 'all' ? 'Chưa có lịch sử chuyển kho' : 
+                                             selectedTab === 'pending' ? 'Không có yêu cầu chờ duyệt' : 
+                                             'Không có yêu cầu đã duyệt'}
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Detail Modal */}
+            {showDetailModal && viewingTransfer && (
+                <div className="modal-overlay" onClick={() => setShowDetailModal(false)}>
+                    <div className="modal-content detail-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Chi tiết chuyển kho #{viewingTransfer.MaCK}</h2>
+                            <button className="btn-close" onClick={() => setShowDetailModal(false)}>
+                                <span className="material-icons">close</span>
+                            </button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="detail-info-grid">
+                                <div className="info-item">
+                                    <label>Từ chi nhánh:</label>
+                                    <span>{viewingTransfer.TenCHNguon || `Chi nhánh ${viewingTransfer.MaCHNguon}`}</span>
+                                </div>
+                                <div className="info-item">
+                                    <label>Đến chi nhánh:</label>
+                                    <span>{viewingTransfer.TenCHDich || `Chi nhánh ${viewingTransfer.MaCHDich}`}</span>
+                                </div>
+                                <div className="info-item">
+                                    <label>Ngày chuyển:</label>
+                                    <span>{new Date(viewingTransfer.NgayChuyen).toLocaleDateString('vi-VN')}</span>
+                                </div>
+                                <div className="info-item">
+                                    <label>Trạng thái:</label>
+                                    <span className={`status-badge ${
+                                        viewingTransfer.TrangThai === 'Da_nhan' ? 'status-approved' :
+                                        viewingTransfer.TrangThai === 'Cho_duyet' ? 'status-pending' : 'status-exceeded'
+                                    }`}>
+                                        {viewingTransfer.TrangThai === 'Da_nhan' ? 'Đã nhận' :
+                                         viewingTransfer.TrangThai === 'Cho_duyet' ? 'Chờ duyệt' :
+                                         viewingTransfer.TrangThai === 'Dang_chuyen' ? 'Đang chuyển' : viewingTransfer.TrangThai}
+                                    </span>
+                                </div>
+                                <div className="info-item">
+                                    <label>Người chuyển:</label>
+                                    <span>{viewingTransfer.TenNguoiChuyen || 'N/A'}</span>
+                                </div>
+                                <div className="info-item">
+                                    <label>Người nhận:</label>
+                                    <span>{viewingTransfer.TenNguoiNhan || 'Chưa có'}</span>
+                                </div>
+                                {viewingTransfer.GhiChu && (
+                                    <div className="info-item full-width">
+                                        <label>Ghi chú:</label>
+                                        <span>{viewingTransfer.GhiChu}</span>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <div className="detail-products">
+                                <h3>Danh sách sản phẩm</h3>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Mã SP</th>
+                                            <th>Tên sản phẩm</th>
+                                            <th>Số lượng</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {viewingTransfer.items && viewingTransfer.items.length > 0 ? (
+                                            viewingTransfer.items.map((item, idx) => (
+                                                <tr key={idx}>
+                                                    <td>{item.MaSP}</td>
+                                                    <td>{item.TenSP || 'N/A'}</td>
+                                                    <td>{item.SoLuong}</td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="3" className="empty-state">Không có sản phẩm</td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            {viewingTransfer.TrangThai === 'Cho_duyet' && hasPermissionById(FEATURES.STOCK, 'sua') && (
+                                <button 
+                                    className="btn-primary"
+                                    onClick={() => {
+                                        approveTransfer(viewingTransfer.MaCK);
+                                        setShowDetailModal(false);
+                                    }}
+                                >
+                                    <span className="material-icons">check_circle</span>
+                                    Duyệt chuyển kho
+                                </button>
+                            )}
+                            <button className="btn-cancel" onClick={() => setShowDetailModal(false)}>
+                                Đóng
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

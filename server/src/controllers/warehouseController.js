@@ -95,21 +95,116 @@ const warehouseController = {
 
     upsertProduct: async (req, res) => {
         const data = req.body;
-        const isUpdate = !!data.MaSP;
+        const files = req.files;
+        const productId = req.params.id; // For update
+        const isUpdate = !!productId;
+        
         try {
-            if (isUpdate) {
-                await pool.query(
-                    `UPDATE sanpham SET TenSP=?, MaTG=?, MaTL=?, MaNXB=?, DonGia=?, NamXB=?, SoTrang=?, ISBN=?, MoTa=?, GiaNhap=?, MinSoLuong=? WHERE MaSP=?`,
-                    [data.TenSP, data.MaTG, data.MaTL, data.MaNXB, data.DonGia, data.NamXB, data.SoTrang, data.ISBN, data.MoTa, data.GiaNhap, data.MinSoLuong || 0, data.MaSP]
-                );
-            } else {
-                await pool.query(
-                    `INSERT INTO sanpham (TenSP, MaTG, MaTL, MaNXB, DonGia, NamXB, SoTrang, ISBN, MoTa, GiaNhap, MinSoLuong) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [data.TenSP, data.MaTG, data.MaTL, data.MaNXB, data.DonGia, data.NamXB, data.SoTrang, data.ISBN, data.MoTa, data.GiaNhap || 0, data.MinSoLuong || 0]
-                );
+            // Handle primary image
+            let hinhAnhFilename = null;
+            if (files && files.HinhAnh && files.HinhAnh[0]) {
+                // New image uploaded
+                hinhAnhFilename = files.HinhAnh[0].filename;
+            } else if (data.HinhAnh && typeof data.HinhAnh === 'string') {
+                // Keep existing image (filename passed from frontend)
+                hinhAnhFilename = data.HinhAnh;
             }
-            res.json({ success: true, message: 'Product saved' });
+
+            if (isUpdate) {
+                // Update existing product
+                const updateFields = [];
+                const updateValues = [];
+                
+                updateFields.push('TenSP=?');
+                updateValues.push(data.TenSP);
+                
+                if (data.MaTG !== undefined) {
+                    updateFields.push('MaTG=?');
+                    updateValues.push(data.MaTG || null);
+                }
+                
+                updateFields.push('MaTL=?');
+                updateValues.push(data.MaTL);
+                
+                if (data.MaNXB !== undefined) {
+                    updateFields.push('MaNXB=?');
+                    updateValues.push(data.MaNXB || null);
+                }
+                
+                if (data.DonGia !== undefined) {
+                    updateFields.push('DonGia=?');
+                    updateValues.push(data.DonGia || 0);
+                }
+                
+                if (data.NamXB !== undefined) {
+                    updateFields.push('NamXB=?');
+                    updateValues.push(data.NamXB || null);
+                }
+                
+                if (data.SoTrang !== undefined) {
+                    updateFields.push('SoTrang=?');
+                    updateValues.push(data.SoTrang || null);
+                }
+                
+                if (data.ISBN !== undefined) {
+                    updateFields.push('ISBN=?');
+                    updateValues.push(data.ISBN || null);
+                }
+                
+                if (data.MoTa !== undefined) {
+                    updateFields.push('MoTa=?');
+                    updateValues.push(data.MoTa || null);
+                }
+                
+                if (data.GiaNhap !== undefined) {
+                    updateFields.push('GiaNhap=?');
+                    updateValues.push(data.GiaNhap || 0);
+                }
+                
+                if (data.MinSoLuong !== undefined) {
+                    updateFields.push('MinSoLuong=?');
+                    updateValues.push(data.MinSoLuong || 0);
+                }
+                
+                if (data.TrongLuong !== undefined && data.TrongLuong !== null && data.TrongLuong !== '' && data.TrongLuong !== 'null') {
+                    updateFields.push('TrongLuong=?');
+                    updateValues.push(parseFloat(data.TrongLuong));
+                }
+                
+                if (data.KichThuoc !== undefined && data.KichThuoc !== null && data.KichThuoc !== '' && data.KichThuoc !== 'null') {
+                    updateFields.push('KichThuoc=?');
+                    updateValues.push(data.KichThuoc);
+                }
+                
+                if (data.HinhThuc !== undefined && data.HinhThuc !== null && data.HinhThuc !== '' && data.HinhThuc !== 'null') {
+                    updateFields.push('HinhThuc=?');
+                    updateValues.push(data.HinhThuc);
+                }
+                
+                if (hinhAnhFilename) {
+                    updateFields.push('HinhAnh=?');
+                    updateValues.push(hinhAnhFilename);
+                }
+                
+                updateValues.push(productId);
+                
+                await pool.query(
+                    `UPDATE sanpham SET ${updateFields.join(', ')} WHERE MaSP=?`,
+                    updateValues
+                );
+                
+                res.json({ success: true, message: 'Cập nhật sản phẩm thành công' });
+            } else {
+                // Insert new product
+                const [result] = await pool.query(
+                    `INSERT INTO sanpham (TenSP, MaTG, MaTL, MaNXB, DonGia, NamXB, SoTrang, ISBN, MoTa, GiaNhap, MinSoLuong, TrongLuong, KichThuoc, HinhThuc, HinhAnh) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [data.TenSP, data.MaTG || null, data.MaTL, data.MaNXB || null, data.DonGia || 0, data.NamXB || null, data.SoTrang || null, data.ISBN || null, data.MoTa || null, data.GiaNhap || 0, data.MinSoLuong || 0, data.TrongLuong || null, data.KichThuoc || null, data.HinhThuc || null, hinhAnhFilename]
+                );
+                
+                res.json({ success: true, message: 'Thêm sản phẩm thành công', MaSP: result.insertId });
+            }
         } catch (error) {
+            console.error('Error in upsertProduct:', error);
             res.status(500).json({ success: false, message: error.message });
         }
     },
@@ -201,25 +296,46 @@ const warehouseController = {
     // ======================= 3.5: TRANSFERS =======================
 
     transferStock: async (req, res) => {
-        const { MaCHNguon, MaCHDich, MaSP, SoLuong } = req.body;
+        const { MaCHNguon, MaCHDich, items, GhiChu } = req.body;
+        
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ success: false, message: 'Danh sách sản phẩm chuyển kho không hợp lệ' });
+        }
+        
         const conn = await pool.getConnection();
         try {
             await conn.beginTransaction();
 
-            // Check source stock
-            const [source] = await conn.query('SELECT SoLuongTon FROM ton_kho WHERE MaSP = ? AND MaCH = ?', [MaSP, MaCHNguon]);
-            if (!source.length || source[0].SoLuongTon < SoLuong) {
-                throw new Error('Không đủ hàng trong kho nguồn');
+            // Get employee MaNV from token
+            const [emp] = await conn.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
+            const nguoiChuyen = emp[0]?.MaNV || null;
+
+            const createdTransfers = [];
+
+            for (const item of items) {
+                const { MaSP, SoLuong } = item;
+                
+                // Check source stock
+                const [source] = await conn.query('SELECT SoLuongTon FROM ton_kho WHERE MaSP = ? AND MaCH = ?', [MaSP, MaCHNguon]);
+                if (!source.length || source[0].SoLuongTon < SoLuong) {
+                    throw new Error(`Không đủ hàng trong kho nguồn cho sản phẩm ${MaSP}. Tồn: ${source[0]?.SoLuongTon || 0}, Cần: ${SoLuong}`);
+                }
+
+                // Create transfer record
+                const [ckResult] = await conn.query(
+                    'INSERT INTO chuyen_kho (MaCHNguon, MaCHDich, MaSP, SoLuong, NguoiChuyen, TrangThai, GhiChu) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [MaCHNguon, MaCHDich, MaSP, SoLuong, nguoiChuyen, 'Cho_duyet', GhiChu || null]
+                );
+                
+                createdTransfers.push(ckResult.insertId);
             }
 
-            // Create transfer record
-            const [ckResult] = await conn.query(
-                'INSERT INTO chuyen_kho (MaCHNguon, MaCHDich, MaSP, SoLuong, TrangThai) VALUES (?, ?, ?, ?, ?)',
-                [MaCHNguon, MaCHDich, MaSP, SoLuong, 'Cho_duyet']
-            );
-
             await conn.commit();
-            res.json({ success: true, MaCK: ckResult.insertId });
+            res.json({ 
+                success: true, 
+                message: `Đã tạo ${createdTransfers.length} yêu cầu chuyển kho`,
+                transfers: createdTransfers 
+            });
         } catch (error) {
             await conn.rollback();
             res.status(500).json({ success: false, message: error.message });
@@ -686,6 +802,45 @@ const warehouseController = {
                 ORDER BY ck.NgayChuyen DESC
             `);
             res.json({ success: true, data: rows });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    getTransferById: async (req, res) => {
+        const { id } = req.params;
+        try {
+            // Lấy thông tin chính của chuyển kho
+            const [transfers] = await pool.query(`
+                SELECT ck.*, ch1.TenCH as TenCHNguon, ch2.TenCH as TenCHDich, 
+                       nv1.HoTen as TenNguoiChuyen, nv2.HoTen as TenNguoiNhan
+                FROM chuyen_kho ck
+                JOIN cua_hang ch1 ON ck.MaCHNguon = ch1.MaCH
+                JOIN cua_hang ch2 ON ck.MaCHDich = ch2.MaCH
+                LEFT JOIN nhanvien nv1 ON ck.NguoiChuyen = nv1.MaNV
+                LEFT JOIN nhanvien nv2 ON ck.NguoiNhan = nv2.MaNV
+                WHERE ck.MaCK = ?
+                LIMIT 1
+            `, [id]);
+
+            if (transfers.length === 0) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy chuyển kho' });
+            }
+
+            // Lấy danh sách sản phẩm trong chuyển kho
+            const [items] = await pool.query(`
+                SELECT ck.MaSP, sp.TenSP, ck.SoLuong
+                FROM chuyen_kho ck
+                JOIN sanpham sp ON ck.MaSP = sp.MaSP
+                WHERE ck.MaCK = ?
+            `, [id]);
+
+            const transferData = {
+                ...transfers[0],
+                items: items
+            };
+
+            res.json({ success: true, data: transferData });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }

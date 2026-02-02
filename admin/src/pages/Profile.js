@@ -331,16 +331,16 @@ const Profile = () => {
   };
 
   const salaryColumns = [
-    { title: 'Tháng', dataIndex: 'thang' },
-    { title: 'Năm', dataIndex: 'nam' },
-    { title: 'Lương cơ bản', dataIndex: 'luong_co_ban', render: v => v?.toLocaleString() },
-    { title: 'Phụ cấp', dataIndex: 'phu_cap', render: v => v?.toLocaleString() },
-    { title: 'Thưởng', dataIndex: 'thuong', render: v => v?.toLocaleString() },
-    { title: 'Phạt', dataIndex: 'phat', render: v => v?.toLocaleString() },
-    { title: 'Tổng lương', dataIndex: 'tong_luong', render: v => v?.toLocaleString() },
+    { title: 'Tháng', dataIndex: 'Thang' },
+    { title: 'Năm', dataIndex: 'Nam' },
+    { title: 'Lương cơ bản', dataIndex: 'LuongCoBan', render: v => v?.toLocaleString() },
+    { title: 'Phụ cấp', dataIndex: 'PhuCap', render: v => v?.toLocaleString() },
+    { title: 'Thưởng', dataIndex: 'Thuong', render: v => v?.toLocaleString() },
+    { title: 'Phạt', dataIndex: 'Phat', render: v => v?.toLocaleString() },
+    { title: 'Tổng lương', dataIndex: 'TongLuong', render: v => v?.toLocaleString() },
     {
       title: 'Trạng thái',
-      dataIndex: 'trang_thai',
+      dataIndex: 'TrangThai',
       render: v => v === 'Da_tra' ? <span style={{ color: 'green' }}>Đã trả</span> : <span style={{ color: 'orange' }}>Chưa trả</span>
     },
     {
@@ -348,7 +348,7 @@ const Profile = () => {
       key: 'action',
       render: (_, record) => (
         <Space>
-          <Button size="small" icon={<EyeOutlined />} onClick={() => handleShowDetail(record.thang, record.nam)}>Chi tiết</Button>
+          <Button size="small" icon={<EyeOutlined />} onClick={() => handleShowDetail(record.Thang, record.Nam)}>Chi tiết</Button>
           <Button size="small" icon={<PrinterOutlined />} onClick={() => handlePrint('monthly', record)}>In</Button>
         </Space>
       )
@@ -448,7 +448,7 @@ const Profile = () => {
         <Spin spinning={detailLoading}>
           <Table
             dataSource={attendanceDetail}
-            rowKey={(r, i) => i}
+            rowKey="MaCC"
             columns={[
               { title: 'Ngày', dataIndex: 'Ngay', render: v => dayjs(v).format('DD/MM/YYYY') },
               { title: 'Trạng thái', dataIndex: 'TrangThai' }

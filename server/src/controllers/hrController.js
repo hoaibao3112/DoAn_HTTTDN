@@ -240,7 +240,7 @@ const hrController = {
 
     approveLeave: async (req, res) => {
         const { id } = req.params;
-        const { TrangThai, YKienDuyet } = req.body; // Da_duyet, Tu_choi
+        const { TrangThai } = req.body; // Da_duyet, Tu_choi
         try {
             // Get reviewer MaNV from token's MaTK
             const [reviewer] = await pool.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
@@ -250,8 +250,8 @@ const hrController = {
                 await connection.beginTransaction();
 
                 await connection.query(
-                    `UPDATE xin_nghi_phep SET TrangThai = ?, NguoiDuyet = ?, NgayDuyet = NOW(), YKienDuyet = ? WHERE id = ?`,
-                    [TrangThai, reviewer[0]?.MaNV || null, YKienDuyet, id]
+                    `UPDATE xin_nghi_phep SET TrangThai = ?, NguoiDuyet = ?, NgayDuyet = NOW() WHERE id = ?`,
+                    [TrangThai, reviewer[0]?.MaNV || null, id]
                 );
 
                 // If resignation approved, update employee status

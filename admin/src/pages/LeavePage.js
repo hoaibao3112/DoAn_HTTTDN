@@ -56,8 +56,7 @@ const LeavePage = () => {
     try {
       const token = localStorage.getItem('authToken');
       await axios.put(`http://localhost:5000/api/hr/leave-requests/${id}/approve`, {
-        TrangThai: 'Da_duyet',
-        YKienDuyet: 'Đồng ý'
+        TrangThai: 'Da_duyet'
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -80,8 +79,7 @@ const LeavePage = () => {
     try {
       const token = localStorage.getItem('authToken');
       await axios.put(`http://localhost:5000/api/hr/leave-requests/${id}/approve`, {
-        TrangThai: 'Tu_choi',
-        YKienDuyet: 'Không đồng ý'
+        TrangThai: 'Tu_choi'
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -306,7 +304,7 @@ const LeavePage = () => {
           </div>
         }
         width={600}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={form}

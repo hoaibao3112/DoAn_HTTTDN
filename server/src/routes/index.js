@@ -2,7 +2,7 @@ import warehouseRoutes from './warehouseRoutes.js';
 import accountRoutes from './account.js';
 import LoginRoutes from './LoginRoutes.js';
 import roleRoutes from './roleRoutes.js';
-// import reportRoutes from './reportRoutes.js';
+import reportRoutes from './reportRoutes.js';
 import permissionRoutes from './permissionRoutes.js';
 import hrRoutes from './hrRoutes.js';
 import salesRoutes from './salesRoutes.js';
@@ -39,7 +39,7 @@ export const initRoutes = (app) => {
   app.use('/api/accounts', accountRoutes);
   app.use('/api/roles', roleRoutes);
   app.use('/api/permissions', permissionRoutes);
-  // app.use('/api/reports', reportRoutes);
+  app.use('/api/reports', reportRoutes);
 
   // ======================= HR MANAGEMENT (CONSOLIDATED) =======================
   // Includes: employees, attendance, leave, salary, reports
