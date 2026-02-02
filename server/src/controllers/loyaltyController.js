@@ -1,5 +1,5 @@
-import pool from '../config/database.js';
-import { logActivity } from '../utils/activityLogger.js';
+import pool from '../config/connectDatabase.js';
+import { logActivity } from '../utils/auditLogger.js';
 
 // =====================================================
 // THÔNG TIN HỘI VIÊN

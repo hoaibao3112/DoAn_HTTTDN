@@ -12,8 +12,9 @@ import {
   getLoyaltyStatistics,
   adjustPoints
 } from '../controllers/loyaltyController.js';
-import { verifyToken } from '../middlewares/authMiddleware.js';
-// import { checkPermission } from '../middlewares/rbacMiddleware.js';
+import { authenticateToken } from '../utils/generateToken.js';
+import { checkPermission } from '../middlewares/rbacMiddleware.js';
+import { FEATURES, PERMISSIONS } from '../constants/permissions.js';
 
 const router = express.Router();
 
@@ -70,20 +71,20 @@ router.get('/tier/:tierName', getTierBenefits);
 // =====================================================
 
 // Thông tin hội viên
-router.get('/customer/:customerId', verifyToken, getCustomerLoyaltyInfo);
-router.get('/customers', verifyToken, getAllCustomersLoyalty);
+router.get('/customer/:customerId', authenticateToken, getCustomerLoyaltyInfo);
+router.get('/customers', authenticateToken, getAllCustomersLoyalty);
 
 // Lịch sử điểm
-router.get('/history/:customerId', verifyToken, getPointsHistory);
+router.get('/history/:customerId', authenticateToken, getPointsHistory);
 
 // Tích điểm & sử dụng điểm (cho POS)
-router.post('/add-points', verifyToken, addPoints);
-router.post('/use-points', verifyToken, usePoints);
+router.post('/add-points', authenticateToken, addPoints);
+router.post('/use-points', authenticateToken, usePoints);
 
-// Điều chỉnh điểm thủ công (admin only - sau này thêm permission)
-router.post('/adjust-points', verifyToken, adjustPoints);
+// Điều chỉnh điểm thủ công (admin only)
+router.post('/adjust-points', authenticateToken, checkPermission(FEATURES.CUSTOMERS, PERMISSIONS.UPDATE), adjustPoints);
 
 // Thống kê
-router.get('/statistics', verifyToken, getLoyaltyStatistics);
+router.get('/statistics', authenticateToken, getLoyaltyStatistics);
 
 export default router;

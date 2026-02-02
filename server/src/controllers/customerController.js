@@ -23,7 +23,7 @@ const customerController = {
                     kh.NgayThamGia,
                     kh.NgayNangHang,
                     kh.TongChiTieu,
-                    kh.TrangThai,
+                    kh.TinhTrang,
                     ud.PhanTramGiam,
                     ud.HeSoTichDiem,
                     ud.GiamSinhNhat,
@@ -50,7 +50,7 @@ const customerController = {
 
             // Filter theo trạng thái
             if (trangThai !== undefined) {
-                sql += ' AND kh.TrangThai = ?';
+                sql += ' AND kh.TinhTrang = ?';
                 params.push(parseInt(trangThai));
             }
 
@@ -87,7 +87,7 @@ const customerController = {
             }
 
             if (trangThai !== undefined) {
-                countSql += ' AND kh.TrangThai = ?';
+                countSql += ' AND kh.TinhTrang = ?';
                 countParams.push(parseInt(trangThai));
             }
 
@@ -135,10 +135,10 @@ const customerController = {
 
             // Lấy lịch sử mua hàng gần đây
             const [orders] = await pool.query(
-                `SELECT MaHD, NgayLap, TongTien, TrangThai, DiemTichLuy, DiemDaDung
+                `SELECT MaHD, NgayBan, TongTien, TrangThai, DiemTichLuy, DiemSuDung
                  FROM hoadon 
                  WHERE MaKH = ? 
-                 ORDER BY NgayLap DESC 
+                 ORDER BY NgayBan DESC 
                  LIMIT 10`,
                 [id]
             );
@@ -181,14 +181,38 @@ const customerController = {
             // Tạo khách hàng mới với hạng Đồng mặc định
             const [result] = await pool.query(
                 `INSERT INTO khachhang 
-                (HoTen, SDT, Email, DiaChi, HangTV, NgayThamGia, DiemTichLuy, TongDiemTichLuy, DiemDaDung, TrangThai) 
+                (HoTen, SDT, Email, DiaChi, HangTV, NgayThamGia, DiemTichLuy, TongDiemTichLuy, DiemDaDung, TinhTrang) 
                 VALUES (?, ?, ?, ?, 'Dong', CURDATE(), 0, 0, 0, 1)`,
                 [HoTen, SDT, Email || null, DiaChi || null]
             );
 
             await logActivity({
                 MaTK: req.user.MaTK,
-                HanhDong: 'Them',TrangThai } = req.body;
+                HanhDong: 'Them',
+                ChiTiet: `Thêm khách hàng: ${HoTen} (${SDT})`
+            });
+
+            // Lấy thông tin khách hàng vừa tạo từ view
+            const [newCustomer] = await pool.query(
+                'SELECT * FROM v_ThongTinHoiVien WHERE MaKH = ?',
+                [result.insertId]
+            );
+
+            res.status(201).json({
+                success: true,
+                message: 'Tạo khách hàng thành công',
+                data: newCustomer[0]
+            });
+        } catch (error) {
+            console.error('Error creating customer:', error);
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // ======================= UPDATE CUSTOMER =======================
+    updateCustomer: async (req, res) => {
+        const { id } = req.params;
+        const { HoTen, SDT, Email, DiaChi, TinhTrang } = req.body;
 
         try {
             const [oldData] = await pool.query('SELECT * FROM khachhang WHERE MaKH = ?', [id]);
@@ -214,14 +238,14 @@ const customerController = {
             // Cập nhật thông tin (KHÔNG cho phép sửa điểm thủ công - phải qua loyalty API)
             await pool.query(
                 `UPDATE khachhang 
-                 SET HoTen = ?, SDT = ?, Email = ?, DiaChi = ?, TrangThai = ?
+                 SET HoTen = ?, SDT = ?, Email = ?, DiaChi = ?, TinhTrang = ?
                  WHERE MaKH = ?`,
                 [
                     HoTen ?? oldData[0].HoTen, 
-                    SDT ?? oldData[0].SDT, 
-                    Email ?? oldData[0].Email, 
+                    SDT ?? oldData[0].SDT,
+                    Email ?? oldData[0].Email,
                     DiaChi ?? oldData[0].DiaChi,
-                    TrangThai ?? oldData[0].TrangThai,
+                    TinhTrang ?? oldData[0].TinhTrang,
                     id
                 ]
             );
@@ -232,7 +256,7 @@ const customerController = {
                 BangDuLieu: 'khachhang',
                 MaBanGhi: id,
                 DuLieuCu: JSON.stringify(oldData[0]),
-                DuLieuMoi: JSON.stringify({ HoTen, SDT, Email, DiaChi, TrangThai }),
+                DuLieuMoi: JSON.stringify({ HoTen, SDT, Email, DiaChi, TinhTrang }),
                 DiaChi_IP: req.ip
             });
 
@@ -248,10 +272,17 @@ const customerController = {
                 message: 'Cập nhật thông tin khách hàng thành công' 
             });
         } catch (error) {
-            console.error('Error updating customer:', error); (req, res) => {
+            console.error('Error updating customer:', error);
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // ======================= DELETE CUSTOMER =======================
+    deleteCustomer: async (req, res) => {
         const { id } = req.params;
-        const { HoTen, SDT, Email, DiaChi, DiemTichLuy, TongChiTieu } = req.body;
-Kiểm tra nếu khách hàng đã có lịch sử mua hàng
+
+        try {
+            // Kiểm tra nếu khách hàng đã có lịch sử mua hàng
             const [invoices] = await pool.query('SELECT MaHD FROM hoadon WHERE MaKH = ? LIMIT 1', [id]);
             if (invoices.length > 0) {
                 return res.status(400).json({
@@ -301,16 +332,16 @@ Kiểm tra nếu khách hàng đã có lịch sử mua hàng
     toggleCustomerStatus: async (req, res) => {
         const { id } = req.params;
         try {
-            const [customer] = await pool.query('SELECT TrangThai FROM khachhang WHERE MaKH = ?', [id]);
+            const [customer] = await pool.query('SELECT TinhTrang FROM khachhang WHERE MaKH = ?', [id]);
             
             if (customer.length === 0) {
                 return res.status(404).json({ success: false, message: 'Khách hàng không tồn tại' });
             }
 
-            const newStatus = customer[0].TrangThai === 1 ? 0 : 1;
+            const newStatus = customer[0].TinhTrang === 1 ? 0 : 1;
 
             await pool.query(
-                'UPDATE khachhang SET TrangThai = ? WHERE MaKH = ?',
+                'UPDATE khachhang SET TinhTrang = ? WHERE MaKH = ?',
                 [newStatus, id]
             );
 
@@ -319,7 +350,7 @@ Kiểm tra nếu khách hàng đã có lịch sử mua hàng
                 HanhDong: newStatus === 1 ? 'KichHoat' : 'VoHieuHoa',
                 BangDuLieu: 'khachhang',
                 MaBanGhi: id,
-                DuLieuMoi: { TrangThai: newStatus },
+                DuLieuMoi: { TinhTrang: newStatus },
                 DiaChi_IP: req.ip
             });
 
@@ -345,7 +376,7 @@ Kiểm tra nếu khách hàng đã có lịch sử mua hàng
                     SUM(DiemTichLuy) as TongDiem,
                     AVG(DiemTichLuy) as DiemTrungBinh
                 FROM khachhang
-                WHERE TrangThai = 1
+                WHERE TinhTrang = 1
                 GROUP BY HangTV
                 ORDER BY FIELD(HangTV, 'Dong', 'Bac', 'Vang', 'Kim_cuong')
             `);
@@ -359,12 +390,12 @@ Kiểm tra nếu khách hàng đã có lịch sử mua hàng
 
             // Tổng số khách hàng active
             const [activeCustomers] = await pool.query(`
-                SELECT COUNT(*) as total FROM khachhang WHERE TrangThai = 1
+                SELECT COUNT(*) as total FROM khachhang WHERE TinhTrang = 1
             `);
 
             // Tổng số khách hàng inactive
             const [inactiveCustomers] = await pool.query(`
-                SELECT COUNT(*) as total FROM khachhang WHERE TrangThai = 0
+                SELECT COUNT(*) as total FROM khachhang WHERE TinhTrang = 0
             `);
 
             res.json({
@@ -373,45 +404,19 @@ Kiểm tra nếu khách hàng đã có lịch sử mua hàng
                     theoHang: tierStats,
                     khachHangMoi: newCustomers[0].total,
                     tongKhachHangActive: activeCustomers[0].total,
-                    tongKhachHangInactive: inactiveCustomers[0].total
+                    tongKhachHangInactive: inactiveCustomers[0].total,
+                    tierDistribution: tierStats.reduce((acc, item) => {
+                        acc[item.HangTV] = item.SoLuong;
+                        return acc;
+                    }, {}),
+                    totalCustomers: activeCustomers[0].total + inactiveCustomers[0].total,
+                    activeCustomers: activeCustomers[0].total,
+                    inactiveCustomers: inactiveCustomers[0].total,
+                    newCustomersThisMonth: newCustomers[0].total
                 }
             });
         } catch (error) {
             console.error('Error getting customer statistics:', error);
-            res.json({ success: true, message: 'Cập nhật thông tin khách hàng thành công' });
-        } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
-        }
-    },
-
-    // ======================= DELETE CUSTOMER =======================
-    deleteCustomer: async (req, res) => {
-        const { id } = req.params;
-        try {
-            // Check if customer has invoices before deleting (optional, but good practice)
-            const [invoices] = await pool.query('SELECT MaHD FROM hoadon WHERE MaKH = ? LIMIT 1', [id]);
-            if (invoices.length > 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Không thể xóa khách hàng đã có lịch sử mua hàng. Vui lòng vô hiệu hóa thay vì xóa.'
-                });
-            }
-
-            const [result] = await pool.query('DELETE FROM khachhang WHERE MaKH = ?', [id]);
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ success: false, message: 'Khách hàng không tồn tại' });
-            }
-
-            await logActivity({
-                MaTK: req.user.MaTK,
-                HanhDong: 'Xoa',
-                BangDuLieu: 'khachhang',
-                MaBanGhi: id,
-                DiaChi_IP: req.ip
-            });
-
-            res.json({ success: true, message: 'Xóa khách hàng thành công' });
-        } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }
     }
