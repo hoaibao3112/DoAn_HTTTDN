@@ -17,6 +17,8 @@ import '../styles/sidebar.css';
 import Profile from './Profile';
 import { PermissionContext } from '../components/PermissionContext';
 import AuthorManagement from './AuthorManagement.js';
+import POSPage from './POSPage.js';
+import BarcodeGeneratorPage from './BarcodeGeneratorPage.js';
 
 // Component bảo vệ route theo quyền
 const RestrictedRoute = ({ component: Component, permission }) => {
@@ -79,14 +81,15 @@ const AppAdmin = () => {
           <Route
             path="statistical"
             element={<RestrictedRoute component={Statistical} permission="Thống kê" />}
-          /> 
+          />
           <Route
             path="authorities"
             element={<RestrictedRoute component={AuthorManagement} permission="tác giả" />}
           />
-          <Route path="*" element={<Navigate to="/admin" replace />} />
-
           <Route path="profile" element={<Profile />} />
+          <Route path="pos" element={<POSPage />} />
+          <Route path="barcode-generator" element={<BarcodeGeneratorPage />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>
       </div>
     </div>

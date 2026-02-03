@@ -30,6 +30,7 @@ const Sidebar = () => {
   const menuItems = [
     { to: '/admin', icon: 'dashboard', text: 'Trang Chủ', permissionId: null },
     { to: '/admin/pos', icon: 'point_of_sale', text: 'Bán hàng (POS)', permissionId: FEATURES.POS },
+    { to: '/admin/barcode-generator', icon: 'qr_code_scanner', text: 'Tạo mã vạch', permissionId: null },
     { to: '/admin/products', icon: 'inventory_2', text: 'Quản lý sản phẩm', permissionId: FEATURES.PRODUCTS },
     { to: '/admin/stock', icon: 'warehouse', text: 'Quản lý tồn kho', permissionId: FEATURES.STOCK },
     { to: '/admin/stock-transfer', icon: 'sync_alt', text: 'Chuyển kho', permissionId: FEATURES.STOCK },

@@ -1,0 +1,393 @@
+.barcode-generator-page {
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    background: #f8f9fa;
+    min-height: 100vh;
+}
+
+.page-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding: 2rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.page-header h1 {
+    font-size: 2rem;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    color: #7f8c8d;
+    font-size: 1rem;
+}
+
+.barcode-tools {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    align-items: center;
+}
+
+.search-box {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: white;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.search-box .material-icons {
+    color: #95a5a6;
+    margin-right: 0.5rem;
+}
+
+.search-box input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 1rem;
+}
+
+.btn-print-all {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-print-all:hover {
+    background: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.loading-state,
+.empty-state {
+    text-align: center;
+    padding: 4rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.empty-state .material-icons {
+    font-size: 4rem;
+    color: #bdc3c7;
+    margin-bottom: 1rem;
+}
+
+.empty-state p {
+    font-size: 1.2rem;
+    color: #7f8c8d;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state small {
+    color: #95a5a6;
+}
+
+.barcode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.barcode-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+}
+
+.barcode-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.product-info {
+    margin-bottom: 1rem;
+}
+
+.product-name {
+    font-size: 1.1rem;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.product-isbn {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    font-family: 'Courier New', monospace;
+}
+
+.barcode-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.btn-view-large {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: #ecf0f1;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    color: #2c3e50;
+    transition: all 0.3s;
+}
+
+.btn-view-large:hover {
+    background: #3498db;
+    color: white;
+}
+
+/* Modal Styles */
+.barcode-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    padding: 2rem;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    max-width: 800px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.btn-close-modal {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: #e74c3c;
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: all 0.3s;
+}
+
+.btn-close-modal:hover {
+    background: #c0392b;
+    transform: rotate(90deg);
+}
+
+.modal-body {
+    padding: 3rem;
+    text-align: center;
+}
+
+.modal-body h2 {
+    font-size: 1.8rem;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+
+.modal-isbn {
+    font-size: 1.2rem;
+    color: #7f8c8d;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 2rem;
+}
+
+.barcode-large {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    background: white;
+    border: 2px dashed #bdc3c7;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+}
+
+.modal-instructions {
+    background: #ecf0f1;
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: left;
+}
+
+.modal-instructions p {
+    margin-bottom: 1rem;
+    color: #2c3e50;
+}
+
+.modal-instructions strong {
+    font-size: 1.1rem;
+}
+
+.modal-instructions ol {
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.modal-instructions ol li {
+    margin-bottom: 0.5rem;
+    color: #34495e;
+    line-height: 1.6;
+}
+
+.modal-actions {
+    margin: 1.5rem 0;
+    text-align: center;
+}
+
+.btn-download-phone {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-download-phone:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+.btn-download-phone:active {
+    transform: translateY(0);
+}
+
+.btn-download-phone .material-icons {
+    font-size: 1.5rem;
+}
+
+.hint {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #bdc3c7;
+}
+
+.hint .material-icons {
+    font-size: 1.2rem;
+}
+
+/* Print Styles */
+.print-only {
+    display: none;
+}
+
+@media print {
+    .barcode-generator-page>*:not(.print-only) {
+        display: none !important;
+    }
+
+    .print-only {
+        display: block !important;
+    }
+
+    .print-only h1 {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .print-barcode-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2rem;
+    }
+
+    .print-barcode-item {
+        page-break-inside: avoid;
+        border: 1px solid #ddd;
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .print-barcode-item h4 {
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .print-barcode-item p {
+        font-size: 0.8rem;
+        margin-bottom: 1rem;
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .barcode-generator-page {
+        padding: 1rem;
+    }
+
+    .page-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .barcode-tools {
+        flex-direction: column;
+    }
+
+    .barcode-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-body {
+        padding: 2rem 1rem;
+    }
+}

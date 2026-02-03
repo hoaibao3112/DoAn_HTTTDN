@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import axios from 'axios';
+import { Html5Qrcode, Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { PermissionContext } from '../components/PermissionContext';
 import { FEATURES } from '../constants/permissions';
 import '../styles/POSPage.css';
@@ -24,11 +25,18 @@ const POSPage = () => {
     });
     const [categories, setCategories] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState('all');
-    
+
     // KHUYẾN MÃI
     const [availablePromotions, setAvailablePromotions] = useState([]);
     const [selectedPromotion, setSelectedPromotion] = useState(null);
     const [voucherCode, setVoucherCode] = useState('');
+
+    // BARCODE SCANNER
+    const [showScanner, setShowScanner] = useState(false);
+    const [manualISBN, setManualISBN] = useState('');
+    const [scannerStatus, setScannerStatus] = useState('Sẵn sàng quét...');
+    const scannerRef = useRef(null);
+    const html5QrcodeScannerRef = useRef(null);
     const [showPromotions, setShowPromotions] = useState(false);
     const [promotionDiscount, setPromotionDiscount] = useState(0);
 
@@ -92,7 +100,7 @@ const POSPage = () => {
     };
 
     // =============== KHUYẾN MÃI ===============
-    
+
     const checkAvailablePromotions = async () => {
         try {
             const token = localStorage.getItem('authToken');
@@ -113,7 +121,7 @@ const POSPage = () => {
 
             if (response.data.success && response.data.data) {
                 setAvailablePromotions(response.data.data);
-                
+
                 // Tự động chọn khuyến mãi tốt nhất (đầu tiên)
                 if (response.data.data.length > 0 && !selectedPromotion) {
                     const bestPromo = response.data.data[0];
@@ -175,6 +183,163 @@ const POSPage = () => {
         setPromotionDiscount(0);
         setVoucherCode('');
     };
+
+    // =============== BARCODE SCANNER ===============
+
+    const searchProductByISBN = async (isbn) => {
+        try {
+            setScannerStatus(`Đang tìm sản phẩm ISBN: ${isbn}...`);
+            const token = localStorage.getItem('authToken');
+
+            // Chuẩn hóa ISBN (xóa dấu gạch ngang, khoảng trắng)
+            const normalizedISBN = isbn.replace(/[-\s]/g, '').trim();
+
+            // Tìm sản phẩm theo ISBN từ backend
+            const response = await axios.get(
+                `http://localhost:5000/api/warehouse/products?search=${isbn}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (response.data.success && response.data.data) {
+                const items = response.data.data.items || response.data.data;
+                // Tìm sản phẩm có ISBN khớp chính xác (sau khi chuẩn hóa)
+                const product = Array.isArray(items)
+                    ? items.find(p => p.ISBN && p.ISBN.replace(/[-\s]/g, '').trim() === normalizedISBN)
+                    : null;
+
+                if (product) {
+                    addToCart(product);
+                    setScannerStatus(`✓ Đã thêm: ${product.TenSP}`);
+                    setTimeout(() => {
+                        closeBarcodeScanner();
+                    }, 1500);
+                    return true;
+                } else {
+                    setScannerStatus(`✗ Không tìm thấy sản phẩm với ISBN: ${isbn}`);
+                    return false;
+                }
+            }
+        } catch (error) {
+            console.error('Error searching product by ISBN:', error);
+            setScannerStatus(`✗ Lỗi tìm kiếm: ${error.message}`);
+            return false;
+        }
+    };
+
+    const handleBarcodeScanned = (decodedText) => {
+        console.log('Barcode scanned:', decodedText);
+
+        // Dừng scanner ngay lập tức để không quét lại
+        if (html5QrcodeScannerRef.current) {
+            html5QrcodeScannerRef.current.stop().then(() => {
+                html5QrcodeScannerRef.current = null;
+            }).catch(err => console.error('Error stopping scanner:', err));
+        }
+
+        // Tìm và thêm sản phẩm
+        searchProductByISBN(decodedText);
+        closeBarcodeScanner();
+    };
+
+    const toggleBarcodeScanner = () => {
+        if (showScanner) {
+            closeBarcodeScanner();
+        } else {
+            openBarcodeScanner();
+        }
+    };
+
+    const openBarcodeScanner = () => {
+        setShowScanner(true);
+        setScannerStatus('Đang khởi động camera...');
+        setManualISBN('');
+
+        // Delay để đảm bảo DOM đã render
+        setTimeout(async () => {
+            if (scannerRef.current && !html5QrcodeScannerRef.current) {
+                try {
+                    const scanner = new Html5Qrcode("barcode-reader");
+                    
+                    // Tự động start camera khi mở modal
+                    await scanner.start(
+                        { facingMode: "environment" }, // Camera sau
+                        {
+                            fps: 10,
+                            qrbox: { width: 300, height: 150 },
+                            // Thêm config để quét tất cả loại barcode
+                            formatsToSupport: [
+                                Html5QrcodeSupportedFormats.QR_CODE,
+                                Html5QrcodeSupportedFormats.CODE_128,
+                                Html5QrcodeSupportedFormats.CODE_39,
+                                Html5QrcodeSupportedFormats.EAN_13,
+                                Html5QrcodeSupportedFormats.EAN_8,
+                                Html5QrcodeSupportedFormats.UPC_A,
+                                Html5QrcodeSupportedFormats.UPC_E
+                            ]
+                        },
+                        (decodedText) => handleBarcodeScanned(decodedText),
+                        (error) => {
+                            // Không log mỗi lỗi quét vì sẽ spam console
+                            if (error?.includes('NotFoundException') === false) {
+                                console.warn('Scanner error:', error);
+                            }
+                        }
+                    );
+
+                    html5QrcodeScannerRef.current = scanner;
+                    setScannerStatus('✓ Camera đã sẵn sàng! Đưa mã vạch vào khung hình...');
+                } catch (error) {
+                    console.error('Error initializing scanner:', error);
+                    setScannerStatus('✗ Lỗi khởi động camera: ' + error.message);
+                }
+            }
+        }, 100);
+    };
+
+    const closeBarcodeScanner = () => {
+        if (html5QrcodeScannerRef.current) {
+            try {
+                // Dừng scanning trước, sau đó mới clear
+                html5QrcodeScannerRef.current.stop().then(() => {
+                    html5QrcodeScannerRef.current = null;
+                    setShowScanner(false);
+                    setScannerStatus('Sẵn sàng quét...');
+                }).catch(err => {
+                    console.error('Error stopping scanner:', err);
+                    html5QrcodeScannerRef.current = null;
+                    setShowScanner(false);
+                    setScannerStatus('Sẵn sàng quét...');
+                });
+            } catch (err) {
+                console.error('Error stopping scanner:', err);
+                html5QrcodeScannerRef.current = null;
+                setShowScanner(false);
+                setScannerStatus('Sẵn sàng quét...');
+            }
+        } else {
+            setShowScanner(false);
+            setScannerStatus('Sẵn sàng quét...');
+        }
+    };
+
+    const handleManualISBNSubmit = () => {
+        if (!manualISBN.trim()) {
+            alert('Vui lòng nhập mã ISBN!');
+            return;
+        }
+        searchProductByISBN(manualISBN.trim());
+    };
+
+    // Cleanup scanner khi unmount
+    useEffect(() => {
+        return () => {
+            if (html5QrcodeScannerRef.current) {
+                html5QrcodeScannerRef.current.stop().catch(err =>
+                    console.error('Error stopping scanner on unmount:', err)
+                );
+            }
+        };
+    }, []);
 
     const searchCustomer = async () => {
         if (!customerSearch.trim()) return;
@@ -559,13 +724,13 @@ const POSPage = () => {
                                 <span>Tổng cộng</span>
                                 <span className="total-value">{calculateSubtotal().toLocaleString()}đ</span>
                             </div>
-                            
+
                             {/* Khuyến mãi Section */}
                             <div className="promotion-section">
                                 <div className="promotion-header">
                                     <span className="material-icons">local_offer</span>
                                     <span>Khuyến mãi</span>
-                                    <button 
+                                    <button
                                         className="btn-toggle-promotions"
                                         onClick={() => setShowPromotions(!showPromotions)}
                                     >
@@ -594,7 +759,7 @@ const POSPage = () => {
                                             <div className="available-promotions-list">
                                                 <p className="promo-label">Khuyến mãi khả dụng:</p>
                                                 {availablePromotions.map((promo, index) => (
-                                                    <div 
+                                                    <div
                                                         key={index}
                                                         className={`promo-item ${selectedPromotion?.MaKM === promo.MaKM ? 'selected' : ''}`}
                                                         onClick={() => selectPromotion(promo)}
@@ -620,7 +785,7 @@ const POSPage = () => {
                                             <span className="material-icons">check_circle</span>
                                             <span>{selectedPromotion.TenKM}</span>
                                         </div>
-                                        <button 
+                                        <button
                                             className="btn-remove-promo"
                                             onClick={removePromotion}
                                         >
@@ -636,7 +801,7 @@ const POSPage = () => {
                                     <span className="total-value discount-value">-{promotionDiscount.toLocaleString()}đ</span>
                                 </div>
                             )}
-                            
+
                             <div className="total-row final">
                                 <span>THÀNH TIỀN</span>
                                 <span className="total-final">{calculateTotal().toLocaleString()}đ</span>
@@ -704,6 +869,14 @@ const POSPage = () => {
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
+                            <button
+                                className="btn-scan-barcode"
+                                onClick={toggleBarcodeScanner}
+                                title="Quét mã vạch sản phẩm"
+                            >
+                                <span className="material-icons">qr_code_scanner</span>
+                                Quét mã
+                            </button>
                         </div>
                     </div>
 
@@ -730,6 +903,56 @@ const POSPage = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Barcode Scanner Modal */}
+            {showScanner && (
+                <div className="barcode-scanner-modal" onClick={closeBarcodeScanner}>
+                    <div className="scanner-modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="scanner-header">
+                            <h3>📷 Quét Mã Vạch Sản Phẩm</h3>
+                            <button className="btn-close-scanner" onClick={closeBarcodeScanner}>
+                                <span className="material-icons">close</span>
+                            </button>
+                        </div>
+
+                        <div className="scanner-status">
+                            <span className="material-icons">info</span>
+                            <p>{scannerStatus}</p>
+                        </div>
+
+                        <div className="scanner-video-container" ref={scannerRef}>
+                            <div id="barcode-reader"></div>
+                        </div>
+
+                        <div className="scanner-manual-input">
+                            <p className="manual-label">Hoặc nhập ISBN thủ công:</p>
+                            <div className="manual-input-group">
+                                <input
+                                    type="text"
+                                    placeholder="Nhập ISBN (VD: 978-604-1-00000-1)"
+                                    value={manualISBN}
+                                    onChange={(e) => setManualISBN(e.target.value)}
+                                    onKeyPress={(e) => e.key === 'Enter' && handleManualISBNSubmit()}
+                                />
+                                <button onClick={handleManualISBNSubmit}>
+                                    <span className="material-icons">search</span>
+                                    Tìm kiếm
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="scanner-instructions">
+                            <p><strong>💡 Hướng dẫn:</strong></p>
+                            <ol>
+                                <li>Cho phép trình duyệt truy cập webcam</li>
+                                <li>Hiển thị barcode từ trang <a href="/admin/barcode-generator" target="_blank">Barcode Generator</a></li>
+                                <li>Đưa mã vạch vào giữa khung hình màu đỏ</li>
+                                <li>Giữ yên, camera sẽ tự động quét</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

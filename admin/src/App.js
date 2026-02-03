@@ -29,6 +29,7 @@ import InventoryCheck from './pages/InventoryCheck';
 import SupplierDebts from './pages/SupplierDebts';
 import AuditLogs from './pages/AuditLogs';
 import BranchManagement from './pages/BranchManagement';
+import BarcodeGeneratorPage from './pages/BarcodeGeneratorPage';
 import { FEATURES } from './constants/permissions';
 
 const PrivateRoute = ({ component: Component }) => {
@@ -306,6 +307,11 @@ const App = () => {
             )}
           />
         }
+      />
+
+      <Route
+        path="/admin/barcode-generator"
+        element={<PrivateRoute component={BarcodeGeneratorPage} />}
       />
 
       <Route path="*" element={<Navigate to="/admin/login" replace />} />

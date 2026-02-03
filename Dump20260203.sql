@@ -64,7 +64,7 @@ CREATE TABLE `cham_cong` (
   PRIMARY KEY (`MaCC`),
   UNIQUE KEY `unique_attendance` (`MaNV`,`Ngay`),
   CONSTRAINT `cham_cong_ibfk_1` FOREIGN KEY (`MaNV`) REFERENCES `nhanvien` (`MaNV`)
-) ENGINE=InnoDB AUTO_INCREMENT=65 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=66 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -73,7 +73,7 @@ CREATE TABLE `cham_cong` (
 
 LOCK TABLES `cham_cong` WRITE;
 /*!40000 ALTER TABLE `cham_cong` DISABLE KEYS */;
-INSERT INTO `cham_cong` VALUES (1,2,NULL,'2026-01-28','14:27:29',NULL,0.00,0.00,'Tre',NULL,'quanly01'),(2,1,1,'2026-01-01','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(3,1,1,'2026-01-20','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(4,1,1,'2026-01-19','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(5,1,1,'2026-01-17','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(6,1,1,'2026-01-16','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(7,1,1,'2026-01-15','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(8,1,1,'2026-01-14','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(9,1,1,'2026-01-13','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(10,1,1,'2026-01-12','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(11,1,1,'2026-01-21','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(12,1,1,'2026-01-22','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(13,1,1,'2026-01-23','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(14,1,1,'2026-01-24','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(15,1,1,'2026-01-26','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(16,1,1,'2026-01-27','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(17,1,1,'2026-01-28','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(18,1,1,'2026-01-02','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(19,1,1,'2026-01-29','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(20,1,1,'2026-01-30','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(21,1,1,'2026-01-31','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(22,1,1,'2026-01-03','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(23,1,1,'2026-01-05','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(24,1,1,'2026-01-07','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(25,1,1,'2026-01-06','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(26,1,1,'2026-01-08','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(27,1,1,'2026-01-09','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(28,1,1,'2026-01-10','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(29,2,1,'2026-01-01','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(30,2,1,'2026-01-02',NULL,NULL,0.00,0.00,'Nghi_phep','','quanly01'),(31,2,1,'2026-01-03','08:00:00',NULL,0.00,0.00,'Tre','','quanly01'),(32,2,1,'2026-01-05','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(33,2,1,'2026-01-07','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(34,2,1,'2026-01-06','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(35,2,1,'2026-01-08','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(36,2,1,'2026-01-09','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(37,2,1,'2026-01-10','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(38,2,1,'2026-01-20','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(39,2,1,'2026-01-19','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(40,2,1,'2026-01-17','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(41,2,1,'2026-01-16','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(42,2,1,'2026-01-15','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(43,2,1,'2026-01-14','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(44,2,1,'2026-01-13','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(45,2,1,'2026-01-12','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(46,2,1,'2026-01-21','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(47,2,1,'2026-01-22','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(48,2,1,'2026-01-31','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(49,2,1,'2026-01-23','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(50,2,1,'2026-01-24','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(51,2,1,'2026-01-26','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(52,2,1,'2026-01-27','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(53,2,1,'2026-01-29','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(54,2,1,'2026-01-30','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(55,3,1,'2026-01-28','08:00:00','12:00:00',4.00,0.00,'Di_lam',NULL,'quanly01'),(56,4,1,'2026-01-28','08:00:00','12:00:00',4.00,0.00,'Di_lam',NULL,'quanly01'),(57,5,1,'2026-01-28','08:00:00','12:00:00',4.00,0.00,'Di_lam',NULL,'quanly01'),(58,3,1,'2026-01-27','08:05:00','12:00:00',3.90,0.00,'Tre',NULL,'quanly01'),(59,4,1,'2026-01-27','08:00:00','12:00:00',4.00,0.00,'Di_lam',NULL,'quanly01'),(60,5,1,'2026-01-27','08:00:00','12:00:00',4.00,0.00,'Di_lam',NULL,'quanly01'),(61,3,1,'2026-01-29',NULL,NULL,0.00,0.00,'Nghi_khong_phep','Hệ thống tự động đánh dấu vắng mặt','System_Sync'),(62,4,1,'2026-01-29',NULL,NULL,0.00,0.00,'Nghi_khong_phep','Hệ thống tự động đánh dấu vắng mặt','System_Sync'),(63,5,1,'2026-01-29',NULL,NULL,0.00,0.00,'Nghi_khong_phep','Hệ thống tự động đánh dấu vắng mặt','System_Sync'),(64,2,1,'2026-02-02','08:24:34',NULL,0.00,0.00,'Tre','Vào ca','quanly01');
+INSERT INTO `cham_cong` VALUES (1,2,NULL,'2026-01-28','14:27:29',NULL,0.00,0.00,'Tre',NULL,'quanly01'),(2,1,1,'2026-01-01','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(3,1,1,'2026-01-20','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(4,1,1,'2026-01-19','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(5,1,1,'2026-01-17','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(6,1,1,'2026-01-16','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(7,1,1,'2026-01-15','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(8,1,1,'2026-01-14','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(9,1,1,'2026-01-13','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(10,1,1,'2026-01-12','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(11,1,1,'2026-01-21','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(12,1,1,'2026-01-22','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(13,1,1,'2026-01-23','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(14,1,1,'2026-01-24','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(15,1,1,'2026-01-26','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(16,1,1,'2026-01-27','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(17,1,1,'2026-01-28','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(18,1,1,'2026-01-02','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(19,1,1,'2026-01-29','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(20,1,1,'2026-01-30','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(21,1,1,'2026-01-31','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(22,1,1,'2026-01-03','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(23,1,1,'2026-01-05','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(24,1,1,'2026-01-07','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(25,1,1,'2026-01-06','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(26,1,1,'2026-01-08','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(27,1,1,'2026-01-09','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(28,1,1,'2026-01-10','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(29,2,1,'2026-01-01','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(30,2,1,'2026-01-02',NULL,NULL,0.00,0.00,'Nghi_phep','','quanly01'),(31,2,1,'2026-01-03','08:00:00',NULL,0.00,0.00,'Tre','','quanly01'),(32,2,1,'2026-01-05','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(33,2,1,'2026-01-07','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(34,2,1,'2026-01-06','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(35,2,1,'2026-01-08','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(36,2,1,'2026-01-09','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(37,2,1,'2026-01-10','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(38,2,1,'2026-01-20','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(39,2,1,'2026-01-19','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(40,2,1,'2026-01-17','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(41,2,1,'2026-01-16','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(42,2,1,'2026-01-15','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(43,2,1,'2026-01-14','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(44,2,1,'2026-01-13','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(45,2,1,'2026-01-12','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(46,2,1,'2026-01-21','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(47,2,1,'2026-01-22','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(48,2,1,'2026-01-31','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(49,2,1,'2026-01-23','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(50,2,1,'2026-01-24','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(51,2,1,'2026-01-26','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(52,2,1,'2026-01-27','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(53,2,1,'2026-01-29','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(54,2,1,'2026-01-30','08:00:00',NULL,0.00,0.00,'Di_lam','','quanly01'),(55,3,1,'2026-01-28','08:00:00','12:00:00',4.00,0.00,'Di_lam',NULL,'quanly01'),(56,4,1,'2026-01-28','08:00:00','12:00:00',4.00,0.00,'Di_lam',NULL,'quanly01'),(57,5,1,'2026-01-28','08:00:00','12:00:00',4.00,0.00,'Di_lam',NULL,'quanly01'),(58,3,1,'2026-01-27','08:05:00','12:00:00',3.90,0.00,'Tre',NULL,'quanly01'),(59,4,1,'2026-01-27','08:00:00','12:00:00',4.00,0.00,'Di_lam',NULL,'quanly01'),(60,5,1,'2026-01-27','08:00:00','12:00:00',4.00,0.00,'Di_lam',NULL,'quanly01'),(61,3,1,'2026-01-29',NULL,NULL,0.00,0.00,'Nghi_khong_phep','Hệ thống tự động đánh dấu vắng mặt','System_Sync'),(62,4,1,'2026-01-29',NULL,NULL,0.00,0.00,'Nghi_khong_phep','Hệ thống tự động đánh dấu vắng mặt','System_Sync'),(63,5,1,'2026-01-29',NULL,NULL,0.00,0.00,'Nghi_khong_phep','Hệ thống tự động đánh dấu vắng mặt','System_Sync'),(64,2,1,'2026-02-02','08:24:34',NULL,0.00,0.00,'Tre','Vào ca','quanly01'),(65,3,1,'2026-02-02','22:21:18',NULL,0.00,0.00,'Tre','Vào ca','thungan01');
 /*!40000 ALTER TABLE `cham_cong` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -144,6 +144,35 @@ CREATE TABLE `chi_tiet_kiem_ke` (
 LOCK TABLES `chi_tiet_kiem_ke` WRITE;
 /*!40000 ALTER TABLE `chi_tiet_kiem_ke` DISABLE KEYS */;
 /*!40000 ALTER TABLE `chi_tiet_kiem_ke` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `chi_tiet_km_sanpham`
+--
+
+DROP TABLE IF EXISTS `chi_tiet_km_sanpham`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `chi_tiet_km_sanpham` (
+  `MaCT` int NOT NULL AUTO_INCREMENT,
+  `MaKM` int NOT NULL,
+  `LoaiDoiTuong` varchar(50) NOT NULL COMMENT 'San_pham, The_loai',
+  `MaDoiTuong` int NOT NULL COMMENT 'MaSP hoặc MaTL',
+  PRIMARY KEY (`MaCT`),
+  KEY `idx_km` (`MaKM`),
+  KEY `idx_doituong` (`LoaiDoiTuong`,`MaDoiTuong`),
+  CONSTRAINT `fk_ctkm_km` FOREIGN KEY (`MaKM`) REFERENCES `khuyen_mai` (`MaKM`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Chi tiết sản phẩm/thể loại được áp dụng khuyến mãi';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `chi_tiet_km_sanpham`
+--
+
+LOCK TABLES `chi_tiet_km_sanpham` WRITE;
+/*!40000 ALTER TABLE `chi_tiet_km_sanpham` DISABLE KEYS */;
+INSERT INTO `chi_tiet_km_sanpham` VALUES (1,6,'The_loai',1),(2,7,'The_loai',4);
+/*!40000 ALTER TABLE `chi_tiet_km_sanpham` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -439,6 +468,8 @@ CREATE TABLE `hoadon` (
   `TenNguoiNhan` varchar(100) DEFAULT NULL,
   `PhiVanChuyen` decimal(15,2) DEFAULT '0.00',
   `GhiChu` text,
+  `DiemDaDung` int DEFAULT '0' COMMENT 'Điểm khách đã dùng',
+  `GiamGiaHangTV` decimal(15,2) DEFAULT '0.00' COMMENT 'Giảm giá từ hạng thành viên',
   PRIMARY KEY (`MaHD`),
   KEY `MaKH` (`MaKH`),
   KEY `MaNV` (`MaNV`),
@@ -457,7 +488,7 @@ CREATE TABLE `hoadon` (
 
 LOCK TABLES `hoadon` WRITE;
 /*!40000 ALTER TABLE `hoadon` DISABLE KEYS */;
-INSERT INTO `hoadon` VALUES (20,1,1,1,NULL,'2026-01-28 16:41:17','Tai_quay',230000.00,0.00,0,0,230000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Hóa đơn mẫu POS 1'),(21,NULL,1,1,NULL,'2026-01-28 16:41:17','Tai_quay',115000.00,0.00,0,0,115000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Hóa đơn mẫu POS 2'),(22,1,1,1,NULL,'2026-01-28 16:41:17','Tai_quay',345000.00,0.00,0,0,345000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(23,1,3,1,NULL,'2025-11-02 09:15:00','Tai_quay',230000.00,0.00,0,0,230000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'KH thân thiết Q1'),(24,2,3,1,NULL,'2025-11-05 14:20:00','Tai_quay',450000.00,0.00,0,0,450000.00,'The',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(25,NULL,3,1,NULL,'2025-11-10 18:00:00','Tai_quay',115000.00,0.00,0,0,115000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Khách vãng lai'),(26,3,3,2,NULL,'2025-11-12 10:00:00','Tai_quay',850000.00,0.00,0,0,850000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Đơn hàng Q7'),(27,NULL,3,2,NULL,'2025-11-15 16:30:00','Tai_quay',95000.00,0.00,0,0,95000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(28,4,3,3,NULL,'2025-11-20 11:45:00','Tai_quay',1200000.00,0.00,0,0,1200000.00,'The',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Đơn lớn Thủ Đức'),(29,5,3,3,NULL,'2025-11-25 20:10:00','Tai_quay',345000.00,0.00,0,0,345000.00,'QR',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(30,1,3,1,NULL,'2025-12-01 10:00:00','Tai_quay',1500000.00,0.00,0,0,1500000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Quà tặng giáng sinh'),(31,NULL,3,1,NULL,'2025-12-05 19:20:00','Tai_quay',550000.00,0.00,0,0,550000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(32,3,3,1,NULL,'2025-12-10 15:30:00','Tai_quay',215000.00,0.00,0,0,215000.00,'The',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(33,2,3,2,NULL,'2025-12-12 09:45:00','Tai_quay',880000.00,0.00,0,0,880000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(34,NULL,3,2,NULL,'2025-12-15 14:15:00','Tai_quay',135000.00,0.00,0,0,135000.00,'QR',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(35,NULL,3,2,NULL,'2025-12-20 18:50:00','Tai_quay',2500000.00,0.00,0,0,2500000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Mua sỉ'),(36,4,3,3,NULL,'2025-12-22 11:00:00','Tai_quay',750000.00,0.00,0,0,750000.00,'The',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(37,5,3,3,NULL,'2025-12-24 16:30:00','Tai_quay',3200000.00,0.00,0,0,3200000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Tiệc Noel'),(38,NULL,3,3,NULL,'2025-12-28 20:00:00','Tai_quay',445000.00,0.00,0,0,445000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(39,1,3,1,NULL,'2026-01-05 10:30:00','Tai_quay',950000.00,0.00,0,0,950000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(40,2,3,1,NULL,'2026-01-10 14:15:00','Tai_quay',125000.00,0.00,0,0,125000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(41,NULL,3,2,NULL,'2026-01-15 16:45:00','Tai_quay',580000.00,0.00,0,0,580000.00,'The',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(42,3,3,2,NULL,'2026-01-20 09:00:00','Tai_quay',95000.00,0.00,0,0,95000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL),(43,4,3,3,NULL,'2026-01-22 13:20:00','Tai_quay',2100000.00,0.00,0,0,2100000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Quà Tết'),(44,5,3,3,NULL,'2026-01-25 18:30:00','Tai_quay',135000.00,0.00,0,0,135000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL);
+INSERT INTO `hoadon` VALUES (20,1,1,1,NULL,'2026-01-28 16:41:17','Tai_quay',230000.00,0.00,0,0,230000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Hóa đơn mẫu POS 1',0,0.00),(21,NULL,1,1,NULL,'2026-01-28 16:41:17','Tai_quay',115000.00,0.00,0,0,115000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Hóa đơn mẫu POS 2',0,0.00),(22,1,1,1,NULL,'2026-01-28 16:41:17','Tai_quay',345000.00,0.00,0,0,345000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(23,1,3,1,NULL,'2025-11-02 09:15:00','Tai_quay',230000.00,0.00,0,0,230000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'KH thân thiết Q1',0,0.00),(24,2,3,1,NULL,'2025-11-05 14:20:00','Tai_quay',450000.00,0.00,0,0,450000.00,'The',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(25,NULL,3,1,NULL,'2025-11-10 18:00:00','Tai_quay',115000.00,0.00,0,0,115000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Khách vãng lai',0,0.00),(26,3,3,2,NULL,'2025-11-12 10:00:00','Tai_quay',850000.00,0.00,0,0,850000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Đơn hàng Q7',0,0.00),(27,NULL,3,2,NULL,'2025-11-15 16:30:00','Tai_quay',95000.00,0.00,0,0,95000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(28,4,3,3,NULL,'2025-11-20 11:45:00','Tai_quay',1200000.00,0.00,0,0,1200000.00,'The',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Đơn lớn Thủ Đức',0,0.00),(29,5,3,3,NULL,'2025-11-25 20:10:00','Tai_quay',345000.00,0.00,0,0,345000.00,'QR',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(30,1,3,1,NULL,'2025-12-01 10:00:00','Tai_quay',1500000.00,0.00,0,0,1500000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Quà tặng giáng sinh',0,0.00),(31,NULL,3,1,NULL,'2025-12-05 19:20:00','Tai_quay',550000.00,0.00,0,0,550000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(32,3,3,1,NULL,'2025-12-10 15:30:00','Tai_quay',215000.00,0.00,0,0,215000.00,'The',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(33,2,3,2,NULL,'2025-12-12 09:45:00','Tai_quay',880000.00,0.00,0,0,880000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(34,NULL,3,2,NULL,'2025-12-15 14:15:00','Tai_quay',135000.00,0.00,0,0,135000.00,'QR',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(35,NULL,3,2,NULL,'2025-12-20 18:50:00','Tai_quay',2500000.00,0.00,0,0,2500000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Mua sỉ',0,0.00),(36,4,3,3,NULL,'2025-12-22 11:00:00','Tai_quay',750000.00,0.00,0,0,750000.00,'The',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(37,5,3,3,NULL,'2025-12-24 16:30:00','Tai_quay',3200000.00,0.00,0,0,3200000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Tiệc Noel',0,0.00),(38,NULL,3,3,NULL,'2025-12-28 20:00:00','Tai_quay',445000.00,0.00,0,0,445000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(39,1,3,1,NULL,'2026-01-05 10:30:00','Tai_quay',950000.00,0.00,0,0,950000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(40,2,3,1,NULL,'2026-01-10 14:15:00','Tai_quay',125000.00,0.00,0,0,125000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(41,NULL,3,2,NULL,'2026-01-15 16:45:00','Tai_quay',580000.00,0.00,0,0,580000.00,'The',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(42,3,3,2,NULL,'2026-01-20 09:00:00','Tai_quay',95000.00,0.00,0,0,95000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00),(43,4,3,3,NULL,'2026-01-22 13:20:00','Tai_quay',2100000.00,0.00,0,0,2100000.00,'Chuyen_khoan',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,'Quà Tết',0,0.00),(44,5,3,3,NULL,'2026-01-25 18:30:00','Tai_quay',135000.00,0.00,0,0,135000.00,'Tien_mat',NULL,NULL,'Hoan_thanh',NULL,NULL,NULL,0.00,NULL,0,0.00);
 /*!40000 ALTER TABLE `hoadon` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -482,6 +513,11 @@ CREATE TABLE `khachhang` (
   `TongChiTieu` decimal(15,2) DEFAULT '0.00',
   `GhiChu` text,
   `TinhTrang` tinyint(1) DEFAULT '1',
+  `DiemDaDung` int DEFAULT '0' COMMENT 'Tổng điểm đã tiêu',
+  `TongDiemTichLuy` int DEFAULT '0' COMMENT 'Tổng điểm từ trước tới nay',
+  `HangTV` varchar(50) DEFAULT 'Dong' COMMENT 'Dong, Bac, Vang, Kim_cuong',
+  `NgayThamGia` date DEFAULT NULL COMMENT 'Ngày đăng ký thành viên',
+  `NgayNangHang` datetime DEFAULT NULL COMMENT 'Lần cuối nâng hạng',
   PRIMARY KEY (`MaKH`),
   UNIQUE KEY `Email` (`Email`),
   UNIQUE KEY `SDT` (`SDT`)
@@ -494,7 +530,7 @@ CREATE TABLE `khachhang` (
 
 LOCK TABLES `khachhang` WRITE;
 /*!40000 ALTER TABLE `khachhang` DISABLE KEYS */;
-INSERT INTO `khachhang` VALUES (1,'Vũ Thị Hoa','hoa.vu@gmail.com','0911111111','123 Điện Biên Phủ, Quận 1, TP.HCM','1988-04-15','Nữ','2026-01-23 09:50:57','VIP',1500,15000000.00,NULL,1),(2,'Đặng Văn Long','long.dang@yahoo.com','0912222222','456 Võ Văn Tần, Quận 3, TP.HCM','1990-09-20','Nam','2026-01-23 09:50:57','Thường',800,8000000.00,NULL,1),(3,'Bùi Thị Kim','kim.bui@gmail.com','0913333333','789 Cách Mạng Tháng 8, Quận 3, TP.HCM','1995-12-05','Nữ','2026-01-23 09:50:57','Thường',350,3500000.00,NULL,1),(4,'Phan Minh Tuấn','tuan.phan@hotmail.com','0914444444','234 Lê Văn Sỹ, Quận 3, TP.HCM','1992-06-30','Nam','2026-01-23 09:50:57','VIP',2100,21000000.00,NULL,1),(5,'Võ Thị Nga','nga.vo@gmail.com','0915555555','567 Phan Xích Long, Phú Nhuận, TP.HCM','1987-02-14','Nữ','2026-01-23 09:50:57','VVIP',4500,45000000.00,NULL,1);
+INSERT INTO `khachhang` VALUES (1,'Vũ Thị Hoa','hoa.vu@gmail.com','0911111111','123 Điện Biên Phủ, Quận 1, TP.HCM','1988-04-15','Nữ','2026-01-23 09:50:57','VIP',1500,15000000.00,NULL,1,0,0,'Dong','2026-02-02',NULL),(2,'Đặng Văn Long','long.dang@yahoo.com','0912222222','456 Võ Văn Tần, Quận 3, TP.HCM','1990-09-20','Nam','2026-01-23 09:50:57','Thường',800,8000000.00,NULL,1,0,0,'Dong','2026-02-02',NULL),(3,'Bùi Thị Kim','kim.bui@gmail.com','0913333333','789 Cách Mạng Tháng 8, Quận 3, TP.HCM','1995-12-05','Nữ','2026-01-23 09:50:57','Thường',350,3500000.00,NULL,1,0,0,'Dong','2026-02-02',NULL),(4,'Phan Minh Tuấn','tuan.phan@hotmail.com','0914444444','234 Lê Văn Sỹ, Quận 3, TP.HCM','1992-06-30','Nam','2026-01-23 09:50:57','VIP',2100,21000000.00,NULL,1,0,0,'Dong','2026-02-02',NULL),(5,'Võ Thị Nga','nga.vo@gmail.com','0915555555','567 Phan Xích Long, Phú Nhuận, TP.HCM','1987-02-14','Nữ','2026-01-23 09:50:57','VVIP',4500,45000000.00,NULL,1,0,0,'Dong','2026-02-02',NULL);
 /*!40000 ALTER TABLE `khachhang` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -509,16 +545,25 @@ CREATE TABLE `khuyen_mai` (
   `MaKM` int NOT NULL AUTO_INCREMENT,
   `TenKM` varchar(100) NOT NULL,
   `MoTa` text,
-  `LoaiKM` varchar(50) DEFAULT 'giam_phan_tram' COMMENT 'giam_phan_tram, giam_tien, mua_X_tang_Y',
-  `GiaTriGiam` decimal(10,2) DEFAULT NULL COMMENT 'Phần trăm hoặc số tiền',
-  `GiamToiDa` decimal(12,2) DEFAULT NULL,
-  `GiaTriDonToiThieu` decimal(12,2) DEFAULT NULL,
+  `LoaiKM` varchar(50) DEFAULT 'giam_phan_tram' COMMENT 'giam_phan_tram, giam_tien, mua_X_tang_Y, giam_gio_vang',
+  `GiaTriGiam` decimal(10,2) DEFAULT NULL COMMENT 'Phần trăm (10 = 10%) hoặc số tiền (50000)',
+  `GiamToiDa` decimal(12,2) DEFAULT NULL COMMENT 'Giảm tối đa bao nhiêu tiền',
+  `GiaTriDonToiThieu` decimal(12,2) DEFAULT NULL COMMENT 'Đơn hàng tối thiểu',
   `NgayBatDau` datetime DEFAULT NULL,
   `NgayKetThuc` datetime DEFAULT NULL,
-  `ApDungCho` varchar(50) DEFAULT 'Tat_ca' COMMENT 'Tat_ca, San_pham, The_loai, Khach_hang',
-  `TrangThai` tinyint(1) DEFAULT '1',
-  PRIMARY KEY (`MaKM`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `GioApDung` varchar(50) DEFAULT NULL COMMENT 'VD: 10:00-12:00,15:00-17:00 hoặc NULL = cả ngày',
+  `NgayApDung` varchar(50) DEFAULT NULL COMMENT 'VD: 2,4,6 (Thứ 2,4,6) hoặc NULL = cả tuần',
+  `ApDungCho` varchar(50) DEFAULT 'Tat_ca' COMMENT 'Tat_ca, San_pham, The_loai, Chi_nhanh',
+  `MaCH` int DEFAULT NULL COMMENT 'NULL = tất cả chi nhánh',
+  `TrangThai` tinyint(1) DEFAULT '1' COMMENT '1: Đang hoạt động, 0: Tạm dừng',
+  `SoLanDaSuDung` int DEFAULT '0',
+  `GhiChu` text,
+  PRIMARY KEY (`MaKM`),
+  KEY `idx_trangthai` (`TrangThai`),
+  KEY `idx_thoigian` (`NgayBatDau`,`NgayKetThuc`),
+  KEY `fk_km_cuahang` (`MaCH`),
+  CONSTRAINT `fk_km_cuahang` FOREIGN KEY (`MaCH`) REFERENCES `cua_hang` (`MaCH`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Bảng quản lý các chương trình khuyến mãi';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -527,7 +572,7 @@ CREATE TABLE `khuyen_mai` (
 
 LOCK TABLES `khuyen_mai` WRITE;
 /*!40000 ALTER TABLE `khuyen_mai` DISABLE KEYS */;
-INSERT INTO `khuyen_mai` VALUES (1,'Giảm 10% đơn hàng trên 500k','Giảm 10% cho đơn hàng từ 500,000đ trở lên','giam_phan_tram',10.00,100000.00,500000.00,'2026-01-01 00:00:00','2026-12-31 23:59:59','Tat_ca',1),(2,'Giảm 50k cho khách hàng mới','Giảm 50,000đ cho khách hàng mua lần đầu','giam_tien',50000.00,50000.00,200000.00,'2026-01-01 00:00:00','2026-06-30 23:59:59','Khach_hang',1),(3,'Sale Tết 2026','Giảm 15% tất cả sản phẩm dịp Tết','giam_phan_tram',15.00,200000.00,300000.00,'2026-01-25 00:00:00','2026-02-10 23:59:59','Tat_ca',1);
+INSERT INTO `khuyen_mai` VALUES (1,'Giảm 10% cho đơn từ 500k','Áp dụng cho tất cả sản phẩm khi mua từ 500,000đ','giam_phan_tram',10.00,100000.00,500000.00,'2026-02-01 00:00:00','2026-12-31 23:59:59',NULL,NULL,'Tat_ca',NULL,1,0,NULL),(2,'Giảm 50k cho đơn từ 300k','Giảm trực tiếp 50,000đ cho đơn hàng từ 300,000đ','giam_tien',50000.00,50000.00,300000.00,'2026-02-01 00:00:00','2026-06-30 23:59:59',NULL,NULL,'Tat_ca',NULL,1,0,NULL),(3,'Giờ vàng giảm 15%','Giảm 15% tất cả sản phẩm từ 10h-12h hàng ngày','giam_gio_vang',15.00,150000.00,200000.00,'2026-02-01 00:00:00','2026-12-31 23:59:59','10:00-12:00',NULL,'Tat_ca',NULL,1,0,NULL),(4,'Cuối tuần giảm 12%','Giảm 12% vào Thứ 7 và Chủ nhật','giam_phan_tram',12.00,120000.00,250000.00,'2026-02-01 00:00:00','2026-12-31 23:59:59',NULL,'6,0','Tat_ca',NULL,1,0,NULL),(5,'Sale Tết Bính Ngọ 2026','Khuyến mãi đặc biệt dịp Tết Nguyên Đán','giam_phan_tram',20.00,200000.00,400000.00,'2026-01-25 00:00:00','2026-02-10 23:59:59',NULL,NULL,'Tat_ca',NULL,1,0,NULL),(6,'Sách văn học giảm 15%','Giảm 15% cho tất cả sách văn học','giam_phan_tram',15.00,100000.00,150000.00,'2026-02-01 00:00:00','2026-03-31 23:59:59',NULL,NULL,'The_loai',NULL,1,0,NULL),(7,'Sách kỹ năng giảm 10%','Giảm 10% cho sách kỹ năng sống','giam_phan_tram',10.00,80000.00,100000.00,'2026-02-01 00:00:00','2026-12-31 23:59:59',NULL,NULL,'The_loai',NULL,1,0,NULL);
 /*!40000 ALTER TABLE `khuyen_mai` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -591,6 +636,45 @@ CREATE TABLE `lich_su_chuc_vu` (
 LOCK TABLES `lich_su_chuc_vu` WRITE;
 /*!40000 ALTER TABLE `lich_su_chuc_vu` DISABLE KEYS */;
 /*!40000 ALTER TABLE `lich_su_chuc_vu` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `lich_su_diem`
+--
+
+DROP TABLE IF EXISTS `lich_su_diem`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `lich_su_diem` (
+  `MaLS` int NOT NULL AUTO_INCREMENT,
+  `MaKH` int NOT NULL,
+  `MaHD` int DEFAULT NULL COMMENT 'Mã hóa đơn (nếu có)',
+  `LoaiGiaoDich` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Cong_diem, Tru_diem, Het_han, Dieu_chinh',
+  `SoDiem` int NOT NULL COMMENT 'Số điểm thay đổi',
+  `DiemTruoc` int DEFAULT '0' COMMENT 'Điểm trước khi giao dịch',
+  `DiemSau` int DEFAULT '0' COMMENT 'Điểm sau khi giao dịch',
+  `LyDo` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Lý do giao dịch',
+  `MoTa` text COLLATE utf8mb4_unicode_ci COMMENT 'Mô tả chi tiết',
+  `NgayGiaoDich` datetime DEFAULT CURRENT_TIMESTAMP,
+  `NgayHetHan` date DEFAULT NULL COMMENT 'Ngày điểm hết hạn (nếu có)',
+  `NguoiThucHien` int DEFAULT NULL COMMENT 'Mã nhân viên thực hiện',
+  PRIMARY KEY (`MaLS`),
+  KEY `idx_khachhang` (`MaKH`),
+  KEY `idx_hoadon` (`MaHD`),
+  KEY `idx_ngaygd` (`NgayGiaoDich`),
+  CONSTRAINT `fk_lsdiem_hd` FOREIGN KEY (`MaHD`) REFERENCES `hoadon` (`MaHD`) ON DELETE SET NULL,
+  CONSTRAINT `fk_lsdiem_kh` FOREIGN KEY (`MaKH`) REFERENCES `khachhang` (`MaKH`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Lịch sử tích điểm và sử dụng điểm của khách hàng';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `lich_su_diem`
+--
+
+LOCK TABLES `lich_su_diem` WRITE;
+/*!40000 ALTER TABLE `lich_su_diem` DISABLE KEYS */;
+INSERT INTO `lich_su_diem` VALUES (1,1,20,'Cong_diem',50,2450,2500,'Tích điểm từ đơn hàng','Mua hàng 500,000đ','2026-02-02 21:36:47',NULL,NULL),(2,1,NULL,'Tru_diem',-500,3000,2500,'Sử dụng điểm thanh toán','Dùng 500 điểm = 50,000đ','2026-02-02 21:36:47',NULL,NULL),(3,2,21,'Cong_diem',30,770,800,'Tích điểm từ đơn hàng','Mua hàng 300,000đ','2026-02-02 21:36:47',NULL,NULL);
+/*!40000 ALTER TABLE `lich_su_diem` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -720,6 +804,41 @@ INSERT INTO `luong` VALUES (1,1,11,2025,20000000.00,5000000.00,0.00,0.00,26,0.00
 UNLOCK TABLES;
 
 --
+-- Table structure for table `ma_giam_gia`
+--
+
+DROP TABLE IF EXISTS `ma_giam_gia`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ma_giam_gia` (
+  `MaMGG` int NOT NULL AUTO_INCREMENT,
+  `MaKM` int NOT NULL,
+  `MaCode` varchar(50) NOT NULL COMMENT 'GIAM50K, TET2026, HSSV2026',
+  `SoLuongPhatHanh` int DEFAULT NULL COMMENT 'NULL = không giới hạn',
+  `DaSuDung` int DEFAULT '0',
+  `SoLanDungMoiKH` int DEFAULT '1' COMMENT 'Mỗi KH dùng được bao nhiêu lần',
+  `ApDungChoKHMoi` tinyint(1) DEFAULT '0' COMMENT 'Chỉ dành cho KH mua lần đầu',
+  `TrangThai` tinyint(1) DEFAULT '1',
+  `NgayTao` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`MaMGG`),
+  UNIQUE KEY `MaCode` (`MaCode`),
+  KEY `idx_macode` (`MaCode`),
+  KEY `fk_mgg_km` (`MaKM`),
+  CONSTRAINT `fk_mgg_km` FOREIGN KEY (`MaKM`) REFERENCES `khuyen_mai` (`MaKM`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Mã giảm giá (voucher code) để khách hàng nhập';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ma_giam_gia`
+--
+
+LOCK TABLES `ma_giam_gia` WRITE;
+/*!40000 ALTER TABLE `ma_giam_gia` DISABLE KEYS */;
+INSERT INTO `ma_giam_gia` VALUES (1,2,'GIAM50K',100,0,1,1,1,'2026-02-02 21:01:01'),(2,5,'TET2026',200,0,1,0,1,'2026-02-02 21:01:01'),(3,1,'HSSV2026',500,0,2,0,1,'2026-02-02 21:01:01'),(4,6,'VANHOC15',300,0,1,0,1,'2026-02-02 21:01:01'),(5,4,'WEEKEND12',NULL,0,5,0,1,'2026-02-02 21:01:01');
+/*!40000 ALTER TABLE `ma_giam_gia` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `nhacungcap`
 --
 
@@ -817,7 +936,7 @@ CREATE TABLE `nhat_ky_hoat_dong` (
   KEY `idx_thoigian` (`ThoiGian`),
   KEY `idx_matk` (`MaTK`),
   CONSTRAINT `nhat_ky_hoat_dong_ibfk_1` FOREIGN KEY (`MaTK`) REFERENCES `taikhoan` (`MaTK`)
-) ENGINE=InnoDB AUTO_INCREMENT=158 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Lịch sử thao tác hệ thống';
+) ENGINE=InnoDB AUTO_INCREMENT=164 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Lịch sử thao tác hệ thống';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -826,7 +945,7 @@ CREATE TABLE `nhat_ky_hoat_dong` (
 
 LOCK TABLES `nhat_ky_hoat_dong` WRITE;
 /*!40000 ALTER TABLE `nhat_ky_hoat_dong` DISABLE KEYS */;
-INSERT INTO `nhat_ky_hoat_dong` VALUES (1,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:15:01','Sai mật khẩu'),(2,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:15:03','Sai mật khẩu'),(3,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:17:48','Sai mật khẩu'),(4,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:23:23',NULL),(5,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:23:50',NULL),(6,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:26:27',NULL),(7,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-23 19:27:55',NULL),(8,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:32:45',NULL),(9,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:41:07',NULL),(10,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 20:09:58',NULL),(11,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 20:23:02',NULL),(12,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-23 20:23:34',NULL),(13,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-23 20:31:52','Sai mật khẩu'),(14,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 20:34:00',NULL),(15,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 20:44:40',NULL),(16,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 20:53:22',NULL),(17,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 21:16:44',NULL),(18,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-23 21:24:33',NULL),(19,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-24 07:27:31',NULL),(20,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-24 07:31:28',NULL),(21,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-24 22:10:32',NULL),(22,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-24 22:10:35',NULL),(23,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-24 22:13:12',NULL),(24,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-24 22:14:01',NULL),(25,4,'Dang_nhap','taikhoan',4,NULL,NULL,'::1','2026-01-24 22:34:03',NULL),(26,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-25 09:20:41',NULL),(27,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-25 09:40:25',NULL),(28,4,'Dang_nhap','taikhoan',4,NULL,NULL,'::1','2026-01-25 09:48:10',NULL),(29,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-25 20:41:50',NULL),(30,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-25 20:50:05',NULL),(31,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-26 20:31:41',NULL),(32,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 20:32:32',NULL),(33,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-26 20:40:13',NULL),(34,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-26 20:41:06',NULL),(35,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 20:49:53',NULL),(36,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 20:55:38',NULL),(37,2,'Dang_nhap_that_bai','taikhoan',2,NULL,NULL,'::1','2026-01-26 20:58:37','Sai mật khẩu'),(38,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 20:58:41',NULL),(39,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 21:03:42',NULL),(40,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 21:06:08',NULL),(41,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 21:08:35',NULL),(42,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-26 21:09:39',NULL),(43,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-26 21:10:56',NULL),(44,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-26 21:25:58',NULL),(45,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-26 21:26:15',NULL),(46,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 21:49:25',NULL),(47,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-26 21:55:12',NULL),(48,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 21:55:28',NULL),(49,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-26 21:55:50',NULL),(50,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 21:57:11',NULL),(51,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-27 09:02:39',NULL),(52,4,'Dang_nhap','taikhoan',4,NULL,NULL,'::1','2026-01-27 09:03:58',NULL),(53,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-27 09:04:15','Sai mật khẩu'),(54,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-27 09:04:20','Sai mật khẩu'),(55,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-27 09:04:24',NULL),(56,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-27 09:04:43',NULL),(57,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-27 19:46:25','Sai mật khẩu'),(58,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-27 19:46:29',NULL),(59,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-27 19:49:14',NULL),(60,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-27 19:49:47',NULL),(61,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-27 20:45:07',NULL),(62,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-27 21:07:13',NULL),(63,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-28 08:39:13',NULL),(64,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-28 08:40:33',NULL),(65,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-28 10:37:10',NULL),(66,4,'Dang_nhap','taikhoan',4,NULL,NULL,'::1','2026-01-28 13:24:51',NULL),(67,4,'Dang_nhap','taikhoan',4,NULL,NULL,'::1','2026-01-28 13:38:50',NULL),(68,4,'Them','phieunhap',1,NULL,'{\"MaNCC\":1,\"MaCH\":1,\"TongTien\":50000,\"ConNo\":50000}','::1','2026-01-28 13:59:43',NULL),(69,5,'Dang_nhap','taikhoan',5,NULL,NULL,'::1','2026-01-28 14:11:59',NULL),(70,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-28 14:22:30',NULL),(71,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-29 09:00:00',NULL),(72,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-29 09:30:53',NULL),(73,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-29 10:02:22',NULL),(74,2,'Them','cham_cong',2,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-01\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(75,2,'Them','cham_cong',3,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-20\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(76,2,'Them','cham_cong',5,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-17\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(77,2,'Them','cham_cong',6,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-16\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(78,2,'Them','cham_cong',4,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-19\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(79,2,'Them','cham_cong',7,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-15\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(80,2,'Them','cham_cong',8,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-14\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(81,2,'Them','cham_cong',10,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-12\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(82,2,'Them','cham_cong',9,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-13\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(83,2,'Them','cham_cong',11,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-21\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(84,2,'Them','cham_cong',13,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-23\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(85,2,'Them','cham_cong',12,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-22\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(86,2,'Them','cham_cong',14,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-24\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(87,2,'Them','cham_cong',15,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-26\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(88,2,'Them','cham_cong',16,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-27\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(89,2,'Them','cham_cong',17,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-28\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(90,2,'Them','cham_cong',19,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-29\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(91,2,'Them','cham_cong',18,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-02\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(92,2,'Them','cham_cong',20,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-30\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(93,2,'Them','cham_cong',24,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-07\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(94,2,'Them','cham_cong',21,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-31\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(95,2,'Them','cham_cong',22,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-03\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(96,2,'Them','cham_cong',23,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-05\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(97,2,'Them','cham_cong',25,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-06\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(98,2,'Them','cham_cong',26,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-08\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(99,2,'Them','cham_cong',28,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-10\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(100,2,'Them','cham_cong',27,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-09\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(101,2,'Them','cham_cong',29,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-01\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(102,2,'Them','cham_cong',30,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-02\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(103,2,'Them','cham_cong',31,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-03\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(104,2,'Them','cham_cong',33,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-07\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(105,2,'Them','cham_cong',34,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-06\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(106,2,'Them','cham_cong',32,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-05\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(107,2,'Them','cham_cong',35,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-08\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(108,2,'Them','cham_cong',36,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-09\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(109,2,'Them','cham_cong',37,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-10\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(110,2,'Them','cham_cong',39,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-19\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(111,2,'Them','cham_cong',38,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-20\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(112,2,'Them','cham_cong',40,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-17\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(113,2,'Them','cham_cong',41,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-16\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(114,2,'Them','cham_cong',42,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-15\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(115,2,'Them','cham_cong',45,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-12\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(116,2,'Them','cham_cong',43,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-14\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(117,2,'Them','cham_cong',44,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-13\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(118,2,'Them','cham_cong',46,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-21\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(119,2,'Them','cham_cong',47,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-22\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(120,2,'Them','cham_cong',48,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-31\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(121,2,'Them','cham_cong',52,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-27\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(122,2,'Them','cham_cong',49,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-23\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(123,2,'Them','cham_cong',50,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-24\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(124,2,'Them','cham_cong',51,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-26\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(125,2,'Them','cham_cong',53,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-29\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(126,2,'Them','cham_cong',54,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-30\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(127,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-29 15:55:30',NULL),(128,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 2 | Cửa hàng 1: Thực tế 35 vs Hệ thống 35. Lý do: Không có'),(129,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 5 | Cửa hàng 1: Thực tế 60 vs Hệ thống 60. Lý do: Không có'),(130,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 3 | Cửa hàng 1: Thực tế 41 vs Hệ thống 41. Lý do: Không có'),(131,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 8 | Cửa hàng 1: Thực tế 45 vs Hệ thống 45. Lý do: Không có'),(132,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 4 | Cửa hàng 1: Thực tế 25 vs Hệ thống 25. Lý do: Không có'),(133,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 9 | Cửa hàng 1: Thực tế 55 vs Hệ thống 55. Lý do: Không có'),(134,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 7 | Cửa hàng 1: Thực tế 20 vs Hệ thống 20. Lý do: Không có'),(135,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 1 | Cửa hàng 1: Thực tế 50 vs Hệ thống 50. Lý do: Không có'),(136,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 6 | Cửa hàng 1: Thực tế 30 vs Hệ thống 30. Lý do: Không có'),(137,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 10 | Cửa hàng 1: Thực tế 30 vs Hệ thống 30. Lý do: Không có'),(138,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-29 16:28:08',NULL),(139,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-29 20:20:48',NULL),(140,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-31 07:49:50','Sai mật khẩu'),(141,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-31 07:49:54','Sai mật khẩu'),(142,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-31 07:52:34',NULL),(143,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-31 07:53:44',NULL),(144,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-31 08:44:00',NULL),(145,5,'Dang_nhap','taikhoan',5,NULL,NULL,'::1','2026-01-31 08:45:00',NULL),(146,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-02-02 08:22:28',NULL),(147,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-02-02 08:30:34',NULL),(148,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 2 | Cửa hàng 1: Thực tế 35 vs Hệ thống 35. Lý do: Không có'),(149,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 5 | Cửa hàng 1: Thực tế 60 vs Hệ thống 60. Lý do: Không có'),(150,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 3 | Cửa hàng 1: Thực tế 41 vs Hệ thống 41. Lý do: Không có'),(151,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 8 | Cửa hàng 1: Thực tế 45 vs Hệ thống 45. Lý do: Không có'),(152,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 4 | Cửa hàng 1: Thực tế 25 vs Hệ thống 25. Lý do: Không có'),(153,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 9 | Cửa hàng 1: Thực tế 55 vs Hệ thống 55. Lý do: Không có'),(154,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 7 | Cửa hàng 1: Thực tế 20 vs Hệ thống 20. Lý do: Không có'),(155,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 1 | Cửa hàng 1: Thực tế 50 vs Hệ thống 50. Lý do: Không có'),(156,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 6 | Cửa hàng 1: Thực tế 30 vs Hệ thống 30. Lý do: Không có'),(157,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 10 | Cửa hàng 1: Thực tế 30 vs Hệ thống 30. Lý do: Không có');
+INSERT INTO `nhat_ky_hoat_dong` VALUES (1,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:15:01','Sai mật khẩu'),(2,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:15:03','Sai mật khẩu'),(3,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:17:48','Sai mật khẩu'),(4,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:23:23',NULL),(5,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:23:50',NULL),(6,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:26:27',NULL),(7,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-23 19:27:55',NULL),(8,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:32:45',NULL),(9,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 19:41:07',NULL),(10,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 20:09:58',NULL),(11,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 20:23:02',NULL),(12,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-23 20:23:34',NULL),(13,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-23 20:31:52','Sai mật khẩu'),(14,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 20:34:00',NULL),(15,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 20:44:40',NULL),(16,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 20:53:22',NULL),(17,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-23 21:16:44',NULL),(18,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-23 21:24:33',NULL),(19,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-24 07:27:31',NULL),(20,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-24 07:31:28',NULL),(21,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-24 22:10:32',NULL),(22,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-24 22:10:35',NULL),(23,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-24 22:13:12',NULL),(24,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-24 22:14:01',NULL),(25,4,'Dang_nhap','taikhoan',4,NULL,NULL,'::1','2026-01-24 22:34:03',NULL),(26,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-25 09:20:41',NULL),(27,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-25 09:40:25',NULL),(28,4,'Dang_nhap','taikhoan',4,NULL,NULL,'::1','2026-01-25 09:48:10',NULL),(29,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-25 20:41:50',NULL),(30,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-25 20:50:05',NULL),(31,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-26 20:31:41',NULL),(32,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 20:32:32',NULL),(33,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-26 20:40:13',NULL),(34,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-26 20:41:06',NULL),(35,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 20:49:53',NULL),(36,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 20:55:38',NULL),(37,2,'Dang_nhap_that_bai','taikhoan',2,NULL,NULL,'::1','2026-01-26 20:58:37','Sai mật khẩu'),(38,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 20:58:41',NULL),(39,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 21:03:42',NULL),(40,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 21:06:08',NULL),(41,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 21:08:35',NULL),(42,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-26 21:09:39',NULL),(43,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-26 21:10:56',NULL),(44,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-26 21:25:58',NULL),(45,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-26 21:26:15',NULL),(46,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 21:49:25',NULL),(47,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-26 21:55:12',NULL),(48,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 21:55:28',NULL),(49,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-26 21:55:50',NULL),(50,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-26 21:57:11',NULL),(51,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-27 09:02:39',NULL),(52,4,'Dang_nhap','taikhoan',4,NULL,NULL,'::1','2026-01-27 09:03:58',NULL),(53,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-27 09:04:15','Sai mật khẩu'),(54,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-27 09:04:20','Sai mật khẩu'),(55,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-27 09:04:24',NULL),(56,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-27 09:04:43',NULL),(57,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-27 19:46:25','Sai mật khẩu'),(58,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-27 19:46:29',NULL),(59,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-27 19:49:14',NULL),(60,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-27 19:49:47',NULL),(61,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-27 20:45:07',NULL),(62,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-27 21:07:13',NULL),(63,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-28 08:39:13',NULL),(64,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-28 08:40:33',NULL),(65,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-28 10:37:10',NULL),(66,4,'Dang_nhap','taikhoan',4,NULL,NULL,'::1','2026-01-28 13:24:51',NULL),(67,4,'Dang_nhap','taikhoan',4,NULL,NULL,'::1','2026-01-28 13:38:50',NULL),(68,4,'Them','phieunhap',1,NULL,'{\"MaNCC\":1,\"MaCH\":1,\"TongTien\":50000,\"ConNo\":50000}','::1','2026-01-28 13:59:43',NULL),(69,5,'Dang_nhap','taikhoan',5,NULL,NULL,'::1','2026-01-28 14:11:59',NULL),(70,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-28 14:22:30',NULL),(71,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-29 09:00:00',NULL),(72,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-29 09:30:53',NULL),(73,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-29 10:02:22',NULL),(74,2,'Them','cham_cong',2,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-01\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(75,2,'Them','cham_cong',3,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-20\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(76,2,'Them','cham_cong',5,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-17\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(77,2,'Them','cham_cong',6,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-16\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(78,2,'Them','cham_cong',4,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-19\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(79,2,'Them','cham_cong',7,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-15\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(80,2,'Them','cham_cong',8,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-14\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(81,2,'Them','cham_cong',10,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-12\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(82,2,'Them','cham_cong',9,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-13\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(83,2,'Them','cham_cong',11,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-21\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(84,2,'Them','cham_cong',13,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-23\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(85,2,'Them','cham_cong',12,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-22\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(86,2,'Them','cham_cong',14,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-24\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(87,2,'Them','cham_cong',15,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-26\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(88,2,'Them','cham_cong',16,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-27\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(89,2,'Them','cham_cong',17,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-28\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(90,2,'Them','cham_cong',19,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-29\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(91,2,'Them','cham_cong',18,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-02\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(92,2,'Them','cham_cong',20,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-30\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(93,2,'Them','cham_cong',24,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-07\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(94,2,'Them','cham_cong',21,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-31\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(95,2,'Them','cham_cong',22,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-03\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(96,2,'Them','cham_cong',23,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-05\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(97,2,'Them','cham_cong',25,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-06\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(98,2,'Them','cham_cong',26,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-08\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(99,2,'Them','cham_cong',28,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-10\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(100,2,'Them','cham_cong',27,NULL,'{\"MaNV\":1,\"Ngay\":\"2026-01-09\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:02:42',NULL),(101,2,'Them','cham_cong',29,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-01\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(102,2,'Them','cham_cong',30,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-02\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(103,2,'Them','cham_cong',31,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-03\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(104,2,'Them','cham_cong',33,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-07\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(105,2,'Them','cham_cong',34,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-06\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(106,2,'Them','cham_cong',32,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-05\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(107,2,'Them','cham_cong',35,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-08\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(108,2,'Them','cham_cong',36,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-09\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(109,2,'Them','cham_cong',37,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-10\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(110,2,'Them','cham_cong',39,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-19\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(111,2,'Them','cham_cong',38,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-20\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(112,2,'Them','cham_cong',40,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-17\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:45',NULL),(113,2,'Them','cham_cong',41,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-16\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(114,2,'Them','cham_cong',42,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-15\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(115,2,'Them','cham_cong',45,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-12\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(116,2,'Them','cham_cong',43,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-14\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(117,2,'Them','cham_cong',44,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-13\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(118,2,'Them','cham_cong',46,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-21\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(119,2,'Them','cham_cong',47,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-22\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(120,2,'Them','cham_cong',48,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-31\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(121,2,'Them','cham_cong',52,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-27\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(122,2,'Them','cham_cong',49,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-23\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(123,2,'Them','cham_cong',50,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-24\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(124,2,'Them','cham_cong',51,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-26\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(125,2,'Them','cham_cong',53,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-29\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(126,2,'Them','cham_cong',54,NULL,'{\"MaNV\":2,\"Ngay\":\"2026-01-30\",\"GioVao\":\"08:00:00\",\"MaCa\":1}','::1','2026-01-29 10:07:46',NULL),(127,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-29 15:55:30',NULL),(128,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 2 | Cửa hàng 1: Thực tế 35 vs Hệ thống 35. Lý do: Không có'),(129,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 5 | Cửa hàng 1: Thực tế 60 vs Hệ thống 60. Lý do: Không có'),(130,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 3 | Cửa hàng 1: Thực tế 41 vs Hệ thống 41. Lý do: Không có'),(131,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 8 | Cửa hàng 1: Thực tế 45 vs Hệ thống 45. Lý do: Không có'),(132,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 4 | Cửa hàng 1: Thực tế 25 vs Hệ thống 25. Lý do: Không có'),(133,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 9 | Cửa hàng 1: Thực tế 55 vs Hệ thống 55. Lý do: Không có'),(134,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 7 | Cửa hàng 1: Thực tế 20 vs Hệ thống 20. Lý do: Không có'),(135,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 1 | Cửa hàng 1: Thực tế 50 vs Hệ thống 50. Lý do: Không có'),(136,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 6 | Cửa hàng 1: Thực tế 30 vs Hệ thống 30. Lý do: Không có'),(137,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-01-29 16:10:50','SP: 10 | Cửa hàng 1: Thực tế 30 vs Hệ thống 30. Lý do: Không có'),(138,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-29 16:28:08',NULL),(139,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-29 20:20:48',NULL),(140,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-31 07:49:50','Sai mật khẩu'),(141,1,'Dang_nhap_that_bai','taikhoan',1,NULL,NULL,'::1','2026-01-31 07:49:54','Sai mật khẩu'),(142,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-01-31 07:52:34',NULL),(143,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-01-31 07:53:44',NULL),(144,1,'Dang_nhap','taikhoan',1,NULL,NULL,'::1','2026-01-31 08:44:00',NULL),(145,5,'Dang_nhap','taikhoan',5,NULL,NULL,'::1','2026-01-31 08:45:00',NULL),(146,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-02-02 08:22:28',NULL),(147,2,'Dang_nhap','taikhoan',2,NULL,NULL,'::1','2026-02-02 08:30:34',NULL),(148,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 2 | Cửa hàng 1: Thực tế 35 vs Hệ thống 35. Lý do: Không có'),(149,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 5 | Cửa hàng 1: Thực tế 60 vs Hệ thống 60. Lý do: Không có'),(150,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 3 | Cửa hàng 1: Thực tế 41 vs Hệ thống 41. Lý do: Không có'),(151,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 8 | Cửa hàng 1: Thực tế 45 vs Hệ thống 45. Lý do: Không có'),(152,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 4 | Cửa hàng 1: Thực tế 25 vs Hệ thống 25. Lý do: Không có'),(153,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 9 | Cửa hàng 1: Thực tế 55 vs Hệ thống 55. Lý do: Không có'),(154,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 7 | Cửa hàng 1: Thực tế 20 vs Hệ thống 20. Lý do: Không có'),(155,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 1 | Cửa hàng 1: Thực tế 50 vs Hệ thống 50. Lý do: Không có'),(156,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 6 | Cửa hàng 1: Thực tế 30 vs Hệ thống 30. Lý do: Không có'),(157,2,'Kiem_Ke','ton_kho',NULL,NULL,NULL,'::1','2026-02-02 09:25:51','SP: 10 | Cửa hàng 1: Thực tế 30 vs Hệ thống 30. Lý do: Không có'),(158,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-02-02 21:16:59',NULL),(159,3,'Dang_nhap','taikhoan',3,NULL,NULL,'::1','2026-02-02 21:39:17',NULL),(160,3,'VoHieuHoa','khachhang',3,NULL,'{\"TinhTrang\":0}','::1','2026-02-02 22:18:56',NULL),(161,3,'VoHieuHoa','khachhang',2,NULL,'{\"TinhTrang\":0}','::1','2026-02-02 22:18:59',NULL),(162,3,'KichHoat','khachhang',2,NULL,'{\"TinhTrang\":1}','::1','2026-02-02 22:20:40',NULL),(163,3,'KichHoat','khachhang',3,NULL,'{\"TinhTrang\":1}','::1','2026-02-02 22:20:41',NULL);
 /*!40000 ALTER TABLE `nhat_ky_hoat_dong` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1031,6 +1150,44 @@ INSERT INTO `phieunhap` VALUES (1,1,1,4,'2026-01-28 13:59:42',50000.00,0.00,5000
 UNLOCK TABLES;
 
 --
+-- Table structure for table `quy_tac_tich_diem`
+--
+
+DROP TABLE IF EXISTS `quy_tac_tich_diem`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `quy_tac_tich_diem` (
+  `MaQT` int NOT NULL AUTO_INCREMENT,
+  `TenQT` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `MoTa` text COLLATE utf8mb4_unicode_ci,
+  `SoTienMua` decimal(12,2) NOT NULL COMMENT 'Số tiền mua bao nhiêu',
+  `SoDiem` int NOT NULL COMMENT 'Được bao nhiêu điểm',
+  `HeSoNhan` decimal(5,2) DEFAULT '1.00' COMMENT 'Hệ số nhân điểm (1.0 = 100%, 1.5 = 150%)',
+  `ApDungCho` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'Tat_ca' COMMENT 'Tat_ca, The_loai, San_pham, Hang_TV, Khung_gio',
+  `MaDoiTuong` int DEFAULT NULL COMMENT 'ID của thể loại/sản phẩm/hạng (nếu có)',
+  `TuNgay` datetime DEFAULT NULL,
+  `DenNgay` datetime DEFAULT NULL,
+  `ThuTrongTuan` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'VD: 0,6 = CN,T7',
+  `KhungGio` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'VD: 10:00-12:00',
+  `TrangThai` tinyint(1) DEFAULT '1' COMMENT '1: Hoạt động, 0: Tắt',
+  `ThuTu` int DEFAULT '0' COMMENT 'Thứ tự ưu tiên áp dụng',
+  PRIMARY KEY (`MaQT`),
+  KEY `idx_trangthai` (`TrangThai`),
+  KEY `idx_apdung` (`ApDungCho`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Quy tắc tính điểm thưởng cho khách hàng';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `quy_tac_tich_diem`
+--
+
+LOCK TABLES `quy_tac_tich_diem` WRITE;
+/*!40000 ALTER TABLE `quy_tac_tich_diem` DISABLE KEYS */;
+INSERT INTO `quy_tac_tich_diem` VALUES (1,'Quy tắc cơ bản','Mua 10,000đ = 1 điểm',10000.00,1,1.00,'Tat_ca',NULL,'2026-01-01 00:00:00','2099-12-31 00:00:00',NULL,NULL,1,1),(2,'Sách Văn học x1.5','Mua sách văn học được x1.5 điểm',10000.00,1,1.50,'The_loai',1,'2026-01-01 00:00:00','2099-12-31 00:00:00',NULL,NULL,1,2),(3,'Sách Kỹ năng x1.2','Mua sách kỹ năng được x1.2 điểm',10000.00,1,1.20,'The_loai',4,'2026-01-01 00:00:00','2099-12-31 00:00:00',NULL,NULL,1,3),(4,'Giờ vàng x2 điểm','Mua từ 10h-12h được x2 điểm',10000.00,1,2.00,'Khung_gio',NULL,'2026-01-01 00:00:00','2099-12-31 00:00:00',NULL,'10:00-12:00',1,4),(5,'Cuối tuần x1.5','Mua Thứ 7, CN được x1.5 điểm',10000.00,1,1.50,'Tat_ca',NULL,'2026-01-01 00:00:00','2099-12-31 00:00:00','0,6',NULL,1,5);
+/*!40000 ALTER TABLE `quy_tac_tich_diem` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `sanpham`
 --
 
@@ -1073,6 +1230,44 @@ LOCK TABLES `sanpham` WRITE;
 /*!40000 ALTER TABLE `sanpham` DISABLE KEYS */;
 INSERT INTO `sanpham` VALUES (1,'Tôi Thấy Hoa Vàng Trên Cỏ Xanh','Truyện dài của Nguyễn Nhật Ánh về tuổi thơ miền Trung',0.00,80000.00,'/uploads/images/Toi_Thay_Hoa_Vang_Tren_Co_Xanh.jpg',1,1,1,2022,368,NULL,NULL,'978-604-1-00000-1',1,'2026-01-23 09:50:57',9),(2,'Cho Tôi Xin Một Vé Đi Tuổi Thơ','Tác phẩm văn học về ký ức tuổi thơ',0.00,65000.00,'/uploads/images/Nha_Gia_Kim.jpg',1,4,1,2021,280,NULL,NULL,'978-604-1-00000-2',1,'2026-01-23 09:50:57',0),(3,'Dế Mèn Phiêu Lưu Ký','Tác phẩm kinh điển của văn học thiếu nhi VN',60000.00,50000.00,'/uploads/images/Dac_Nhan_Tam.jpg',5,2,4,2020,196,NULL,NULL,'978-604-2-00000-1',1,'2026-01-23 09:50:57',0),(4,'Lão Hạc','Truyện ngắn nổi tiếng của Nam Cao',55000.00,35000.00,'/uploads/images/Harry_Potter_va_Hon_Đa_Phu_Thuy.jpg',1,3,3,2023,120,NULL,NULL,'978-604-3-00000-1',1,'2026-01-23 09:50:57',0),(5,'Đắc Nhân Tâm','Sách kỹ năng giao tiếp và ứng xử',135000.00,90000.00,'/uploads/images/Cho_toi_tro_ve_tuoi_Tho.jpg',4,4,1,2022,320,NULL,NULL,'978-604-1-00001-1',1,'2026-01-23 09:50:57',0),(6,'Trên Đường Băng','Kỹ năng sống của Tony Buổi Sáng',105000.00,70000.00,'/uploads/images/Rung_Na_Uy.jpg',4,5,4,2021,256,NULL,NULL,'978-604-4-00000-1',1,'2026-01-23 09:50:57',0),(7,'Rừng Na Uy','Tiểu thuyết của Haruki Murakami',145000.00,100000.00,'/uploads/images/De_Men_Thieu_luu_ky.jpg',2,6,3,2023,448,NULL,NULL,'978-604-3-00001-1',1,'2026-01-23 09:50:57',0),(8,'Harry Potter và Hòn Đá Phù Thủy','Tập 1 series Harry Potter',175000.00,120000.00,'/uploads/images/Lao_Hac.jpg',2,7,1,2022,368,NULL,NULL,'978-604-1-00002-1',1,'2026-01-23 09:50:57',0),(9,'Nhà Giả Kim','Tác phẩm nổi tiếng của Paulo Coelho',95000.00,60000.00,'/uploads/images/Truyen_Kieu.jpg',2,8,3,2021,227,NULL,NULL,'978-604-3-00002-1',1,'2026-01-23 09:50:57',0),(10,'Truyện Kiều','Tác phẩm kinh điển của Nguyễn Du',85000.00,55000.00,'/uploads/images/Đuong_Xua_May_Trang.jpg',1,9,3,2023,256,NULL,NULL,'978-604-3-00003-1',1,'2026-01-23 09:50:57',0),(11,'Đường Xưa Mây Trắng','Cuộc đời Đức Phật - Thích Nhất Hạnh',125000.00,85000.00,'/uploads/images/Len_Duong_Bang.png',8,10,5,2022,512,NULL,NULL,'978-604-5-00000-1',1,'2026-01-23 09:50:57',0),(12,'Totto-Chan Bên Cửa Sổ','Hồi ký tuổi thơ tại Nhật Bản',88000.00,58000.00,'/product-images/sp12.jpg',5,6,2,2021,268,NULL,NULL,'978-604-2-00001-1',1,'2026-01-23 09:50:57',0),(13,'Cà Phê Cùng Tony','Sách kỹ năng sống',98000.00,65000.00,'/product-images/sp13.jpg',4,5,4,2023,212,NULL,NULL,'978-604-4-00001-1',1,'2026-01-23 09:50:57',0),(14,'Tuổi Trẻ Đáng Giá Bao Nhiêu','Sách về tuổi trẻ và đam mê',85000.00,55000.00,'/product-images/sp14.jpg',4,5,4,2020,192,NULL,NULL,'978-604-4-00002-1',1,'2026-01-23 09:50:57',0),(15,'Sapiens: Lịch Sử Loài Người','Tóm tắt lịch sử nhân loại',195000.00,135000.00,'/product-images/sp15.jpg',7,6,5,2022,512,NULL,NULL,'978-604-5-00001-1',1,'2026-01-23 09:50:57',0);
 /*!40000 ALTER TABLE `sanpham` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `su_dung_khuyen_mai`
+--
+
+DROP TABLE IF EXISTS `su_dung_khuyen_mai`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `su_dung_khuyen_mai` (
+  `MaSD` int NOT NULL AUTO_INCREMENT,
+  `MaHD` int NOT NULL,
+  `MaKM` int DEFAULT NULL,
+  `MaMGG` int DEFAULT NULL COMMENT 'Nếu dùng mã giảm giá',
+  `MaKH` int DEFAULT NULL,
+  `LoaiKM` varchar(50) DEFAULT NULL,
+  `GiaTriGiam` decimal(12,2) DEFAULT NULL COMMENT 'Số tiền thực tế đã giảm',
+  `TongTienTruocGiam` decimal(15,2) DEFAULT NULL,
+  `TongTienSauGiam` decimal(15,2) DEFAULT NULL,
+  `NgaySuDung` datetime DEFAULT CURRENT_TIMESTAMP,
+  `MaNV` int DEFAULT NULL COMMENT 'Nhân viên áp dụng KM',
+  PRIMARY KEY (`MaSD`),
+  KEY `idx_hoadon` (`MaHD`),
+  KEY `idx_km` (`MaKM`),
+  KEY `idx_mgg` (`MaMGG`),
+  CONSTRAINT `fk_sdkm_hoadon` FOREIGN KEY (`MaHD`) REFERENCES `hoadon` (`MaHD`) ON DELETE CASCADE,
+  CONSTRAINT `fk_sdkm_km` FOREIGN KEY (`MaKM`) REFERENCES `khuyen_mai` (`MaKM`),
+  CONSTRAINT `fk_sdkm_mgg` FOREIGN KEY (`MaMGG`) REFERENCES `ma_giam_gia` (`MaMGG`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Lịch sử sử dụng khuyến mãi trong hóa đơn';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `su_dung_khuyen_mai`
+--
+
+LOCK TABLES `su_dung_khuyen_mai` WRITE;
+/*!40000 ALTER TABLE `su_dung_khuyen_mai` DISABLE KEYS */;
+/*!40000 ALTER TABLE `su_dung_khuyen_mai` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -1273,6 +1468,41 @@ LOCK TABLES `tra_hang` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `uu_dai_hang_thanh_vien`
+--
+
+DROP TABLE IF EXISTS `uu_dai_hang_thanh_vien`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `uu_dai_hang_thanh_vien` (
+  `MaUD` int NOT NULL AUTO_INCREMENT,
+  `HangTV` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Dong, Bac, Vang, Kim_cuong',
+  `DiemToiThieu` int NOT NULL COMMENT 'Điểm tối thiểu để đạt hạng',
+  `DiemToiDa` int DEFAULT NULL COMMENT 'Điểm tối đa của hạng (NULL = không giới hạn)',
+  `PhanTramGiam` decimal(5,2) DEFAULT '0.00' COMMENT 'Giảm % mọi đơn hàng',
+  `HeSoTichDiem` decimal(5,2) DEFAULT '1.00' COMMENT 'Hệ số nhân điểm khi mua (1.0 = 100%)',
+  `GiamSinhNhat` decimal(5,2) DEFAULT '0.00' COMMENT 'Giảm % tháng sinh nhật',
+  `MienPhiShip` tinyint(1) DEFAULT '0' COMMENT 'Miễn phí vận chuyển',
+  `UuTienMuaMoi` tinyint(1) DEFAULT '0' COMMENT 'Ưu tiên mua sách mới',
+  `ToiDaDungDiem` decimal(5,2) DEFAULT '50.00' COMMENT 'Tối đa dùng % giá trị đơn',
+  `MoTa` text COLLATE utf8mb4_unicode_ci,
+  `TrangThai` tinyint(1) DEFAULT '1',
+  PRIMARY KEY (`MaUD`),
+  UNIQUE KEY `unique_hang` (`HangTV`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Ưu đãi và quyền lợi theo từng hạng thành viên';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `uu_dai_hang_thanh_vien`
+--
+
+LOCK TABLES `uu_dai_hang_thanh_vien` WRITE;
+/*!40000 ALTER TABLE `uu_dai_hang_thanh_vien` DISABLE KEYS */;
+INSERT INTO `uu_dai_hang_thanh_vien` VALUES (1,'Dong',0,999,0.00,1.00,5.00,0,0,30.00,'Hạng Đồng - Thành viên mới\n- Tích điểm cơ bản\n- Giảm 5% sinh nhật\n- Dùng tối đa 30% giá trị đơn bằng điểm',1),(2,'Bac',1000,4999,5.00,1.10,10.00,0,0,40.00,'Hạng Bạc - Thành viên thân thiết\n- Giảm 5% mọi đơn hàng\n- Tích điểm +10%\n- Giảm 10% sinh nhật\n- Dùng tối đa 40% giá trị đơn bằng điểm',1),(3,'Vang',5000,19999,10.00,1.20,15.00,1,0,50.00,'Hạng Vàng - Thành viên VIP\n- Giảm 10% mọi đơn hàng\n- Tích điểm +20%\n- Giảm 15% sinh nhật\n- Miễn phí ship\n- Dùng tối đa 50% giá trị đơn bằng điểm',1),(4,'Kim_cuong',20000,NULL,15.00,1.30,20.00,1,1,100.00,'Hạng Kim Cương - Thành viên Đặc Biệt\n- Giảm 15% mọi đơn hàng\n- Tích điểm +30%\n- Giảm 20% sinh nhật\n- Miễn phí ship\n- Ưu tiên mua sách mới\n- Không giới hạn sử dụng điểm',1);
+/*!40000 ALTER TABLE `uu_dai_hang_thanh_vien` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Temporary view structure for view `v_bao_cao_luong_thang`
 --
 
@@ -1389,6 +1619,43 @@ SET @saved_cs_client     = @@character_set_client;
  1 AS `NgayNghi`,
  1 AS `TongGioLam`,
  1 AS `TongGioTangCa`*/;
+SET character_set_client = @saved_cs_client;
+
+--
+-- Temporary view structure for view `v_thongtinhoivien`
+--
+
+DROP TABLE IF EXISTS `v_thongtinhoivien`;
+/*!50001 DROP VIEW IF EXISTS `v_thongtinhoivien`*/;
+SET @saved_cs_client     = @@character_set_client;
+/*!50503 SET character_set_client = utf8mb4 */;
+/*!50001 CREATE VIEW `v_thongtinhoivien` AS SELECT 
+ 1 AS `MaKH`,
+ 1 AS `HoTen`,
+ 1 AS `Email`,
+ 1 AS `SDT`,
+ 1 AS `DiaChi`,
+ 1 AS `NgaySinh`,
+ 1 AS `GioiTinh`,
+ 1 AS `NgayDK`,
+ 1 AS `LoaiKH`,
+ 1 AS `DiemTichLuy`,
+ 1 AS `TongChiTieu`,
+ 1 AS `GhiChu`,
+ 1 AS `TinhTrang`,
+ 1 AS `DiemDaDung`,
+ 1 AS `TongDiemTichLuy`,
+ 1 AS `HangTV`,
+ 1 AS `NgayThamGia`,
+ 1 AS `NgayNangHang`,
+ 1 AS `PhanTramGiam`,
+ 1 AS `HeSoTichDiem`,
+ 1 AS `GiamSinhNhat`,
+ 1 AS `MienPhiShip`,
+ 1 AS `ToiDaDungDiem`,
+ 1 AS `MoTaHang`,
+ 1 AS `DiemCanDeLenHang`,
+ 1 AS `GiaTriDiemHienTai`*/;
 SET character_set_client = @saved_cs_client;
 
 --
@@ -1535,6 +1802,24 @@ UNLOCK TABLES;
 /*!50001 SET character_set_client      = @saved_cs_client */;
 /*!50001 SET character_set_results     = @saved_cs_results */;
 /*!50001 SET collation_connection      = @saved_col_connection */;
+
+--
+-- Final view structure for view `v_thongtinhoivien`
+--
+
+/*!50001 DROP VIEW IF EXISTS `v_thongtinhoivien`*/;
+/*!50001 SET @saved_cs_client          = @@character_set_client */;
+/*!50001 SET @saved_cs_results         = @@character_set_results */;
+/*!50001 SET @saved_col_connection     = @@collation_connection */;
+/*!50001 SET character_set_client      = utf8mb4 */;
+/*!50001 SET character_set_results     = utf8mb4 */;
+/*!50001 SET collation_connection      = utf8mb4_0900_ai_ci */;
+/*!50001 CREATE ALGORITHM=UNDEFINED */
+/*!50013 DEFINER=`root`@`localhost` SQL SECURITY DEFINER */
+/*!50001 VIEW `v_thongtinhoivien` AS select `kh`.`MaKH` AS `MaKH`,`kh`.`HoTen` AS `HoTen`,`kh`.`Email` AS `Email`,`kh`.`SDT` AS `SDT`,`kh`.`DiaChi` AS `DiaChi`,`kh`.`NgaySinh` AS `NgaySinh`,`kh`.`GioiTinh` AS `GioiTinh`,`kh`.`NgayDK` AS `NgayDK`,`kh`.`LoaiKH` AS `LoaiKH`,`kh`.`DiemTichLuy` AS `DiemTichLuy`,`kh`.`TongChiTieu` AS `TongChiTieu`,`kh`.`GhiChu` AS `GhiChu`,`kh`.`TinhTrang` AS `TinhTrang`,`kh`.`DiemDaDung` AS `DiemDaDung`,`kh`.`TongDiemTichLuy` AS `TongDiemTichLuy`,`kh`.`HangTV` AS `HangTV`,`kh`.`NgayThamGia` AS `NgayThamGia`,`kh`.`NgayNangHang` AS `NgayNangHang`,`ud`.`PhanTramGiam` AS `PhanTramGiam`,`ud`.`HeSoTichDiem` AS `HeSoTichDiem`,`ud`.`GiamSinhNhat` AS `GiamSinhNhat`,`ud`.`MienPhiShip` AS `MienPhiShip`,`ud`.`ToiDaDungDiem` AS `ToiDaDungDiem`,`ud`.`MoTa` AS `MoTaHang`,(case when ((`kh`.`HangTV` collate utf8mb4_unicode_ci) = 'Kim_cuong') then NULL else ((select `uu_dai_hang_thanh_vien`.`DiemToiThieu` from `uu_dai_hang_thanh_vien` where (`uu_dai_hang_thanh_vien`.`HangTV` = (select `uu_dai_hang_thanh_vien`.`HangTV` from `uu_dai_hang_thanh_vien` where (`uu_dai_hang_thanh_vien`.`DiemToiThieu` > `ud`.`DiemToiThieu`) order by `uu_dai_hang_thanh_vien`.`DiemToiThieu` limit 1))) - `kh`.`TongDiemTichLuy`) end) AS `DiemCanDeLenHang`,(`kh`.`DiemTichLuy` * 100) AS `GiaTriDiemHienTai` from (`khachhang` `kh` left join `uu_dai_hang_thanh_vien` `ud` on(((`kh`.`HangTV` collate utf8mb4_unicode_ci) = `ud`.`HangTV`))) */;
+/*!50001 SET character_set_client      = @saved_cs_client */;
+/*!50001 SET character_set_results     = @saved_cs_results */;
+/*!50001 SET collation_connection      = @saved_col_connection */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -1545,4 +1830,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-02-02  9:32:28
+-- Dump completed on 2026-02-03  9:06:34
