@@ -12,6 +12,8 @@ import { initRoutes } from './src/routes/index.js';
 // Import the scheduled sync function from utility
 import { syncMissedAttendancesForDate } from './src/utils/attendanceSync.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+// Import cron jobs for attendance
+import { setupAttendanceCronJobs } from './src/utils/attendanceCronJobs.js';
 
 // 1. Load environment config
 dotenv.config({ path: './.env' });
@@ -292,6 +294,9 @@ process.on('SIGTERM', shutdown);
 
 // Start
 startServers();
+
+// Setup attendance cron jobs (auto-mark absent at 23:59 daily)
+setupAttendanceCronJobs();
 
 // Schedule daily missed attendance sync: run once at next 18:00 and then every 24h
 // At 18:00 the job will sync for the current day (mark today's missing attendances)

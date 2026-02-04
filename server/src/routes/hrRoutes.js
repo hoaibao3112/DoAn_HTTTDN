@@ -408,6 +408,45 @@ router.get('/monthly',
     attendanceController.getMonthlyAttendance
 );
 
+// Attendance History (lịch sử chỉnh sửa)
+router.get('/attendance/:MaCC/history',
+    checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.VIEW),
+    attendanceController.getAttendanceHistory
+);
+
+// Attendance Abnormal Report (báo cáo bất thường)
+router.get('/attendance/report/abnormal',
+    checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.VIEW),
+    attendanceController.getAbnormalReport
+);
+
+// Manual Mark Absent (đánh vắng thủ công)
+router.post('/attendance/mark-absent',
+    checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.CREATE),
+    attendanceController.manualMarkAbsent
+);
+
+// Holiday Management (Quản lý ngày lễ)
+router.get('/holidays',
+    checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.VIEW),
+    attendanceController.getAllHolidays
+);
+
+router.post('/holidays',
+    checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.CREATE),
+    attendanceController.createHoliday
+);
+
+router.put('/holidays/:id',
+    checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.UPDATE),
+    attendanceController.updateHoliday
+);
+
+router.delete('/holidays/:id',
+    checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.DELETE),
+    attendanceController.deleteHoliday
+);
+
 // ======================= STATISTICAL DASHBOARD ALIASES =======================
 
 // These match /api/salary/... when prefixed in index.js

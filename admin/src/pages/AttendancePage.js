@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
 import axios from 'axios';
-import { jsPDF } from 'jspdf';
 import '../styles/AttendancePage.css';
+
+const API_BASE = 'http://localhost:5000/api/attendance_admin';
 
 // Map trạng thái API sang giao diện
 const statusColors = {
   Di_lam: '#4CAF50',
   Nghi_phep: '#2196F3',
   Nghi_khong_phep: '#F44336',
-  Lam_them: '#673AB7',
   Tre: '#FF9800',
   Ve_som: '#FFC107',
+  Tre_Ve_som: '#FF5722',
   Thai_san: '#9C27B0',
   Om_dau: '#E91E63',
   Chua_cham_cong: '#B0BEC5',
@@ -21,23 +22,12 @@ const statusLabels = {
   Di_lam: 'Đi làm',
   Nghi_phep: 'Nghỉ phép',
   Nghi_khong_phep: 'Nghỉ KP',
-  Lam_them: 'Tăng ca',
   Tre: 'Đi trễ',
   Ve_som: 'Về sớm',
+  Tre_Ve_som: 'Trễ & Sớm',
   Thai_san: 'Thai sản',
   Om_dau: 'Ốm đau',
   Chua_cham_cong: '',
-};
-
-const frontendToApiStatus = {
-  'Đi làm': 'Di_lam',
-  'Nghỉ phép': 'Nghi_phep',
-  'Nghỉ KP': 'Nghi_khong_phep',
-  'Tăng ca': 'Lam_them',
-  'Đi trễ': 'Tre',
-  'Về sớm': 'Ve_som',
-  'Thai sản': 'Thai_san',
-  'Ốm đau': 'Om_dau',
 };
 
 // Thứ trong tuần
@@ -49,11 +39,6 @@ const getWeekday = (year, month, day) => {
 
 const isSunday = (year, month, day) => getWeekday(year, month, day) === 'CN';
 
-// Hàm làm tròn về trăm đồng gần nhất
-function roundToHundred(num) {
-  return Math.round(num / 100) * 100;
-}
-
 const AttendancePage = () => {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -62,10 +47,33 @@ const AttendancePage = () => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [otHours, setOtHours] = useState(1);
   const [pendingChanges, setPendingChanges] = useState({});
+  const [editReason, setEditReason] = useState('');
 
-  // State cho phần tính lương
-  const [salaryInfo, setSalaryInfo] = useState(null);
-  const [loadingSalary, setLoadingSalary] = useState(false);
+  // State cho tabs
+  const [activeTab, setActiveTab] = useState('calendar');
+
+  // State cho báo cáo bất thường
+  const [abnormalReport, setAbnormalReport] = useState([]);
+  const [loadingAbnormal, setLoadingAbnormal] = useState(false);
+
+  // State cho quản lý ngày lễ
+  const [holidays, setHolidays] = useState([]);
+  const [loadingHolidays, setLoadingHolidays] = useState(false);
+  const [showHolidayModal, setShowHolidayModal] = useState(false);
+  const [editingHoliday, setEditingHoliday] = useState(null);
+  const [holidayForm, setHolidayForm] = useState({
+    TenNgayLe: '',
+    Ngay: '',
+    HeSoLuong: 2.0,
+    LoaiNgayLe: 'Quoc_gia',
+    GhiChu: ''
+  });
+
+  // State cho modal lịch sử
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyData, setHistoryData] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [selectedMaCC, setSelectedMaCC] = useState(null);
 
   const months = Array.from({ length: 12 }, (_, i) => ({
     value: i + 1,
@@ -77,27 +85,91 @@ const AttendancePage = () => {
   }));
 
   const daysInMonth = new Date(year, month, 0).getDate();
+  const token = localStorage.getItem('authToken');
 
   // Lấy dữ liệu chấm công theo tháng/năm
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem('authToken');
-        const res = await axios.get(
-          `http://localhost:5000/api/hr/attendance/monthly?month=${month}&year=${year}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        setEmployees(res.data);
-        if (res.data.length > 0) setSelectedEmployee(res.data[0]);
-        setPendingChanges({});
-      } catch (err) {
-        setEmployees([]);
-        setSelectedEmployee(null);
-        setPendingChanges({});
-      }
-    };
-    fetchData();
-  }, [month, year]);
+    if (activeTab === 'calendar') {
+      fetchAttendanceData();
+    }
+  }, [month, year, activeTab]);
+
+  const fetchAttendanceData = async () => {
+    try {
+      const res = await axios.get(
+        `${API_BASE}/monthly?month=${month}&year=${year}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setEmployees(res.data);
+      if (res.data.length > 0) setSelectedEmployee(res.data[0]);
+      setPendingChanges({});
+    } catch (err) {
+      console.error('Error fetching attendance:', err);
+      setEmployees([]);
+      setSelectedEmployee(null);
+      setPendingChanges({});
+    }
+  };
+
+  // Fetch báo cáo bất thường
+  const fetchAbnormalReport = async () => {
+    setLoadingAbnormal(true);
+    try {
+      const res = await axios.get(
+        `${API_BASE}/attendance/report/abnormal?year=${year}&month=${month}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setAbnormalReport(res.data.data || []);
+    } catch (err) {
+      console.error('Error fetching abnormal report:', err);
+      setAbnormalReport([]);
+    }
+    setLoadingAbnormal(false);
+  };
+
+  // Fetch danh sách ngày lễ
+  const fetchHolidays = async () => {
+    setLoadingHolidays(true);
+    try {
+      const res = await axios.get(
+        `${API_BASE}/holidays?year=${year}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setHolidays(res.data.data || []);
+    } catch (err) {
+      console.error('Error fetching holidays:', err);
+      setHolidays([]);
+    }
+    setLoadingHolidays(false);
+  };
+
+  // Fetch lịch sử chỉnh sửa
+  const fetchHistory = async (maCC) => {
+    setLoadingHistory(true);
+    setSelectedMaCC(maCC);
+    try {
+      const res = await axios.get(
+        `${API_BASE}/attendance/${maCC}/history`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setHistoryData(res.data.data || []);
+      setShowHistoryModal(true);
+    } catch (err) {
+      console.error('Error fetching history:', err);
+      setHistoryData([]);
+      setShowHistoryModal(true);
+    }
+    setLoadingHistory(false);
+  };
+
+  // Load data theo tab
+  useEffect(() => {
+    if (activeTab === 'abnormal') {
+      fetchAbnormalReport();
+    } else if (activeTab === 'holidays') {
+      fetchHolidays();
+    }
+  }, [activeTab, month, year]);
 
   // Tạo mảng các dòng, mỗi dòng 10 ngày
   const getDayRows = () => {
@@ -110,24 +182,38 @@ const AttendancePage = () => {
 
   // Xử lý click vào ngày để lưu thay đổi tạm thời
   const handleDayClick = (day) => {
-    // Không cho chỉnh vào Chủ nhật
     if (isSunday(year, month, day)) return;
-    if (!selectedEmployee || !selectedStatus) return;
-    const apiStatus = frontendToApiStatus[selectedStatus];
+    if (!selectedEmployee || !selectedStatus) {
+      alert('Vui lòng chọn trạng thái trước!');
+      return;
+    }
+    
     const ngay = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    let ghiChu = '';
+    
+    if (selectedStatus === 'Lam_them') {
+      ghiChu = `Tăng ca ${otHours} giờ`;
+    }
+    
     setPendingChanges((prev) => ({
       ...prev,
       [ngay]: {
-        trang_thai: apiStatus,
-        ghi_chu: selectedStatus === 'Tăng ca' ? `Tăng ca ${otHours} giờ` : '',
+        TrangThai: selectedStatus,
+        SoGioTangCa: selectedStatus === 'Lam_them' ? otHours : 0,
+        GhiChu: ghiChu,
       },
     }));
   };
 
-  // Gửi toàn bộ thay đổi tạm thời lên server khi nhấn nút Lưu
+  // Gửi toàn bộ thay đổi tạm thời lên server
   const handleSaveChanges = async () => {
     if (!selectedEmployee || Object.keys(pendingChanges).length === 0) {
       alert('Không có thay đổi để lưu!');
+      return;
+    }
+
+    if (!editReason || editReason.trim() === '') {
+      alert('Vui lòng nhập lý do chỉnh sửa!');
       return;
     }
 
@@ -135,8 +221,10 @@ const AttendancePage = () => {
       const updates = Object.entries(pendingChanges).map(([ngay, data]) => ({
         MaNV: selectedEmployee.MaNV,
         Ngay: ngay,
-        TrangThai: data.trang_thai,
-        GhiChu: data.ghi_chu,
+        TrangThai: data.TrangThai,
+        SoGioTangCa: data.SoGioTangCa || 0,
+        GhiChu: data.GhiChu,
+        LyDoSua: editReason
       }));
 
       await Promise.all(
@@ -145,238 +233,164 @@ const AttendancePage = () => {
           const existingId = selectedEmployee.days?.[dayNum]?.id;
 
           if (existingId) {
-            return axios.put(`http://localhost:5000/api/hr/attendance/${existingId}`, update, {
-              headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+            // Update existing
+            return axios.put(`${API_BASE}/attendance/${existingId}`, update, {
+              headers: { Authorization: `Bearer ${token}` }
             });
           } else {
-            return axios.post('http://localhost:5000/api/hr/attendance', update, {
-              headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+            // Create new
+            return axios.post(`${API_BASE}/attendance`, update, {
+              headers: { Authorization: `Bearer ${token}` }
             });
           }
         })
       );
 
-      // Reload dữ liệu sau khi lưu
-      const res = await axios.get(
-        `http://localhost:5000/api/hr/attendance/monthly?month=${month}&year=${year}`,
-        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
-      );
-      setEmployees(res.data);
-      const found = res.data.find((nv) => nv.MaNV === selectedEmployee.MaNV);
-      if (found) setSelectedEmployee(found);
-      setPendingChanges({});
       alert('Lưu chấm công thành công!');
+      setEditReason('');
+      fetchAttendanceData();
     } catch (err) {
-      alert('Lưu chấm công thất bại!');
+      console.error('Error saving attendance:', err);
+      alert('Lưu chấm công thất bại: ' + (err.response?.data?.message || err.message));
     }
   };
 
-  const fetchSalary = async () => {
-    if (!selectedEmployee) return;
-    setLoadingSalary(true);
-    setSalaryInfo(null);
+  // Trigger đánh vắng thủ công
+  const handleManualMarkAbsent = async () => {
+    const today = new Date();
+    const ngay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    if (!window.confirm(`Xác nhận đánh vắng cho tất cả nhân viên chưa chấm công ngày ${ngay}?`)) return;
+
     try {
-      const token = localStorage.getItem('authToken');
-      // Fetch summary which contains calculated values
-      const res = await axios.get(
-        `http://localhost:5000/api/hr/attendance/summary?month=${month}&year=${year}&MaNV=${selectedEmployee.MaNV}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (res.data.success && res.data.data.length > 0) {
-        // Map backend summary stats to frontend salary form
-        const stats = res.data.data[0];
-        setSalaryInfo({
-          ...stats,
-          TenNV: selectedEmployee.TenNV,
-          soNgayLam: (stats.SoNgayDiLam || 0) + (stats.SoNgayTre || 0) + (stats.SoNgayVeSom || 0) + (stats.SoNgayNghiPhep || 0),
-          soGioTangCa: stats.TongGioTangCa || 0,
-          soNgayDiTre: (stats.SoNgayTre || 0) + (stats.SoNgayVeSom || 0),
-          soNgayNghiKhongPhep: stats.SoNgayNghiKhongPhep || 0,
-          luong_co_ban: selectedEmployee.LuongCoBan || 0,
-          phu_cap: selectedEmployee.PhuCap || 0,
-          thuong: 0,
-          phat: ((stats.SoNgayTre || 0) + (stats.SoNgayVeSom || 0)) * 20000
+      await axios.post(`${API_BASE}/attendance/mark-absent`, { Ngay: ngay }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert('Đã đánh vắng thành công!');
+      fetchAttendanceData();
+    } catch (err) {
+      console.error('Error marking absent:', err);
+      alert('Đánh vắng thất bại: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  // CRUD Ngày lễ
+  const handleSaveHoliday = async () => {
+    if (!holidayForm.TenNgayLe || !holidayForm.Ngay) {
+      alert('Vui lòng nhập đầy đủ thông tin!');
+      return;
+    }
+
+    try {
+      if (editingHoliday) {
+        // Update
+        await axios.put(`${API_BASE}/holidays/${editingHoliday.MaNgayLe}`, holidayForm, {
+          headers: { Authorization: `Bearer ${token}` }
         });
+        alert('Cập nhật ngày lễ thành công!');
+      } else {
+        // Create
+        await axios.post(`${API_BASE}/holidays`, holidayForm, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        alert('Thêm ngày lễ thành công!');
       }
+      setShowHolidayModal(false);
+      setEditingHoliday(null);
+      setHolidayForm({
+        TenNgayLe: '',
+        Ngay: '',
+        HeSoLuong: 2.0,
+        LoaiNgayLe: 'Quoc_gia',
+        GhiChu: ''
+      });
+      fetchHolidays();
     } catch (err) {
-      setSalaryInfo(null);
+      console.error('Error saving holiday:', err);
+      alert('Lưu ngày lễ thất bại: ' + (err.response?.data?.message || err.message));
     }
-    setLoadingSalary(false);
   };
 
-  // Xử lý nhập phụ cấp
-  const handlePhuCapChange = (e) => {
-    // Không cho sửa phụ cấp nếu đã chi trả
-    if (salaryInfo?.trang_thai === 'Da_tra') return;
-    const value = Number(e.target.value) || 0;
-    setSalaryInfo((prev) => ({
-      ...prev,
-      phu_cap: value
-    }));
-  };
-
-
-  // Xử lý nhập thưởng
-  const handleThuongChange = (e) => {
-    // Không cho sửa thưởng nếu đã chi trả hoặc không đủ điều kiện
-    if (salaryInfo?.trang_thai === 'Da_tra') return;
-    if (!salaryInfo?.duDieuKienThuong) return;
-    const value = Number(e.target.value) || 0;
-    setSalaryInfo((prev) => ({
-      ...prev,
-      thuong: value
-    }));
-  };
-
-  // Tính lại tổng lương khi phụ cấp thay đổi (và làm tròn về trăm đồng)
-  const getTongLuong = () => {
-    if (!salaryInfo) return 0;
-
-    const base = salaryInfo.luong_co_ban || 0;
-    const dailyRate = base / 26;
-    const hourlyRate = base / 208;
-
-    const basePay = dailyRate * (salaryInfo.soNgayLam || 0);
-    const otPay = (salaryInfo.soGioTangCa || 0) * hourlyRate * 1.5;
-
-    const tong =
-      basePay +
-      (salaryInfo.phu_cap || 0) +
-      (salaryInfo.thuong || 0) +
-      otPay -
-      (salaryInfo.phat || 0);
-
-    return roundToHundred(tong);
-  };
-
-  // Xác nhận chi trả lương
-  const handlePaySalary = async () => {
+  const handleDeleteHoliday = async (id) => {
+    if (!window.confirm('Xác nhận xóa ngày lễ?')) return;
     try {
-      const token = localStorage.getItem('authToken');
-      // The backend has calculateMonthlySalary which inserts into 'luong'
-      await axios.post('http://localhost:5000/api/hr/calculate-salary', {
-        month,
-        year
-      }, { headers: { Authorization: `Bearer ${token}` } });
-
-      alert('Đã tính lương và cập nhật trạng thái cho tháng này!');
-      fetchSalary();
+      await axios.delete(`${API_BASE}/holidays/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert('Xóa ngày lễ thành công!');
+      fetchHolidays();
     } catch (err) {
-      alert('Cập nhật trạng thái lương thất bại!');
+      console.error('Error deleting holiday:', err);
+      alert('Xóa ngày lễ thất bại: ' + (err.response?.data?.message || err.message));
     }
   };
 
-  // Tạo HTML phiếu lương theo mẫu yêu cầu (dùng để xuất PDF)
-  const generatePayslipHtml = (info) => {
-    const tong = getTongLuong();
-    const formatted = (v) => (Number(v || 0)).toLocaleString();
-    const title = `LƯƠNG THÁNG ${month}/${year} CỦA ${info.MaNV || info.MaTK || ''}`;
-
-    // Return a fragment (no <html>/<head>/<body>) so html2pdf can render the element correctly
-    return `
-      <style>
-        .payslip-container { font-family: 'Segoe UI', Roboto, Arial, sans-serif; color:#222; }
-        .payslip-box { width: 800px; margin: 20px auto; background:#fff; border-radius:8px; overflow:hidden }
-        .payslip-header { background:#1976d2; color:#fff; padding:14px 20px; font-weight:700; font-size:18px }
-        .payslip-row { display:flex; padding:14px 20px; align-items:center; border-bottom:1px solid #eef0f2 }
-        .payslip-label { flex:1; color:#546e7a; font-size:16px }
-        .payslip-value { width:240px; text-align:right; font-weight:600; font-size:16px }
-        .muted { color:#666 }
-        .total-row { background:#f5f7fa; }
-        .total-left { color:#1976d2; font-weight:700; font-size:18px }
-        .total-right { color:#1976d2; font-weight:700; font-size:18px; text-align:right }
-        .status { padding:12px 20px }
-      </style>
-      <div class="payslip-container">
-        <div class="payslip-box">
-          <div class="payslip-header">${title}</div>
-          <div class="payslip-row"><div class="payslip-label">Số ngày làm</div><div class="payslip-value">${info.soNgayLam || 0}</div></div>
-          <div class="payslip-row"><div class="payslip-label">Số giờ tăng ca</div><div class="payslip-value">${info.soGioTangCa || 0}</div></div>
-          <div class="payslip-row"><div class="payslip-label">Số ngày nghỉ không phép</div><div class="payslip-value">${info.soNgayNghiKhongPhep || 0}</div></div>
-          <div class="payslip-row"><div class="payslip-label">Số ngày đi trễ</div><div class="payslip-value">${info.soNgayDiTre || 0}</div></div>
-          <div class="payslip-row"><div class="payslip-label">Lương cơ bản</div><div class="payslip-value">${formatted(info.luong_co_ban)} đ</div></div>
-          <div class="payslip-row"><div class="payslip-label">Phụ cấp</div><div class="payslip-value">${formatted(info.phu_cap)} đ</div></div>
-          <div class="payslip-row"><div class="payslip-label">Thưởng</div><div class="payslip-value">${formatted(info.thuong)} đ</div></div>
-          <div class="payslip-row"><div class="payslip-label">Phạt</div><div class="payslip-value">${formatted(info.phat)} đ</div></div>
-          <div class="payslip-row total-row"><div class="total-left">Tổng lương</div><div class="total-right">${formatted(tong)} đ</div></div>
-          <div class="status">Trạng thái: <span class="muted">${info.trang_thai === 'Da_tra' ? 'Đã chi trả' : 'Chưa chi trả'}</span></div>
-          <div style="padding:18px 20px 30px 20px;">
-            <div style="margin-bottom:18px; text-align:center; font-weight:600;">Xác nhận nhận tiền của admin</div>
-            <div style="display:flex; justify-content:space-between; gap:40px; margin-top:24px;">
-              <div style="flex:1; text-align:center">
-                <div style="border-top:1px solid #999; padding-top:8px;">Người nhận</div>
-              </div>
-              <div style="flex:1; text-align:center">
-                <div style="border-top:1px solid #999; padding-top:8px;">Admin</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  };
-
-
-  // Tải PDF phiếu lương về máy
-  // Tải PDF phiếu lương về máy (dùng html2canvas + jsPDF giống `statistical.js`)
-  const handleDownloadPayslipPdf = async (info) => {
-    if (!info) return;
-    let container = null;
-    try {
-      const html = generatePayslipHtml(info);
-      container = document.createElement('div');
-      container.style.position = 'fixed';
-      container.style.left = '0';
-      container.style.top = '0';
-      container.style.width = '820px';
-      container.style.zIndex = '10000';
-      // keep visible so html2canvas can render
-      container.style.opacity = '1';
-      container.style.pointerEvents = 'none';
-      container.style.background = '#fff';
-      container.innerHTML = html;
-      document.body.appendChild(container);
-
-      console.log('Payslip container appended for PDF generation', container);
-      console.log('Payslip container innerHTML length:', container.innerHTML.length);
-
-      // dynamic import of html2canvas (same pattern as statistical.js)
-      const hc = await import('html2canvas');
-      const html2canvas = hc.default || hc;
-
-      // Allow render
-      await new Promise((r) => setTimeout(r, 300));
-
-      const canvas = await html2canvas(container, { scale: 2, useCORS: true, logging: false });
-      const imgData = canvas.toDataURL('image/png');
-
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 10;
-      const usableWidth = pageWidth - margin * 2;
-      const imgProps = doc.getImageProperties(imgData);
-      const imgHeight = (imgProps.height * usableWidth) / imgProps.width;
-      doc.addImage(imgData, 'PNG', margin, 10, usableWidth, imgHeight);
-
-      const filename = `Phieu_luong_${info.MaNV || info.MaTK || 'NV'}_${month}_${year}.pdf`;
-      doc.save(filename);
-      console.log('PDF saved:', filename);
-    } catch (err) {
-      console.error('Failed to generate PDF (html2canvas/jsPDF)', err);
-      alert('Tạo PDF thất bại. Hãy thử lại hoặc cài `html2canvas` (npm i html2canvas) nếu cần.');
-    } finally {
-      try { if (container) document.body.removeChild(container); } catch (e) { }
-    }
+  const handleEditHoliday = (holiday) => {
+    setEditingHoliday(holiday);
+    setHolidayForm({
+      TenNgayLe: holiday.TenNgayLe,
+      Ngay: holiday.Ngay.split('T')[0],
+      HeSoLuong: holiday.HeSoLuong,
+      LoaiNgayLe: holiday.LoaiNgayLe,
+      GhiChu: holiday.GhiChu || ''
+    });
+    setShowHolidayModal(true);
   };
 
   return (
     <div className="thongke-page">
       <div className="thongke-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>
-          <i className="fas fa-calendar-check"></i> Chấm công
+          <i className="fas fa-calendar-check"></i> Quản lý chấm công
         </h1>
       </div>
 
+      {/* Tabs */}
+      <div className="tabs" style={{ display: 'flex', gap: 10, marginBottom: 20, borderBottom: '2px solid #e0e0e0' }}>
+        <button
+          onClick={() => setActiveTab('calendar')}
+          style={{
+            padding: '10px 20px',
+            border: 'none',
+            background: activeTab === 'calendar' ? '#1976d2' : 'transparent',
+            color: activeTab === 'calendar' ? '#fff' : '#000',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            borderRadius: '4px 4px 0 0'
+          }}
+        >
+          <i className="fas fa-calendar"></i> Lịch chấm công
+        </button>
+        <button
+          onClick={() => setActiveTab('abnormal')}
+          style={{
+            padding: '10px 20px',
+            border: 'none',
+            background: activeTab === 'abnormal' ? '#1976d2' : 'transparent',
+            color: activeTab === 'abnormal' ? '#fff' : '#000',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            borderRadius: '4px 4px 0 0'
+          }}
+        >
+          <i className="fas fa-exclamation-triangle"></i> Báo cáo bất thường
+        </button>
+        <button
+          onClick={() => setActiveTab('holidays')}
+          style={{
+            padding: '10px 20px',
+            border: 'none',
+            background: activeTab === 'holidays' ? '#1976d2' : 'transparent',
+            color: activeTab === 'holidays' ? '#fff' : '#000',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            borderRadius: '4px 4px 0 0'
+          }}
+        >
+          <i className="fas fa-gift"></i> Ngày lễ
+        </button>
+      </div>
+
+      {/* Filters */}
       <div className="thongke-content">
         <div className="thongke-filters">
           <div className="filter-group">
@@ -402,371 +416,586 @@ const AttendancePage = () => {
                 menu: (base) => ({ ...base, zIndex: 9999 })
               }}
             />
+            {activeTab === 'calendar' && (
+              <button
+                onClick={handleManualMarkAbsent}
+                style={{
+                  marginLeft: 10,
+                  padding: '6px 12px',
+                  background: '#f44336',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                <i className="fas fa-user-times"></i> Đánh vắng hôm nay
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="thongke-table" style={{ display: 'flex', gap: 24 }}>
-          {/* Danh sách nhân viên */}
-          <div style={{ minWidth: 260 }}>
-            <table style={{ width: '100%' }}>
-              <thead>
-                <tr>
-                  <th>STT</th>
-                  <th>Nhân viên</th>
-                  <th>Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {employees.map((nv, idx) => {
-                  const days = nv.days || {};
-                  // số ngày làm việc trong tháng (không tính Chủ nhật)
-                  const requiredWorkdays = Array.from({ length: daysInMonth }, (_, i) => i + 1).filter(
-                    (d) => getWeekday(year, month, d) !== 'CN'
-                  ).length;
-                  // đếm số ngày đã được chấm (không tính Chủ nhật)
-                  let chamCongCount = 0;
-                  for (let d = 1; d <= daysInMonth; d++) {
-                    if (getWeekday(year, month, d) === 'CN') continue;
-                    const dayInfo = days[d];
-                    const status = dayInfo?.trang_thai || 'Chua_cham_cong';
-                    if (status && status !== 'Chua_cham_cong') chamCongCount++;
-                  }
-                  const done = chamCongCount >= requiredWorkdays;
-                  return (
-                    <tr
-                      key={nv.MaNV}
-                      style={{
-                        background: selectedEmployee && selectedEmployee.MaNV === nv.MaNV ? '#e3f2fd' : undefined,
-                        cursor: 'pointer',
-                      }}
-                      onClick={() => {
-                        setSelectedEmployee(nv);
-                        setPendingChanges({});
-                        setSalaryInfo(null); // Reset form tính lương khi chọn nhân viên khác
-                      }}
-                    >
-                      <td>{idx + 1}</td>
-                      <td>{nv.TenNV}</td>
-                      <td style={{ color: done ? '#4CAF50' : '#F44336' }}>
-                        {done ? 'Đã chấm công' : 'Chưa chấm công'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Lịch chấm công chi tiết + Form tính lương */}
-          <div style={{ flex: '1 1 auto', minWidth: 600 }}>
-            <div style={{ fontWeight: 'bold', marginBottom: 8 }}>
-              {selectedEmployee ? `${selectedEmployee.MaNV} - ${selectedEmployee.TenNV}` : ''}
-            </div>
-            <table style={{ width: '100%', marginBottom: 16 }}>
-              <tbody>
-                {getDayRows().map((row, rowIdx) => (
-                  <React.Fragment key={rowIdx}>
-                    {/* Dòng tiêu đề thứ */}
-                    <tr>
-                      {row.map((day) => (
-                        <td
-                          key={`weekday-${day}`}
-                          style={{
-                            background: '#e3e3e3',
-                            color: '#1976d2',
-                            fontWeight: 'bold',
-                            fontSize: 13,
-                            padding: 4,
-                            borderBottom: 'none'
-                          }}
-                        >
-                          {getWeekday(year, month, day)}
+        {/* Tab Content: Calendar */}
+        {activeTab === 'calendar' && (
+          <div className="thongke-table" style={{ display: 'flex', gap: 24 }}>
+            {/* Danh sách nhân viên */}
+            <div style={{ minWidth: 260 }}>
+              <table style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>STT</th>
+                    <th>Nhân viên</th>
+                    <th>Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {employees.map((nv, idx) => {
+                    const days = nv.days || {};
+                    const requiredWorkdays = Array.from({ length: daysInMonth }, (_, i) => i + 1).filter(
+                      (d) => getWeekday(year, month, d) !== 'CN'
+                    ).length;
+                    let chamCongCount = 0;
+                    for (let d = 1; d <= daysInMonth; d++) {
+                      if (getWeekday(year, month, d) === 'CN') continue;
+                      const dayInfo = days[d];
+                      const status = dayInfo?.trang_thai || 'Chua_cham_cong';
+                      if (status && status !== 'Chua_cham_cong') chamCongCount++;
+                    }
+                    const done = chamCongCount >= requiredWorkdays;
+                    return (
+                      <tr
+                        key={nv.MaNV}
+                        style={{
+                          background: selectedEmployee && selectedEmployee.MaNV === nv.MaNV ? '#e3f2fd' : undefined,
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => {
+                          setSelectedEmployee(nv);
+                          setPendingChanges({});
+                        }}
+                      >
+                        <td>{idx + 1}</td>
+                        <td>{nv.HoTen}</td>
+                        <td style={{ color: done ? '#4CAF50' : '#F44336' }}>
+                          {done ? 'Đủ' : 'Thiếu'}
                         </td>
-                      ))}
-                      {row.length < 10 &&
-                        Array.from({ length: 10 - row.length }).map((_, i) => (
-                          <td key={`weekday-empty-${i}`} style={{ background: '#f5f5f5', borderBottom: 'none' }} />
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Lịch chấm công chi tiết */}
+            <div style={{ flex: '1 1 auto', minWidth: 600 }}>
+              <div style={{ fontWeight: 'bold', marginBottom: 8 }}>
+                {selectedEmployee ? `${selectedEmployee.MaNV} - ${selectedEmployee.HoTen}` : ''}
+              </div>
+              <table style={{ width: '100%', marginBottom: 16 }}>
+                <tbody>
+                  {getDayRows().map((row, rowIdx) => (
+                    <React.Fragment key={rowIdx}>
+                      {/* Dòng thứ */}
+                      <tr>
+                        {row.map((day) => (
+                          <td
+                            key={`weekday-${day}`}
+                            style={{
+                              background: '#e3e3e3',
+                              color: '#1976d2',
+                              fontWeight: 'bold',
+                              fontSize: 13,
+                              padding: 4,
+                              borderBottom: 'none'
+                            }}
+                          >
+                            {getWeekday(year, month, day)}
+                          </td>
                         ))}
-                    </tr>
-                    {/* Dòng ngày và trạng thái */}
-                    <tr>
-                      {row.map((day) => {
-                        const ngay = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                        // Nếu là Chủ nhật -> hiển thị là ngày nghỉ và không cho click
-                        if (isSunday(year, month, day)) {
+                        {row.length < 10 &&
+                          Array.from({ length: 10 - row.length }).map((_, i) => (
+                            <td key={`weekday-empty-${i}`} style={{ background: '#f5f5f5', borderBottom: 'none' }} />
+                          ))}
+                      </tr>
+                      {/* Dòng ngày */}
+                      <tr>
+                        {row.map((day) => {
+                          const ngay = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                          
+                          if (isSunday(year, month, day)) {
+                            return (
+                              <td
+                                key={day}
+                                style={{
+                                  background: '#eceff1',
+                                  color: '#1976d2',
+                                  whiteSpace: 'pre-line',
+                                  cursor: 'default',
+                                  minWidth: 55,
+                                  maxWidth: 80,
+                                  fontSize: 16,
+                                  padding: 10,
+                                }}
+                              >
+                                <div style={{ fontWeight: 'bold' }}>{day}</div>
+                                <div>CN</div>
+                              </td>
+                            );
+                          }
+
+                          const dayData = pendingChanges[ngay] || (selectedEmployee?.days ? selectedEmployee.days[day] : {});
+                          const apiStatus = dayData?.TrangThai || dayData?.trang_thai || 'Chua_cham_cong';
+                          let cellText = statusLabels[apiStatus] || '';
+                          
+                          if (dayData?.SoGioTangCa > 0 || dayData?.so_gio_tang_ca > 0) {
+                            cellText += `\n+${dayData.SoGioTangCa || dayData.so_gio_tang_ca}h`;
+                          }
+                          
                           return (
                             <td
                               key={day}
                               style={{
-                                background: '#eceff1',
-                                color: '#1976d2',
+                                background: statusColors[apiStatus],
+                                color: '#fff',
                                 whiteSpace: 'pre-line',
-                                cursor: 'default',
+                                cursor: 'pointer',
                                 minWidth: 55,
                                 maxWidth: 80,
                                 fontSize: 16,
                                 padding: 10,
+                                position: 'relative'
                               }}
+                              onClick={() => handleDayClick(day)}
+                              onDoubleClick={() => {
+                                const maCC = selectedEmployee?.days?.[day]?.id;
+                                if (maCC) fetchHistory(maCC);
+                              }}
+                              title="Nhấp: đánh dấu | Nhấp đúp: xem lịch sử"
                             >
                               <div style={{ fontWeight: 'bold' }}>{day}</div>
-                              <div>Nghỉ CN</div>
+                              <div style={{ fontSize: 12 }}>{cellText}</div>
                             </td>
                           );
-                        }
+                        })}
+                        {row.length < 10 &&
+                          Array.from({ length: 10 - row.length }).map((_, i) => (
+                            <td key={`empty-${i}`} style={{ background: '#f5f5f5' }} />
+                          ))}
+                      </tr>
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
 
-                        const dayData = pendingChanges[ngay] || (selectedEmployee?.days ? selectedEmployee.days[day] : {});
-                        const apiStatus = dayData?.trang_thai || 'Chua_cham_cong';
-                        let cellText = statusLabels[apiStatus] || '';
-                        if (apiStatus === 'Lam_them' && dayData?.ghi_chu) {
-                          cellText = `Tăng ca\n${dayData.ghi_chu.replace('Tăng ca ', '')}`;
-                        }
-                        return (
-                          <td
-                            key={day}
-                            style={{
-                              background: statusColors[apiStatus],
-                              color: '#fff',
-                              whiteSpace: 'pre-line',
-                              cursor: 'pointer',
-                              minWidth: 55,
-                              maxWidth: 80,
-                              fontSize: 16,
-                              padding: 10,
-                            }}
-                            onClick={() => handleDayClick(day)}
-                          >
-                            <div style={{ fontWeight: 'bold' }}>{day}</div>
-                            <div>{cellText}</div>
-                          </td>
-                        );
-                      })}
-                      {row.length < 10 &&
-                        Array.from({ length: 10 - row.length }).map((_, i) => (
-                          <td key={`empty-${i}`} style={{ background: '#f5f5f5' }} />
-                        ))}
-                    </tr>
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-            {/* Các nút trạng thái và nút Lưu */}
-            <div className="status-buttons" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={() => setSelectedStatus('Đi làm')}
-                  style={{ background: selectedStatus === 'Đi làm' ? '#4CAF50' : '#fff' }}
-                >
-                  Đi làm
-                </button>
-                <button
-                  onClick={() => setSelectedStatus('Nghỉ phép')}
-                  style={{ background: selectedStatus === 'Nghỉ phép' ? '#2196F3' : '#fff' }}
-                >
-                  Nghỉ phép
-                </button>
-                <button
-                  onClick={() => setSelectedStatus('Nghỉ KP')}
-                  style={{ background: selectedStatus === 'Nghỉ KP' ? '#F44336' : '#fff' }}
-                >
-                  Nghỉ KP
-                </button>
-                <button
-                  onClick={() => setSelectedStatus('Đi trễ')}
-                  style={{ background: selectedStatus === 'Đi trễ' ? '#FF9800' : '#fff' }}
-                >
-                  Đi trễ
-                </button>
-                <button
-                  onClick={() => setSelectedStatus('Về sớm')}
-                  style={{ background: selectedStatus === 'Về sớm' ? '#FFC107' : '#fff' }}
-                >
-                  Về sớm
-                </button>
-                <button
-                  onClick={() => setSelectedStatus('Tăng ca')}
-                  style={{ background: selectedStatus === 'Tăng ca' ? '#673AB7' : '#fff' }}
-                >
-                  Tăng ca
-                </button>
-                <button
-                  onClick={() => setSelectedStatus('Thai sản')}
-                  style={{ background: selectedStatus === 'Thai sản' ? '#9C27B0' : '#fff', color: selectedStatus === 'Thai sản' ? '#fff' : '#000' }}
-                >
-                  Thai sản
-                </button>
-                <button
-                  onClick={() => setSelectedStatus('Ốm đau')}
-                  style={{ background: selectedStatus === 'Ốm đau' ? '#E91E63' : '#fff', color: selectedStatus === 'Ốm đau' ? '#fff' : '#000' }}
-                >
-                  Ốm đau
-                </button>
+              {/* Các nút trạng thái */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 'bold', marginBottom: 8 }}>Chọn trạng thái:</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {Object.keys(statusLabels).filter(k => k !== 'Chua_cham_cong').map(status => (
+                    <button
+                      key={status}
+                      onClick={() => setSelectedStatus(status)}
+                      style={{
+                        background: selectedStatus === status ? statusColors[status] : '#fff',
+                        color: selectedStatus === status ? '#fff' : '#000',
+                        border: `2px solid ${statusColors[status]}`,
+                        padding: '8px 16px',
+                        borderRadius: 4,
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {statusLabels[status]}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Chọn giờ tăng ca */}
+              {selectedStatus === 'Lam_them' && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontWeight: 'bold', marginRight: 10 }}>Số giờ tăng ca:</label>
+                  {[1, 2, 3, 4, 6, 8, 10, 12].map((h) => (
+                    <label key={h} style={{ marginLeft: 8 }}>
+                      <input
+                        type="radio"
+                        name="otHours"
+                        checked={otHours === h}
+                        onChange={() => setOtHours(h)}
+                      />
+                      {h}h
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {/* Lý do sửa và nút Lưu */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: 8 }}>
+                  Lý do chỉnh sửa: <span style={{ color: 'red' }}>*</span>
+                </label>
+                <textarea
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                  placeholder="Nhập lý do chỉnh sửa chấm công (bắt buộc)"
+                  style={{
+                    width: '100%',
+                    minHeight: 60,
+                    padding: 8,
+                    borderRadius: 4,
+                    border: '1px solid #ccc'
+                  }}
+                />
+              </div>
+
               <button
-                className="save-btn"
                 onClick={handleSaveChanges}
-                style={{ background: '#28a745', color: '#fff', fontWeight: 'bold' }}
+                style={{
+                  background: '#28a745',
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  padding: '10px 24px',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  fontSize: 16
+                }}
                 disabled={Object.keys(pendingChanges).length === 0}
+              >
+                <i className="fas fa-save"></i> Lưu thay đổi ({Object.keys(pendingChanges).length})
+              </button>
+
+              <div style={{ marginTop: 16, fontSize: 14, color: '#666' }}>
+                <i className="fas fa-info-circle"></i> Nhấp đúp vào ngày đã chấm để xem lịch sử chỉnh sửa
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Content: Abnormal Report */}
+        {activeTab === 'abnormal' && (
+          <div>
+            <h2>Báo cáo chấm công bất thường - Tháng {month}/{year}</h2>
+            {loadingAbnormal ? (
+              <div>Đang tải báo cáo...</div>
+            ) : (
+              <table style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Mã NV</th>
+                    <th>Họ tên</th>
+                    <th>Số lần trễ</th>
+                    <th>Số lần về sớm</th>
+                    <th>Quên chấm ra</th>
+                    <th>Tổng giờ tăng ca</th>
+                    <th>Tổng ngày chấm công</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {abnormalReport.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center' }}>Không có dữ liệu</td>
+                    </tr>
+                  ) : (
+                    abnormalReport.map((item) => (
+                      <tr key={item.MaNV}>
+                        <td>{item.MaNV}</td>
+                        <td>{item.HoTen}</td>
+                        <td style={{ color: item.SoLanTre > 0 ? '#FF9800' : '#000', fontWeight: 'bold' }}>
+                          {item.SoLanTre}
+                        </td>
+                        <td style={{ color: item.SoLanVeSom > 0 ? '#FFC107' : '#000', fontWeight: 'bold' }}>
+                          {item.SoLanVeSom}
+                        </td>
+                        <td style={{ color: item.QuenChamRa > 0 ? '#F44336' : '#000', fontWeight: 'bold' }}>
+                          {item.QuenChamRa}
+                        </td>
+                        <td>{item.TongGioTangCa}</td>
+                        <td>{item.TongNgayChamCong}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* Tab Content: Holidays */}
+        {activeTab === 'holidays' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2>Quản lý ngày lễ</h2>
+              <button
+                onClick={() => {
+                  setEditingHoliday(null);
+                  setHolidayForm({
+                    TenNgayLe: '',
+                    Ngay: '',
+                    HeSoLuong: 2.0,
+                    LoaiNgayLe: 'Quoc_gia',
+                    GhiChu: ''
+                  });
+                  setShowHolidayModal(true);
+                }}
+                style={{
+                  background: '#1976d2',
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer'
+                }}
+              >
+                <i className="fas fa-plus"></i> Thêm ngày lễ
+              </button>
+            </div>
+
+            {loadingHolidays ? (
+              <div>Đang tải danh sách ngày lễ...</div>
+            ) : (
+              <table style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Tên ngày lễ</th>
+                    <th>Ngày</th>
+                    <th>Hệ số lương</th>
+                    <th>Loại</th>
+                    <th>Ghi chú</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {holidays.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center' }}>Không có ngày lễ nào</td>
+                    </tr>
+                  ) : (
+                    holidays.map((holiday) => (
+                      <tr key={holiday.MaNgayLe}>
+                        <td>{holiday.TenNgayLe}</td>
+                        <td>{new Date(holiday.Ngay).toLocaleDateString('vi-VN')}</td>
+                        <td>x{holiday.HeSoLuong}</td>
+                        <td>{holiday.LoaiNgayLe}</td>
+                        <td>{holiday.GhiChu}</td>
+                        <td>
+                          <button
+                            onClick={() => handleEditHoliday(holiday)}
+                            style={{
+                              background: '#4CAF50',
+                              color: '#fff',
+                              border: 'none',
+                              padding: '6px 12px',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              marginRight: 8
+                            }}
+                          >
+                            <i className="fas fa-edit"></i>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteHoliday(holiday.MaNgayLe)}
+                            style={{
+                              background: '#f44336',
+                              color: '#fff',
+                              border: 'none',
+                              padding: '6px 12px',
+                              borderRadius: 4,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Modal: Holiday Form */}
+      {showHolidayModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }} onClick={() => setShowHolidayModal(false)}>
+          <div style={{
+            background: '#fff',
+            padding: 24,
+            borderRadius: 8,
+            maxWidth: 500,
+            width: '90%'
+          }} onClick={(e) => e.stopPropagation()}>
+            <h3>{editingHoliday ? 'Sửa ngày lễ' : 'Thêm ngày lễ'}</h3>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: 4 }}>Tên ngày lễ:</label>
+              <input
+                type="text"
+                value={holidayForm.TenNgayLe}
+                onChange={(e) => setHolidayForm({ ...holidayForm, TenNgayLe: e.target.value })}
+                style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+              />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: 4 }}>Ngày:</label>
+              <input
+                type="date"
+                value={holidayForm.Ngay}
+                onChange={(e) => setHolidayForm({ ...holidayForm, Ngay: e.target.value })}
+                style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+              />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: 4 }}>Hệ số lương:</label>
+              <input
+                type="number"
+                step="0.1"
+                value={holidayForm.HeSoLuong}
+                onChange={(e) => setHolidayForm({ ...holidayForm, HeSoLuong: parseFloat(e.target.value) })}
+                style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+              />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: 4 }}>Loại ngày lễ:</label>
+              <select
+                value={holidayForm.LoaiNgayLe}
+                onChange={(e) => setHolidayForm({ ...holidayForm, LoaiNgayLe: e.target.value })}
+                style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+              >
+                <option value="Quoc_gia">Quốc gia</option>
+                <option value="Tet">Tết</option>
+                <option value="Khac">Khác</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: 4 }}>Ghi chú:</label>
+              <textarea
+                value={holidayForm.GhiChu}
+                onChange={(e) => setHolidayForm({ ...holidayForm, GhiChu: e.target.value })}
+                style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc', minHeight: 60 }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowHolidayModal(false)}
+                style={{
+                  padding: '10px 20px',
+                  border: '1px solid #ccc',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  background: '#fff'
+                }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSaveHoliday}
+                style={{
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  background: '#1976d2',
+                  color: '#fff',
+                  fontWeight: 'bold'
+                }}
               >
                 Lưu
               </button>
             </div>
-            {/* Chọn giờ tăng ca nếu chọn Tăng ca */}
-            {selectedStatus === 'Tăng ca' && (
-              <div style={{ marginBottom: 8 }}>
-                Giờ tăng ca:
-                {[1, 2, 3, 4].map((h) => (
-                  <label key={h} style={{ marginLeft: 8 }}>
-                    <input
-                      type="radio"
-                      name="otHours"
-                      checked={otHours === h}
-                      onChange={() => setOtHours(h)}
-                    />
-                    {h} Giờ
-                  </label>
-                ))}
-              </div>
-            )}
-
-            {/* Form tính lương */}
-            <div style={{ marginTop: 24 }}>
-              <button
-                className="salary-btn"
-                onClick={fetchSalary}
-                style={{ background: '#1976d2', color: '#fff', fontWeight: 'bold', marginBottom: 8 }}
-                disabled={!selectedEmployee}
-              >
-                Tính lương tháng này
-              </button>
-              {loadingSalary && <div>Đang tính lương...</div>}
-              {salaryInfo && (
-                <div>
-                  <table className="salary-info-table">
-                    <tbody>
-                      <tr>
-                        <th colSpan={2}>Lương tháng {month}/{year} của {salaryInfo.TenNV}</th>
-                      </tr>
-                      <tr>
-                        <td>Số ngày làm</td>
-                        <td>{salaryInfo.soNgayLam}</td>
-                      </tr>
-                      <tr>
-                        <td>Số giờ tăng ca</td>
-                        <td>{salaryInfo.soGioTangCa}</td>
-                      </tr>
-                      <tr>
-                        <td>Số ngày nghỉ không phép</td>
-                        <td>{salaryInfo.soNgayNghiKhongPhep}</td>
-                      </tr>
-                      <tr>
-                        <td>Số ngày đi trễ/về sớm</td>
-                        <td>{salaryInfo.soNgayDiTre}</td>
-                      </tr>
-                      <tr>
-                        <td>Số ngày nghỉ thai sản</td>
-                        <td>{salaryInfo.SoNgayThaiSan || 0}</td>
-                      </tr>
-                      <tr>
-                        <td>Số ngày nghỉ ốm/bảo hiểm</td>
-                        <td>{salaryInfo.SoNgayOmDau || 0}</td>
-                      </tr>
-                      <tr>
-                        <td>Lương cơ bản</td>
-                        <td>{salaryInfo.luong_co_ban?.toLocaleString()} đ</td>
-                      </tr>
-                      <tr>
-                        <td>
-                          Phụ cấp
-                          {salaryInfo.trang_thai !== 'Da_tra' && (
-                            <input
-                              type="number"
-                              value={salaryInfo.phu_cap}
-                              min={0}
-                              style={{ width: 100, marginLeft: 8 }}
-                              onChange={handlePhuCapChange}
-                            />
-                          )}
-                        </td>
-                        <td>{salaryInfo.phu_cap?.toLocaleString()} đ</td>
-                      </tr>
-                      <tr>
-                        <td>
-                          Thưởng
-                          {salaryInfo.duDieuKienThuong && salaryInfo.trang_thai !== 'Da_tra' && (
-                            <input
-                              type="number"
-                              value={salaryInfo.thuong}
-                              min={0}
-                              style={{ width: 100, marginLeft: 8 }}
-                              onChange={handleThuongChange}
-                              placeholder="Nhập thưởng"
-                            />
-                          )}
-                          {!salaryInfo.duDieuKienThuong && (
-                            <span style={{ marginLeft: 8, color: '#f44336', fontSize: 12 }}>
-                              (Không đủ điều kiện - có nghỉ/trễ)
-                            </span>
-                          )}
-                        </td>
-                        <td>{salaryInfo.thuong?.toLocaleString()} đ</td>
-                      </tr>
-                      <tr>
-                        <td>Phạt</td>
-                        <td>{salaryInfo.phat?.toLocaleString()} đ</td>
-                      </tr>
-                      <tr>
-                        <td className="salary-total">Tổng lương</td>
-                        <td className="salary-total">{getTongLuong().toLocaleString()} đ</td>
-                      </tr>
-                      <tr>
-                        <td>Trạng thái</td>
-                        <td className="salary-status">{salaryInfo.trang_thai === 'Da_tra' ? 'Đã chi trả' : 'Chưa chi trả'}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  {/* Nút cập nhật trạng thái đã chi trả */}
-                  {salaryInfo.trang_thai !== 'Da_tra' && (
-                    <button
-                      style={{
-                        marginTop: 12,
-                        background: '#388e3c',
-                        color: '#fff',
-                        fontWeight: 'bold',
-                        padding: '8px 18px',
-                        border: 'none',
-                        borderRadius: 4,
-                        cursor: 'pointer'
-                      }}
-                      onClick={handlePaySalary}
-                    >
-                      Xác nhận chi trả lương
-                    </button>
-                  )}
-                  {/* Nút in phiếu lương (luôn cho in khi có salaryInfo) */}
-                  {/* In phiếu lương đã được loại bỏ; chỉ giữ nút Tải PDF dưới mẫu mới */}
-                  <button
-                    style={{
-                      marginTop: 12,
-                      marginLeft: 12,
-                      background: '#6a1b9a',
-                      color: '#fff',
-                      fontWeight: 'bold',
-                      padding: '8px 18px',
-                      border: 'none',
-                      borderRadius: 4,
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => handleDownloadPayslipPdf(salaryInfo)}
-                    disabled={!salaryInfo}
-                  >
-                    Tải PDF
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Modal: History */}
+      {showHistoryModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }} onClick={() => setShowHistoryModal(false)}>
+          <div style={{
+            background: '#fff',
+            padding: 24,
+            borderRadius: 8,
+            maxWidth: 900,
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }} onClick={(e) => e.stopPropagation()}>
+            <h3>Lịch sử chỉnh sửa - MaCC: {selectedMaCC}</h3>
+            {loadingHistory ? (
+              <div>Đang tải lịch sử...</div>
+            ) : historyData.length === 0 ? (
+              <div>Không có lịch sử chỉnh sửa</div>
+            ) : (
+              <table style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Ngày sửa</th>
+                    <th>Người sửa</th>
+                    <th>Lý do</th>
+                    <th>Thay đổi</th>
+                    <th>IP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyData.map((h) => (
+                    <tr key={h.MaLS}>
+                      <td>{new Date(h.NgaySua).toLocaleString('vi-VN')}</td>
+                      <td>{h.TenTK}<br/><small>{h.Email}</small></td>
+                      <td>{h.LyDo}</td>
+                      <td style={{ fontSize: 12 }}>
+                        <div><strong>Trước:</strong></div>
+                        <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{JSON.stringify(h.TruocKhi, null, 2)}</pre>
+                        <div><strong>Sau:</strong></div>
+                        <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{JSON.stringify(h.SauKhi, null, 2)}</pre>
+                      </td>
+                      <td>{h.DiaChi_IP}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <button
+              onClick={() => setShowHistoryModal(false)}
+              style={{
+                marginTop: 16,
+                padding: '10px 20px',
+                border: 'none',
+                borderRadius: 4,
+                cursor: 'pointer',
+                background: '#1976d2',
+                color: '#fff',
+                fontWeight: 'bold'
+              }}
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

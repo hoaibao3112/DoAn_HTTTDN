@@ -1,6 +1,37 @@
 import pool from '../config/connectDatabase.js';
 import { logActivity } from '../utils/auditLogger.js';
 
+// ======================= HELPER FUNCTIONS =======================
+
+// Kiểm tra giờ check-in hợp lệ (trong khoảng cho phép)
+const isValidCheckInTime = (checkTime, shiftStart) => {
+    const checkDate = new Date(`1970-01-01T${checkTime}`);
+    const shiftDate = new Date(`1970-01-01T${shiftStart}`);
+    const earlyLimit = new Date(shiftDate.getTime() - 2 * 60 * 60 * 1000); // 2h trước
+    const lateLimit = new Date(shiftDate.getTime() + 4 * 60 * 60 * 1000); // 4h sau
+    return checkDate >= earlyLimit && checkDate <= lateLimit;
+};
+
+// Tính số phút làm việc (xử lý qua đêm)
+const calculateWorkMinutes = (gioVao, gioRa) => {
+    const [hourIn, minIn] = gioVao.split(':').map(Number);
+    const [hourOut, minOut] = gioRa.split(':').map(Number);
+    let totalMinutes = (hourOut * 60 + minOut) - (hourIn * 60 + minIn);
+    
+    // Xử lý qua đêm
+    if (totalMinutes < 0) {
+        totalMinutes += 24 * 60;
+    }
+    
+    return totalMinutes;
+};
+
+// Kiểm tra ngày lễ
+const isHoliday = async (date) => {
+    const [rows] = await pool.query('SELECT HeSoLuong FROM ngay_le WHERE Ngay = ?', [date]);
+    return rows.length > 0 ? rows[0].HeSoLuong : null;
+};
+
 const attendanceController = {
     // ======================= GET ATTENDANCE RECORDS =======================
     getAllAttendance: async (req, res) => {
@@ -95,20 +126,34 @@ const attendanceController = {
         try {
             // Get employee MaNV and their assigned Shift (MaCa)
             const [emp] = await pool.query(
-                `SELECT nv.MaNV, nv.MaCa, ca.GioBatDau 
+                `SELECT nv.MaNV, nv.MaCa, ca.GioBatDau, nv.TinhTrang 
                  FROM nhanvien nv 
                  LEFT JOIN ca_lam_viec ca ON nv.MaCa = ca.MaCa 
-                 WHERE nv.MaTK = ?`,
+                 WHERE nv.MaTK = ? AND nv.TinhTrang = 1`,
                 [req.user.MaTK]
             );
 
             if (emp.length === 0) {
-                return res.status(400).json({ success: false, message: 'Nhân viên không tồn tại' });
+                return res.status(400).json({ success: false, message: 'Nhân viên không tồn tại hoặc đã nghỉ việc' });
             }
 
             const { MaNV, MaCa, GioBatDau } = emp[0];
             const checkDate = Ngay || new Date().toISOString().split('T')[0];
             const checkTime = GioVao || new Date().toTimeString().split(' ')[0];
+
+            // Validate: Không được chấm công cho ngày tương lai
+            if (new Date(checkDate) > new Date(new Date().toISOString().split('T')[0])) {
+                return res.status(400).json({ success: false, message: 'Không thể chấm công cho ngày tương lai' });
+            }
+
+            // Validate: Giờ check-in phải trong khoảng hợp lệ
+            const threshold = GioBatDau || '08:30:00';
+            if (!isValidCheckInTime(checkTime, threshold)) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Giờ chấm công không hợp lệ. Chỉ được chấm trong khoảng 2h trước đến 4h sau giờ vào ca' 
+                });
+            }
 
             // Check if already checked in today
             const [existing] = await pool.query(
@@ -124,21 +169,37 @@ const attendanceController = {
             }
 
             // Determine status (Late if after Shift start time)
-            // Default to 08:30 if no shift found (legacy/fallback)
-            const threshold = GioBatDau || '08:30:00';
             const TrangThai = checkTime > threshold ? 'Tre' : 'Di_lam';
+            
+            // Kiểm tra ngày lễ
+            const heSoNgayLe = await isHoliday(checkDate);
 
             const [result] = await pool.query(
-                `INSERT INTO cham_cong (MaNV, MaCa, Ngay, GioVao, TrangThai, GhiChu, CreatedBy)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [MaNV, MaCa || 1, checkDate, checkTime, TrangThai, GhiChu, req.user.TenTK]
+                `INSERT INTO cham_cong (MaNV, MaCa, Ngay, GioVao, TrangThai, GhiChu, CreatedBy, DiaChi_IP)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [MaNV, MaCa || 1, checkDate, checkTime, TrangThai, GhiChu, req.user.TenTK, req.ip]
             );
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'CheckIn',
+                BangDuLieu: 'cham_cong',
+                MaBanGhi: result.insertId,
+                DuLieuMoi: { MaNV, Ngay: checkDate, GioVao: checkTime, TrangThai },
+                DiaChi_IP: req.ip
+            });
 
             res.json({
                 success: true,
                 MaCC: result.insertId,
                 message: TrangThai === 'Tre' ? 'Chấm công thành công (Đi trễ)' : 'Chấm công thành công',
-                data: { Ngay: checkDate, GioVao: checkTime, TrangThai, MaCa: MaCa || 1 }
+                data: { 
+                    Ngay: checkDate, 
+                    GioVao: checkTime, 
+                    TrangThai, 
+                    MaCa: MaCa || 1,
+                    NgayLe: heSoNgayLe ? true : false
+                }
             });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -151,9 +212,9 @@ const attendanceController = {
 
         try {
             // Get employee MaNV
-            const [emp] = await pool.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
+            const [emp] = await pool.query('SELECT MaNV FROM nhanvien WHERE MaTK = ? AND TinhTrang = 1', [req.user.MaTK]);
             if (emp.length === 0) {
-                return res.status(400).json({ success: false, message: 'Nhân viên không tồn tại' });
+                return res.status(400).json({ success: false, message: 'Nhân viên không tồn tại hoặc đã nghỉ việc' });
             }
 
             const MaNV = emp[0].MaNV;
@@ -185,47 +246,79 @@ const attendanceController = {
 
             const record = attendance[0];
 
-            // Calculate work hours
+            // Calculate work hours with proper overnight handling
             const gioVao = record.GioVao;
             if (!gioVao) {
                 return res.status(400).json({ success: false, message: 'Dữ liệu chấm công vào bị thiếu (GioVao null)' });
             }
-            const [hourIn, minIn] = gioVao.split(':').map(Number);
-            const [hourOut, minOut] = checkTime.split(':').map(Number);
 
-            let totalMinutes = (hourOut * 60 + minOut) - (hourIn * 60 + minIn);
+            let totalMinutes = calculateWorkMinutes(gioVao, checkTime);
+
+            // Validate: Số giờ làm không quá 16 giờ (trừ trường hợp đặc biệt)
+            if (totalMinutes > 960) { // 16 hours
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Số giờ làm việc bất thường (>16 giờ). Vui lòng kiểm tra lại thời gian.' 
+                });
+            }
 
             // Automatic break deduction: if work > 5 hours, subtract PhutNghi
             let breakMinutes = 0;
             if (totalMinutes > 300) { // 5 hours = 300 minutes
-                breakMinutes = record.PhutNghi || 0;
+                breakMinutes = record.PhutNghi || 60; // Mặc định 60 phút nếu không có
                 totalMinutes -= breakMinutes;
             }
 
             const soGioLam = (totalMinutes / 60).toFixed(2);
 
-            // Determine if "Ve sớm"
-            let transitionStatus = record.TrangThai;
+            // Validate SoGioTangCa
+            const validatedOT = SoGioTangCa || 0;
+            if (validatedOT < 0 || validatedOT > 12) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Số giờ tăng ca không hợp lệ (phải từ 0-12 giờ)' 
+                });
+            }
+
+            // Determine status: Kết hợp trạng thái vào và ra
+            let finalStatus = record.TrangThai; // Giữ trạng thái vào (Tre hoặc Di_lam)
+            
             if (record.GioKetThuc && checkTime < record.GioKetThuc) {
-                // If it was "Di_lam" (on time) but now "Ve_som"
-                // Or if it was already "Tre", it stays "Tre" but we could append "Ve_som" if we wanted.
-                // For simplicity, if they leave early, we mark it as "Ve_som" unless they were already "Tre"
-                if (transitionStatus === 'Di_lam') {
-                    transitionStatus = 'Ve_som';
+                // Về sớm
+                if (finalStatus === 'Tre') {
+                    finalStatus = 'Tre_Ve_som'; // Đi trễ VÀ về sớm
+                } else {
+                    finalStatus = 'Ve_som';
                 }
             }
 
             await pool.query(
                 `UPDATE cham_cong 
-                 SET GioRa = ?, SoGioLam = ?, SoGioTangCa = ?, TrangThai = ?, GhiChu = COALESCE(?, GhiChu)
+                 SET GioRa = ?, SoGioLam = ?, SoGioTangCa = ?, TrangThai = ?, GhiChu = COALESCE(?, GhiChu), DiaChi_IP = ?
                  WHERE MaCC = ?`,
-                [checkTime, soGioLam, SoGioTangCa || 0, transitionStatus, GhiChu, record.MaCC]
+                [checkTime, soGioLam, validatedOT, finalStatus, GhiChu, req.ip, record.MaCC]
             );
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'CheckOut',
+                BangDuLieu: 'cham_cong',
+                MaBanGhi: record.MaCC,
+                DuLieuMoi: { GioRa: checkTime, SoGioLam: soGioLam, TrangThai: finalStatus },
+                DiaChi_IP: req.ip
+            });
 
             res.json({
                 success: true,
-                message: transitionStatus === 'Ve_som' ? 'Chấm công ra thành công (Về sớm)' : 'Chấm công ra thành công',
-                data: { Ngay: checkDate, GioRa: checkTime, SoGioLam: soGioLam, TrangThai: transitionStatus }
+                message: finalStatus.includes('Ve_som') ? 'Chấm công ra thành công (Về sớm)' : 'Chấm công ra thành công',
+                data: { 
+                    Ngay: checkDate, 
+                    GioRa: checkTime, 
+                    SoGioLam: soGioLam, 
+                    SoGioTangCa: validatedOT,
+                    TrangThai: finalStatus,
+                    PhutNghiTru: breakMinutes
+                }
             });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -304,12 +397,50 @@ const attendanceController = {
     // ======================= UPDATE ATTENDANCE =======================
     updateAttendance: async (req, res) => {
         const { id } = req.params;
-        const { GioVao, GioRa, SoGioLam, SoGioTangCa, TrangThai, GhiChu } = req.body;
+        const { GioVao, GioRa, SoGioLam, SoGioTangCa, TrangThai, GhiChu, LyDoSua } = req.body;
 
         try {
             const [oldData] = await pool.query('SELECT * FROM cham_cong WHERE MaCC = ?', [id]);
             if (oldData.length === 0) {
                 return res.status(404).json({ success: false, message: 'Bản ghi chấm công không tồn tại' });
+            }
+
+            const old = oldData[0];
+
+            // Validate: Chỉ cho phép sửa trong 30 ngày (trừ admin)
+            const daysDiff = Math.floor((new Date() - new Date(old.Ngay)) / (1000 * 60 * 60 * 24));
+            if (daysDiff > 30 && req.user.MaNQ !== 1) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'Chỉ được sửa chấm công trong 30 ngày gần đây' 
+                });
+            }
+
+            // Validate: Bắt buộc nhập lý do khi sửa
+            if (!LyDoSua || LyDoSua.trim() === '') {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Vui lòng nhập lý do chỉnh sửa' 
+                });
+            }
+
+            // Validate số giờ tăng ca
+            if (SoGioTangCa && (SoGioTangCa < 0 || SoGioTangCa > 12)) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Số giờ tăng ca không hợp lệ (0-12)' 
+                });
+            }
+
+            // Tính lại số giờ làm nếu có thay đổi giờ vào/ra
+            let finalSoGioLam = SoGioLam;
+            if ((GioVao && GioVao !== old.GioVao) || (GioRa && GioRa !== old.GioRa)) {
+                const vao = GioVao || old.GioVao;
+                const ra = GioRa || old.GioRa;
+                if (vao && ra) {
+                    const minutes = calculateWorkMinutes(vao, ra);
+                    finalSoGioLam = (minutes / 60).toFixed(2);
+                }
             }
 
             await pool.query(
@@ -319,9 +450,24 @@ const attendanceController = {
                      SoGioLam = COALESCE(?, SoGioLam), 
                      SoGioTangCa = COALESCE(?, SoGioTangCa), 
                      TrangThai = COALESCE(?, TrangThai), 
-                     GhiChu = COALESCE(?, GhiChu)
+                     GhiChu = COALESCE(?, GhiChu),
+                     NguoiSuaCuoi = ?
                  WHERE MaCC = ?`,
-                [GioVao, GioRa, SoGioLam, SoGioTangCa, TrangThai, GhiChu, id]
+                [GioVao, GioRa, finalSoGioLam, SoGioTangCa, TrangThai, GhiChu, req.user.MaTK, id]
+            );
+
+            // Lưu lịch sử chỉnh sửa
+            await pool.query(
+                `INSERT INTO lich_su_cham_cong (MaCC, NguoiSua, TruocKhi, SauKhi, LyDo, DiaChi_IP)
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                    id,
+                    req.user.MaTK,
+                    JSON.stringify(old),
+                    JSON.stringify({ GioVao, GioRa, SoGioLam: finalSoGioLam, SoGioTangCa, TrangThai, GhiChu }),
+                    LyDoSua,
+                    req.ip
+                ]
             );
 
             await logActivity({
@@ -329,8 +475,8 @@ const attendanceController = {
                 HanhDong: 'Sua',
                 BangDuLieu: 'cham_cong',
                 MaBanGhi: id,
-                DuLieuCu: JSON.stringify(oldData[0]),
-                DuLieuMoi: JSON.stringify({ GioVao, GioRa, TrangThai }),
+                DuLieuCu: JSON.stringify(old),
+                DuLieuMoi: JSON.stringify({ GioVao, GioRa, TrangThai, LyDoSua }),
                 DiaChi_IP: req.ip
             });
 
@@ -442,6 +588,243 @@ const attendanceController = {
             });
 
             res.json(result); // Return array directly as expected by frontend
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // ======================= ATTENDANCE HISTORY =======================
+    getAttendanceHistory: async (req, res) => {
+        const { MaCC } = req.params;
+        const { page = 1, pageSize = 20 } = req.query;
+        const offset = (page - 1) * pageSize;
+
+        try {
+            const [history] = await pool.query(
+                `SELECT ls.*, tk.TenTK, tk.Email
+                 FROM lich_su_cham_cong ls
+                 JOIN taikhoan tk ON ls.NguoiSua = tk.MaTK
+                 WHERE ls.MaCC = ?
+                 ORDER BY ls.NgaySua DESC
+                 LIMIT ? OFFSET ?`,
+                [MaCC, parseInt(pageSize), offset]
+            );
+
+            const [total] = await pool.query(
+                'SELECT COUNT(*) as total FROM lich_su_cham_cong WHERE MaCC = ?',
+                [MaCC]
+            );
+
+            res.json({
+                success: true,
+                data: history.map(h => ({
+                    ...h,
+                    TruocKhi: JSON.parse(h.TruocKhi),
+                    SauKhi: JSON.parse(h.SauKhi)
+                })),
+                pagination: {
+                    page: parseInt(page),
+                    pageSize: parseInt(pageSize),
+                    total: total[0].total
+                }
+            });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // ======================= ABNORMAL ATTENDANCE REPORT =======================
+    getAbnormalReport: async (req, res) => {
+        const { year, month, MaNV } = req.query;
+
+        try {
+            let whereClause = 'WHERE 1=1';
+            const params = [];
+
+            if (year) {
+                whereClause += ' AND Nam = ?';
+                params.push(year);
+            }
+            if (month) {
+                whereClause += ' AND Thang = ?';
+                params.push(month);
+            }
+            if (MaNV) {
+                whereClause += ' AND MaNV = ?';
+                params.push(MaNV);
+            }
+
+            const [report] = await pool.query(
+                `SELECT * FROM v_cham_cong_bat_thuong ${whereClause} ORDER BY MaNV`,
+                params
+            );
+
+            res.json({ success: true, data: report });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // ======================= AUTO MARK ABSENT (Manual Trigger) =======================
+    manualMarkAbsent: async (req, res) => {
+        const { Ngay } = req.body;
+
+        if (!Ngay) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Thiếu tham số: Ngay (định dạng YYYY-MM-DD)' 
+            });
+        }
+
+        try {
+            await pool.query('CALL sp_auto_mark_absent(?)', [Ngay]);
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'ManualMarkAbsent',
+                BangDuLieu: 'cham_cong',
+                DuLieuMoi: { Ngay },
+                DiaChi_IP: req.ip
+            });
+
+            res.json({ 
+                success: true, 
+                message: `Đã tự động đánh vắng mặt cho ngày ${Ngay}` 
+            });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // ======================= HOLIDAY MANAGEMENT (CRUD) =======================
+    getAllHolidays: async (req, res) => {
+        const { year } = req.query;
+
+        try {
+            let whereClause = '';
+            const params = [];
+
+            if (year) {
+                whereClause = 'WHERE YEAR(Ngay) = ?';
+                params.push(year);
+            }
+
+            const [holidays] = await pool.query(
+                `SELECT * FROM ngay_le ${whereClause} ORDER BY Ngay`,
+                params
+            );
+
+            res.json({ success: true, data: holidays });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    createHoliday: async (req, res) => {
+        const { TenNgayLe, Ngay, HeSoLuong, LoaiNgayLe, GhiChu } = req.body;
+
+        if (!TenNgayLe || !Ngay) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu thông tin: TenNgayLe, Ngay là bắt buộc'
+            });
+        }
+
+        try {
+            const [result] = await pool.query(
+                `INSERT INTO ngay_le (TenNgayLe, Ngay, HeSoLuong, LoaiNgayLe, GhiChu)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [TenNgayLe, Ngay, HeSoLuong || 2.0, LoaiNgayLe || 'Khac', GhiChu]
+            );
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Them',
+                BangDuLieu: 'ngay_le',
+                MaBanGhi: result.insertId,
+                DuLieuMoi: { TenNgayLe, Ngay, HeSoLuong },
+                DiaChi_IP: req.ip
+            });
+
+            res.json({ 
+                success: true, 
+                MaNgayLe: result.insertId, 
+                message: 'Thêm ngày lễ thành công' 
+            });
+        } catch (error) {
+            if (error.code === 'ER_DUP_ENTRY') {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Ngày lễ này đã tồn tại' 
+                });
+            }
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    updateHoliday: async (req, res) => {
+        const { id } = req.params;
+        const { TenNgayLe, Ngay, HeSoLuong, LoaiNgayLe, GhiChu } = req.body;
+
+        try {
+            const [result] = await pool.query(
+                `UPDATE ngay_le 
+                 SET TenNgayLe = COALESCE(?, TenNgayLe), 
+                     Ngay = COALESCE(?, Ngay), 
+                     HeSoLuong = COALESCE(?, HeSoLuong), 
+                     LoaiNgayLe = COALESCE(?, LoaiNgayLe), 
+                     GhiChu = COALESCE(?, GhiChu)
+                 WHERE MaNgayLe = ?`,
+                [TenNgayLe, Ngay, HeSoLuong, LoaiNgayLe, GhiChu, id]
+            );
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ 
+                    success: false, 
+                    message: 'Ngày lễ không tồn tại' 
+                });
+            }
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'ngay_le',
+                MaBanGhi: id,
+                DuLieuMoi: { TenNgayLe, Ngay, HeSoLuong },
+                DiaChi_IP: req.ip
+            });
+
+            res.json({ success: true, message: 'Cập nhật ngày lễ thành công' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    deleteHoliday: async (req, res) => {
+        const { id } = req.params;
+
+        try {
+            const [result] = await pool.query(
+                'DELETE FROM ngay_le WHERE MaNgayLe = ?',
+                [id]
+            );
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ 
+                    success: false, 
+                    message: 'Ngày lễ không tồn tại' 
+                });
+            }
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Xoa',
+                BangDuLieu: 'ngay_le',
+                MaBanGhi: id,
+                DiaChi_IP: req.ip
+            });
+
+            res.json({ success: true, message: 'Xóa ngày lễ thành công' });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }
