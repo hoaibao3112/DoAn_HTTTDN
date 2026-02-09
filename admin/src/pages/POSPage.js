@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import axios from 'axios';
 import { Html5Qrcode, Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import html2pdf from 'html2pdf.js';
 import { PermissionContext } from '../components/PermissionContext';
 import { FEATURES } from '../constants/permissions';
 import '../styles/POSPage.css';
@@ -39,6 +40,11 @@ const POSPage = () => {
     const html5QrcodeScannerRef = useRef(null);
     const [showPromotions, setShowPromotions] = useState(false);
     const [promotionDiscount, setPromotionDiscount] = useState(0);
+
+    // INVOICE RECEIPT
+    const [showInvoiceReceipt, setShowInvoiceReceipt] = useState(false);
+    const [completedInvoice, setCompletedInvoice] = useState(null);
+    const [showSuccessNotification, setShowSuccessNotification] = useState(false);
 
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
     const cashierName = userInfo.HoTen || 'Nguyễn Văn A';
@@ -514,18 +520,21 @@ const POSPage = () => {
 
             const invoiceData = {
                 MaKH: customer?.MaKH || null,
-                items: cart.map(item => ({
+                MaCH: session?.MaCH || 1, // Use session branch or default to 1
+                MaPhien: session?.MaPhien || null,
+                ChiTiet: cart.map(item => ({
                     MaSP: item.MaSP,
                     SoLuong: item.quantity,
                     DonGia: item.DonGia,
                     GiamGia: 0
                 })),
+                GiamGia: promotionDiscount || 0,
+                DiemSuDung: 0,
                 PhuongThucTT: paymentMethod === 'cash' ? 'Tien_mat' :
                     paymentMethod === 'vnpay' ? 'VNPay' :
                         paymentMethod === 'momo' ? 'MoMo' :
                             paymentMethod === 'zalopay' ? 'ZaloPay' : 'The',
-                TienKhachDua: parseFloat(customerGiven) || calculateTotal(),
-                DiemSuDung: 0
+                TienKhachDua: parseFloat(customerGiven) || calculateTotal()
             };
 
             const response = await axios.post(
@@ -559,9 +568,41 @@ const POSPage = () => {
                     }
                 }
 
-                alert(`Thanh toán thành công! Mã hóa đơn: ${MaHD || 'N/A'}`);
+                // Show success notification first
+                setShowSuccessNotification(true);
 
-                // Reset
+                // Prepare invoice data for display
+                const invoiceDetails = {
+                    MaHD: MaHD,
+                    NgayBan: new Date().toLocaleString('vi-VN'),
+                    NhanVien: cashierName,
+                    KhachHang: customer?.HoTen || customer?.TenKH || 'Khách lẻ',
+                    SDT: customer?.SDT || '',
+                    items: cart.map(item => ({
+                        TenSP: item.TenSP,
+                        SoLuong: item.quantity,
+                        DonGia: item.DonGia,
+                        ThanhTien: item.DonGia * item.quantity
+                    })),
+                    TongTien: calculateSubtotal(),
+                    GiamGia: promotionDiscount,
+                    ThanhToan: calculateTotal(),
+                    PhuongThucTT: paymentMethod === 'cash' ? 'Tiền mặt' :
+                        paymentMethod === 'vnpay' ? 'VNPay' :
+                        paymentMethod === 'momo' ? 'MoMo' :
+                        paymentMethod === 'zalopay' ? 'ZaloPay' : 'Thẻ',
+                    TienKhachDua: parseFloat(customerGiven) || calculateTotal(),
+                    TienThua: paymentMethod === 'cash' ? calculateChange() : 0
+                };
+
+                // Wait for notification animation, then show invoice
+                setTimeout(() => {
+                    setShowSuccessNotification(false);
+                    setCompletedInvoice(invoiceDetails);
+                    setShowInvoiceReceipt(true);
+                }, 1500);
+
+                // Reset cart and form
                 setCart([]);
                 setCustomer(null);
                 setCustomerSearch('');
@@ -571,9 +612,6 @@ const POSPage = () => {
                 setPromotionDiscount(0);
                 setVoucherCode('');
                 setAvailablePromotions([]);
-
-                // Print receipt (optional)
-                printReceipt(response.data);
             }
         } catch (error) {
             console.error('Error creating invoice:', error);
@@ -583,9 +621,19 @@ const POSPage = () => {
         }
     };
 
-    const printReceipt = (invoiceData) => {
-        console.log('Print receipt:', invoiceData);
-        alert('In hóa đơn - Chức năng đang phát triển');
+    const printReceipt = () => {
+        const printContent = document.getElementById('invoice-receipt-print');
+        if (!printContent) return;
+
+        const opt = {
+            margin: [10, 10, 10, 10],
+            filename: `HoaDon_${completedInvoice?.MaHD || 'HD'}_${new Date().getTime()}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(printContent).save();
     };
 
     const filteredProducts = products.filter(p => {
@@ -950,6 +998,109 @@ const POSPage = () => {
                                 <li>Giữ yên, camera sẽ tự động quét</li>
                             </ol>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Invoice Receipt Modal */}
+            {showInvoiceReceipt && completedInvoice && (
+                <div className="invoice-receipt-modal" onClick={() => setShowInvoiceReceipt(false)}>
+                    <div className="invoice-receipt-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="invoice-receipt-actions">
+                            <button className="btn-print" onClick={printReceipt}>
+                                <span className="material-icons">print</span>
+                                In hóa đơn
+                            </button>
+                            <button className="btn-close-receipt" onClick={() => setShowInvoiceReceipt(false)}>
+                                <span className="material-icons">close</span>
+                            </button>
+                        </div>
+
+                        <div id="invoice-receipt-print">
+                            <div className="receipt-header">
+                                <h2>NHÀ SÁCH FAHASA</h2>
+                                <p>Địa chỉ: 123 Nguyễn Huệ, Q.1, TP.HCM</p>
+                                <p>Điện thoại: 0123 456 789</p>
+                                <h3 style={{ marginTop: '15px' }}>HÓA ĐƠN BÁN HÀNG</h3>
+                            </div>
+
+                            <div className="receipt-info">
+                                <p><strong>Mã hóa đơn:</strong> #{completedInvoice.MaHD}</p>
+                                <p><strong>Ngày:</strong> {completedInvoice.NgayBan}</p>
+                                <p><strong>Nhân viên:</strong> {completedInvoice.NhanVien}</p>
+                                <p><strong>Khách hàng:</strong> {completedInvoice.KhachHang}</p>
+                                {completedInvoice.SDT && <p><strong>SĐT:</strong> {completedInvoice.SDT}</p>}
+                                <p><strong>Phương thức:</strong> {completedInvoice.PhuongThucTT}</p>
+                            </div>
+
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Sản phẩm</th>
+                                        <th className="text-right">SL</th>
+                                        <th className="text-right">Đơn giá</th>
+                                        <th className="text-right">Thành tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {completedInvoice.items.map((item, index) => (
+                                        <tr key={index}>
+                                            <td>{item.TenSP}</td>
+                                            <td className="text-right">{item.SoLuong}</td>
+                                            <td className="text-right">{item.DonGia.toLocaleString()}đ</td>
+                                            <td className="text-right">{item.ThanhTien.toLocaleString()}đ</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+
+                            <div className="total-section">
+                                <div className="total-row">
+                                    <span>Tổng tiền:</span>
+                                    <span>{completedInvoice.TongTien.toLocaleString()}đ</span>
+                                </div>
+                                {completedInvoice.GiamGia > 0 && (
+                                    <div className="total-row">
+                                        <span>Giảm giá:</span>
+                                        <span>-{completedInvoice.GiamGia.toLocaleString()}đ</span>
+                                    </div>
+                                )}
+                                <div className="total-row final">
+                                    <span>THÀNH TIỀN:</span>
+                                    <span>{completedInvoice.ThanhToan.toLocaleString()}đ</span>
+                                </div>
+                                {completedInvoice.PhuongThucTT === 'Tiền mặt' && (
+                                    <>
+                                        <div className="total-row">
+                                            <span>Tiền khách đưa:</span>
+                                            <span>{completedInvoice.TienKhachDua.toLocaleString()}đ</span>
+                                        </div>
+                                        <div className="total-row">
+                                            <span>Tiền thừa:</span>
+                                            <span>{completedInvoice.TienThua.toLocaleString()}đ</span>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            <div className="receipt-footer">
+                                <p>Cảm ơn quý khách và hẹn gặp lại!</p>
+                                <p>Hotline: 1900-xxxx</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Success Notification */}
+            {showSuccessNotification && (
+                <div className="success-notification-overlay">
+                    <div className="success-notification">
+                        <div className="success-icon">
+                            <span className="material-icons">check_circle</span>
+                        </div>
+                        <h2>Thanh toán thành công!</h2>
+                        <p>Đang tạo hóa đơn...</p>
                     </div>
                 </div>
             )}

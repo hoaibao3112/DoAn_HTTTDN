@@ -14,7 +14,8 @@ router.post('/sessions/open', checkPermission(FEATURES.POS, PERMISSIONS.CREATE),
 router.post('/sessions/close', checkPermission(FEATURES.POS, PERMISSIONS.UPDATE), salesController.closeSession);
 
 // ======================= 4.2 INVOICING =======================
-router.post('/invoices', checkPermission(FEATURES.INVOICES, PERMISSIONS.CREATE), salesController.createInvoice);
+// POS can create invoices with POS permission, not requiring separate INVOICES permission
+router.post('/invoices', checkPermission(FEATURES.POS, PERMISSIONS.CREATE), salesController.createInvoice);
 
 // ======================= 4.2 CUSTOMER MANAGEMENT (Sales Context) =======================
 router.get('/customers/search', checkPermission(FEATURES.CUSTOMERS, PERMISSIONS.VIEW), async (req, res) => {
