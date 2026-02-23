@@ -56,6 +56,9 @@ const AttendancePage = () => {
   const [abnormalReport, setAbnormalReport] = useState([]);
   const [loadingAbnormal, setLoadingAbnormal] = useState(false);
 
+  // State cho ngày lễ trên lịch chấm công (map: 'YYYY-MM-DD' -> {TenNgayLe, HeSoLuong})
+  const [calendarHolidayMap, setCalendarHolidayMap] = useState({});
+
   // State cho quản lý ngày lễ
   const [holidays, setHolidays] = useState([]);
   const [loadingHolidays, setLoadingHolidays] = useState(false);
@@ -91,6 +94,7 @@ const AttendancePage = () => {
   useEffect(() => {
     if (activeTab === 'calendar') {
       fetchAttendanceData();
+      fetchCalendarHolidays();
     }
   }, [month, year, activeTab]);
 
@@ -108,6 +112,28 @@ const AttendancePage = () => {
       setEmployees([]);
       setSelectedEmployee(null);
       setPendingChanges({});
+    }
+  };
+
+  const fetchCalendarHolidays = async () => {
+    try {
+      const res = await axios.get(
+        `${API_BASE}/holidays?year=${year}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const list = res.data.data || [];
+      const map = {};
+      list.forEach((h) => {
+        const d = new Date(h.Ngay);
+        if (d.getMonth() + 1 === month) {
+          const key = `${year}-${String(month).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          map[key] = { TenNgayLe: h.TenNgayLe, HeSoLuong: h.HeSoLuong };
+        }
+      });
+      setCalendarHolidayMap(map);
+    } catch (err) {
+      console.error('Error fetching calendar holidays:', err);
+      setCalendarHolidayMap({});
     }
   };
 
@@ -522,7 +548,7 @@ const AttendancePage = () => {
                       <tr>
                         {row.map((day) => {
                           const ngay = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                          
+
                           if (isSunday(year, month, day)) {
                             return (
                               <td
@@ -544,19 +570,34 @@ const AttendancePage = () => {
                             );
                           }
 
+                          const holidayInfo = calendarHolidayMap[ngay];
                           const dayData = pendingChanges[ngay] || (selectedEmployee?.days ? selectedEmployee.days[day] : {});
                           const apiStatus = dayData?.TrangThai || dayData?.trang_thai || 'Chua_cham_cong';
+
+                          const workedStatuses = ['Di_lam', 'Tre', 'Ve_som', 'Tre_Ve_som', 'Lam_them'];
+                          const isWorkedOnHoliday = holidayInfo && workedStatuses.includes(apiStatus);
+                          const isRestOnHoliday = holidayInfo && !workedStatuses.includes(apiStatus);
+
+                          let bgColor = statusColors[apiStatus] || '#B0BEC5';
                           let cellText = statusLabels[apiStatus] || '';
-                          
+
+                          // Ngày lễ chưa đi làm → màu đỏ nghỉ lễ
+                          if (isRestOnHoliday) {
+                            bgColor = '#C62828';
+                            if (apiStatus === 'Chua_cham_cong') {
+                              cellText = 'Nghỉ lễ';
+                            }
+                          }
+
                           if (dayData?.SoGioTangCa > 0 || dayData?.so_gio_tang_ca > 0) {
                             cellText += `\n+${dayData.SoGioTangCa || dayData.so_gio_tang_ca}h`;
                           }
-                          
+
                           return (
                             <td
                               key={day}
                               style={{
-                                background: statusColors[apiStatus],
+                                background: bgColor,
                                 color: '#fff',
                                 whiteSpace: 'pre-line',
                                 cursor: 'pointer',
@@ -564,16 +605,38 @@ const AttendancePage = () => {
                                 maxWidth: 80,
                                 fontSize: 16,
                                 padding: 10,
-                                position: 'relative'
+                                position: 'relative',
+                                boxSizing: 'border-box',
+                                border: isWorkedOnHoliday ? '3px solid #C62828' : undefined,
                               }}
                               onClick={() => handleDayClick(day)}
                               onDoubleClick={() => {
                                 const maCC = selectedEmployee?.days?.[day]?.id;
                                 if (maCC) fetchHistory(maCC);
                               }}
-                              title="Nhấp: đánh dấu | Nhấp đúp: xem lịch sử"
+                              title={
+                                holidayInfo
+                                  ? `${holidayInfo.TenNgayLe} (x${holidayInfo.HeSoLuong}) | Nhấp: đánh dấu | Nhấp đúp: xem lịch sử`
+                                  : 'Nhấp: đánh dấu | Nhấp đúp: xem lịch sử'
+                              }
                             >
                               <div style={{ fontWeight: 'bold' }}>{day}</div>
+                              {holidayInfo && (
+                                <div style={{
+                                  fontSize: 9,
+                                  background: 'rgba(0,0,0,0.35)',
+                                  borderRadius: 2,
+                                  padding: '1px 3px',
+                                  marginBottom: 2,
+                                  lineHeight: 1.2,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  maxWidth: 70,
+                                }}>
+                                  🎉 {isWorkedOnHoliday ? `x${holidayInfo.HeSoLuong}` : ''}{holidayInfo.TenNgayLe}
+                                </div>
+                              )}
                               <div style={{ fontSize: 12 }}>{cellText}</div>
                             </td>
                           );
@@ -609,6 +672,16 @@ const AttendancePage = () => {
                       {statusLabels[status]}
                     </button>
                   ))}
+                </div>
+                <div style={{ marginTop: 8, display: 'flex', gap: 12, alignItems: 'center', fontSize: 13 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ display: 'inline-block', width: 16, height: 16, background: '#C62828', borderRadius: 3 }}></span>
+                    Nghỉ lễ (tính 1 ngày lương)
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ display: 'inline-block', width: 16, height: 16, background: '#4CAF50', border: '3px solid #C62828', borderRadius: 3, boxSizing: 'border-box' }}></span>
+                    Đi làm ngày lễ (nhân hệ số lương)
+                  </span>
                 </div>
               </div>
 

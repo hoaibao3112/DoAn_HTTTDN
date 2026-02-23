@@ -496,6 +496,79 @@ router.post('/compute/:year/:month',
     hrController.calculateMonthlySalary
 );
 
+// Lấy bảng lương theo đúng Thang & Nam (chính xác hơn per-month dùng NgayTinh)
+router.get('/salary-detail',
+    checkPermission(FEATURES.SALARY, PERMISSIONS.VIEW),
+    async (req, res) => {
+        const { year, month } = req.query;
+        if (!year || !month) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp year và month' });
+        }
+        try {
+            const [rows] = await pool.query(`
+                SELECT
+                    l.id, l.MaNV, l.Thang, l.Nam,
+                    l.LuongCoBan, l.PhuCap, l.SoNgayLam, l.SoGioTangCa,
+                    l.Thuong, l.Phat, l.TongLuong, l.TrangThai, l.NgayTinh,
+                    nv.HoTen, nv.ChucVu
+                FROM luong l
+                JOIN nhanvien nv ON l.MaNV = nv.MaNV
+                WHERE l.Thang = ? AND l.Nam = ?
+                ORDER BY nv.HoTen
+            `, [month, year]);
+            const summary = rows.reduce((acc, r) => ({
+                TongLuong: acc.TongLuong + parseFloat(r.TongLuong || 0),
+                DaChiTra: acc.DaChiTra + (r.TrangThai === 'Da_chi_tra' ? parseFloat(r.TongLuong || 0) : 0),
+                ChuaChiTra: acc.ChuaChiTra + (r.TrangThai !== 'Da_chi_tra' ? parseFloat(r.TongLuong || 0) : 0),
+                SoNVDaTra: acc.SoNVDaTra + (r.TrangThai === 'Da_chi_tra' ? 1 : 0),
+            }), { TongLuong: 0, DaChiTra: 0, ChuaChiTra: 0, SoNVDaTra: 0 });
+            res.json({ success: true, data: rows, summary, total: rows.length });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+);
+
+// Đánh dấu đã chi trả lương cho 1 nhân viên
+router.put('/salary-pay',
+    checkPermission(FEATURES.SALARY, PERMISSIONS.UPDATE),
+    async (req, res) => {
+        const { MaNV, month, year } = req.body;
+        if (!MaNV || !month || !year) {
+            return res.status(400).json({ success: false, message: 'Thiếu thông tin' });
+        }
+        try {
+            await pool.query(
+                "UPDATE luong SET TrangThai = 'Da_chi_tra' WHERE MaNV = ? AND Thang = ? AND Nam = ?",
+                [MaNV, month, year]
+            );
+            res.json({ success: true, message: 'Đã cập nhật trạng thái chi trả' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+);
+
+// Đánh dấu đã chi trả lương cho toàn bộ nhân viên trong tháng
+router.put('/salary-pay-all',
+    checkPermission(FEATURES.SALARY, PERMISSIONS.UPDATE),
+    async (req, res) => {
+        const { month, year } = req.body;
+        if (!month || !year) {
+            return res.status(400).json({ success: false, message: 'Thiếu thông tin' });
+        }
+        try {
+            const [result] = await pool.query(
+                "UPDATE luong SET TrangThai = 'Da_chi_tra' WHERE Thang = ? AND Nam = ? AND TrangThai = 'Chua_chi_tra'",
+                [month, year]
+            );
+            res.json({ success: true, message: `Đã chi trả cho ${result.affectedRows} nhân viên` });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+);
+
 export default router;
 
 

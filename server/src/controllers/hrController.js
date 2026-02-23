@@ -294,17 +294,23 @@ const hrController = {
             // PayableDays include: Di_lam, Tre, Ve_som, Nghi_phep
             const [employees] = await pool.query('SELECT MaNV, LuongCoBan, PhuCap FROM nhanvien WHERE TinhTrang = 1');
 
+            // Lấy danh sách ngày lễ trong tháng
+            const [holidaysInMonth] = await pool.query(
+                `SELECT Ngay, HeSoLuong FROM ngay_le WHERE MONTH(Ngay) = ? AND YEAR(Ngay) = ?`,
+                [month, year]
+            );
+
             for (const emp of employees) {
                 // Get detailed attendance stats for the month
                 const [stats] = await pool.query(
-                    `SELECT 
+                    `SELECT
                         COUNT(CASE WHEN TrangThai IN ('Di_lam', 'Tre', 'Ve_som', 'Nghi_phep') THEN 1 END) as PayableDays,
                         COUNT(CASE WHEN TrangThai IN ('Tre', 'Ve_som') THEN 1 END) as LateEarlyCount,
                         COUNT(CASE WHEN TrangThai = 'Nghi_khong_phep' THEN 1 END) as UnpaidAbsenceCount,
                         COUNT(CASE WHEN TrangThai = 'Thai_san' THEN 1 END) as MaternityDays,
                         COUNT(CASE WHEN TrangThai = 'Om_dau' THEN 1 END) as SickLeaveDays,
                         SUM(SoGioTangCa) as OT_Hours
-                     FROM cham_cong 
+                     FROM cham_cong
                      WHERE MaNV = ? AND MONTH(Ngay) = ? AND YEAR(Ngay) = ?`,
                     [emp.MaNV, month, year]
                 );
@@ -318,9 +324,35 @@ const hrController = {
                 const dailyRate = base / 26;
                 const hourlyRate = base / 208;
 
+                // Xử lý ngày lễ
+                // - Đi làm ngày lễ: nhân với hệ số lương (thêm (HeSo - 1) * dailyRate)
+                // - Nghỉ lễ (không đi làm): vẫn tính 1 ngày lương bình thường (+1 ngày công)
+                const workedStatuses = ['Di_lam', 'Tre', 'Ve_som', 'Tre_Ve_som'];
+                const alreadyPaidStatuses = ['Di_lam', 'Tre', 'Ve_som', 'Nghi_phep', 'Thai_san', 'Om_dau'];
+
+                let holidayNotWorkedDays = 0;
+                let holidayExtraPay = 0;
+
+                for (const holiday of holidaysInMonth) {
+                    const ngayStr = new Date(holiday.Ngay).toISOString().split('T')[0];
+                    const [attRows] = await pool.query(
+                        'SELECT TrangThai FROM cham_cong WHERE MaNV = ? AND DATE(Ngay) = ?',
+                        [emp.MaNV, ngayStr]
+                    );
+                    const status = attRows[0]?.TrangThai;
+                    if (workedStatuses.includes(status)) {
+                        // Đi làm ngày lễ → thêm (HeSoLuong - 1) * dailyRate
+                        holidayExtraPay += (parseFloat(holiday.HeSoLuong) - 1) * dailyRate;
+                    } else if (!alreadyPaidStatuses.includes(status)) {
+                        // Nghỉ lễ, chưa chấm công hoặc nghỉ không phép → +1 ngày công
+                        holidayNotWorkedDays += 1;
+                    }
+                    // Nếu đã có Nghi_phep/Thai_san/Om_dau trùng ngày lễ → giữ nguyên (đã tính trong PayableDays)
+                }
+
                 // Professional Business Rules:
-                // 1. Base Pay based on actual work + paid leave
-                const basePay = dailyRate * PayableDays;
+                // 1. Base Pay based on actual work + paid leave + holiday days
+                const basePay = dailyRate * (PayableDays + holidayNotWorkedDays) + holidayExtraPay;
 
                 // 2. OT Pay (standard 1.5x)
                 const otPay = OT_Hours * hourlyRate * 1.5;
@@ -328,8 +360,7 @@ const hrController = {
                 // 3. Fines (Late/Early: 20,000 VND per instance)
                 const lateFine = LateEarlyCount * 20000;
 
-                // 4. Bonus: Logic can be added here (currently 0 or manual)
-                // If they work all 26 days without any late/absence, maybe a 200k bonus?
+                // 4. Bonus: If they work all 26 days without any late/absence, maybe a 200k bonus?
                 const diligenceBonus = (PayableDays >= 26 && LateEarlyCount === 0 && UnpaidAbsenceCount === 0) ? 200000 : 0;
 
                 const tongLuong = basePay + parseFloat(emp.PhuCap || 0) + otPay + diligenceBonus - lateFine;
@@ -337,15 +368,15 @@ const hrController = {
                 await pool.query(
                     `INSERT INTO luong (MaNV, Thang, Nam, LuongCoBan, PhuCap, SoNgayLam, SoGioTangCa, Thuong, Phat, TongLuong, TrangThai)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Chua_chi_tra')
-                     ON DUPLICATE KEY UPDATE 
-                        TongLuong = VALUES(TongLuong), 
-                        SoNgayLam = VALUES(SoNgayLam), 
+                     ON DUPLICATE KEY UPDATE
+                        TongLuong = VALUES(TongLuong),
+                        SoNgayLam = VALUES(SoNgayLam),
                         SoGioTangCa = VALUES(SoGioTangCa),
                         Thuong = VALUES(Thuong),
                         Phat = VALUES(Phat)`,
                     [
                         emp.MaNV, month, year, base, emp.PhuCap || 0,
-                        PayableDays, OT_Hours, diligenceBonus, lateFine,
+                        PayableDays + holidayNotWorkedDays, OT_Hours, diligenceBonus, lateFine,
                         Math.round(tongLuong)
                     ]
                 );
