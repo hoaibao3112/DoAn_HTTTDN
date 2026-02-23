@@ -4,6 +4,7 @@ import {
   Modal, Form, Input, Upload, DatePicker, Select, Button
 } from 'antd';
 import dayjs from 'dayjs';
+import html2pdf from 'html2pdf.js';
 
 const API = 'http://localhost:5000/api/hr';
 
@@ -242,6 +243,110 @@ const Profile = () => {
   const hourlyRate = luongCB / 208;
   const basePay = dailyRate * parseFloat(salary?.SoNgayLam || 0);
   const otPay = parseFloat(salary?.SoGioTangCa || 0) * hourlyRate * 1.5;
+
+  const handlePrintPDF = (r) => {
+    const el = document.createElement('div');
+    el.innerHTML = `
+      <div style="font-family:Arial,sans-serif;padding:40px;max-width:620px;margin:0 auto;color:#222;">
+        <div style="text-align:center;margin-bottom:20px;border-bottom:2px solid #1976d2;padding-bottom:16px;">
+          <div style="font-size:13px;color:#888;margin-bottom:4px;">PHIẾU LƯƠNG</div>
+          <div style="font-size:22px;font-weight:900;color:#1565c0;">THÁNG ${r.Thang}/${r.Nam}</div>
+          <div style="font-size:12px;color:#aaa;margin-top:4px;">Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}</div>
+        </div>
+
+        <table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:13px;">
+          <tr>
+            <td style="padding:5px 0;color:#888;width:110px;">Họ và tên:</td>
+            <td style="padding:5px 0;font-weight:700;">${userInfo.HoTen}</td>
+            <td style="padding:5px 0;color:#888;width:90px;">Chức vụ:</td>
+            <td style="padding:5px 0;font-weight:700;">${userInfo.ChucVu || '—'}</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 0;color:#888;">Mã NV:</td>
+            <td style="padding:5px 0;font-weight:700;">${userInfo.MaNV}</td>
+            <td style="padding:5px 0;color:#888;">Ngày công:</td>
+            <td style="padding:5px 0;font-weight:700;color:#1976d2;">${r.SoNgayLam} / 26 ngày</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 0;color:#888;">Tăng ca:</td>
+            <td style="padding:5px 0;font-weight:700;color:#e65100;">${r.SoGioTangCa || 0} giờ</td>
+            <td style="padding:5px 0;color:#888;">Trạng thái:</td>
+            <td style="padding:5px 0;font-weight:700;color:${r.TrangThai === 'Da_chi_tra' ? '#2e7d32' : '#e65100'};">
+              ${r.TrangThai === 'Da_chi_tra' ? '✓ Đã chi trả' : '○ Chưa chi trả'}
+            </td>
+          </tr>
+        </table>
+
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:#1976d2;color:#fff;">
+              <th style="padding:10px 12px;text-align:left;font-weight:700;">Khoản mục</th>
+              <th style="padding:10px 12px;text-align:right;font-weight:700;">Ghi chú</th>
+              <th style="padding:10px 12px;text-align:right;font-weight:700;min-width:110px;">Số tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #f0f0f0;">
+              <td style="padding:9px 12px;">Lương cơ bản (1 tháng)</td>
+              <td style="padding:9px 12px;text-align:right;color:#888;font-size:12px;">Theo hợp đồng</td>
+              <td style="padding:9px 12px;text-align:right;font-weight:700;">${fmt(r.LuongCoBan)}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #f0f0f0;">
+              <td style="padding:9px 12px;color:#1976d2;">+ Lương theo ${r.SoNgayLam} ngày công</td>
+              <td style="padding:9px 12px;text-align:right;color:#888;font-size:12px;">${fmt(parseFloat(r.LuongCoBan) / 26)}/ngày × ${r.SoNgayLam}</td>
+              <td style="padding:9px 12px;text-align:right;font-weight:700;color:#1976d2;">${fmt((parseFloat(r.LuongCoBan) / 26) * r.SoNgayLam)}</td>
+            </tr>
+            ${parseFloat(r.SoGioTangCa || 0) > 0 ? `
+            <tr style="border-bottom:1px solid #f0f0f0;">
+              <td style="padding:9px 12px;color:#e65100;">+ Tăng ca (${r.SoGioTangCa}h × 1.5)</td>
+              <td style="padding:9px 12px;text-align:right;color:#888;font-size:12px;">${fmt(parseFloat(r.LuongCoBan) / 208)}/giờ × ${r.SoGioTangCa}h × 1.5</td>
+              <td style="padding:9px 12px;text-align:right;font-weight:700;color:#e65100;">${fmt(r.SoGioTangCa * (parseFloat(r.LuongCoBan) / 208) * 1.5)}</td>
+            </tr>` : ''}
+            <tr style="border-bottom:1px solid #f0f0f0;">
+              <td style="padding:9px 12px;">+ Phụ cấp</td>
+              <td style="padding:9px 12px;text-align:right;color:#888;font-size:12px;">Phụ cấp cố định</td>
+              <td style="padding:9px 12px;text-align:right;font-weight:700;">${fmt(r.PhuCap)}</td>
+            </tr>
+            ${parseFloat(r.Thuong || 0) > 0 ? `
+            <tr style="border-bottom:1px solid #f0f0f0;">
+              <td style="padding:9px 12px;color:#2e7d32;">+ Thưởng chuyên cần</td>
+              <td style="padding:9px 12px;text-align:right;color:#888;font-size:12px;">Đủ 26 công, 0 lần trễ/vắng</td>
+              <td style="padding:9px 12px;text-align:right;font-weight:700;color:#2e7d32;">${fmt(r.Thuong)}</td>
+            </tr>` : ''}
+            ${parseFloat(r.Phat || 0) > 0 ? `
+            <tr style="border-bottom:1px solid #f0f0f0;">
+              <td style="padding:9px 12px;color:#c62828;">− Khấu trừ (đi trễ/về sớm)</td>
+              <td style="padding:9px 12px;text-align:right;color:#888;font-size:12px;">20.000đ/lần vi phạm</td>
+              <td style="padding:9px 12px;text-align:right;font-weight:700;color:#c62828;">−${fmt(r.Phat)}</td>
+            </tr>` : ''}
+            <tr style="background:#e3f2fd;">
+              <td colspan="2" style="padding:14px 12px;font-weight:700;font-size:15px;color:#0d47a1;">TỔNG LƯƠNG THỰC NHẬN</td>
+              <td style="padding:14px 12px;text-align:right;font-weight:900;font-size:18px;color:#0d47a1;">${fmt(r.TongLuong)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="display:flex;justify-content:space-between;margin-top:36px;font-size:13px;text-align:center;">
+          <div>
+            <div style="color:#888;margin-bottom:44px;">Nhân viên</div>
+            <div style="border-top:1px solid #555;padding-top:4px;min-width:140px;">${userInfo.HoTen}</div>
+          </div>
+          <div>
+            <div style="color:#888;margin-bottom:44px;">Người phụ trách</div>
+            <div style="border-top:1px solid #555;padding-top:4px;min-width:140px;">Ký tên &amp; Đóng dấu</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    html2pdf().set({
+      margin: 12,
+      filename: `PhieuLuong_${userInfo.HoTen.replace(/\s+/g, '_')}_T${r.Thang}_${r.Nam}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(el).save();
+  };
 
   const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `Tháng ${i + 1}` }));
   const years = Array.from({ length: 5 }, (_, i) => ({ value: 2023 + i, label: `${2023 + i}` }));
@@ -719,26 +824,10 @@ const Profile = () => {
 
               {/* Print btn */}
               <button
-                onClick={() => {
-                  const w = window.open('', '_blank');
-                  const r = selectedSalary;
-                  w.document.write(`<html><head><title>Phiếu lương</title><style>body{font-family:Arial;padding:40px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:10px}th{background:#f5f5f5}.total{font-size:18px;font-weight:bold;color:#1565c0}</style></head><body>
-                    <h2 style="text-align:center">PHIẾU LƯƠNG THÁNG ${r.Thang}/${r.Nam}</h2>
-                    <p><b>Họ tên:</b> ${userInfo.HoTen} &nbsp; <b>Chức vụ:</b> ${userInfo.ChucVu || '—'}</p>
-                    <table><thead><tr><th>Khoản mục</th><th>Số tiền</th></tr></thead><tbody>
-                    <tr><td>Lương cơ bản</td><td>${fmt(r.LuongCoBan)}</td></tr>
-                    <tr><td>Lương theo ${r.SoNgayLam} ngày công</td><td>${fmt((parseFloat(r.LuongCoBan)/26)*r.SoNgayLam)}</td></tr>
-                    ${r.SoGioTangCa > 0 ? `<tr><td>Lương tăng ca (${r.SoGioTangCa}h)</td><td>${fmt(r.SoGioTangCa*(parseFloat(r.LuongCoBan)/208)*1.5)}</td></tr>` : ''}
-                    <tr><td>Phụ cấp</td><td>${fmt(r.PhuCap)}</td></tr>
-                    ${r.Thuong > 0 ? `<tr><td>Thưởng</td><td>${fmt(r.Thuong)}</td></tr>` : ''}
-                    ${r.Phat > 0 ? `<tr><td>Khấu trừ</td><td>−${fmt(r.Phat)}</td></tr>` : ''}
-                    <tr class="total"><td>TỔNG NHẬN</td><td>${fmt(r.TongLuong)}</td></tr>
-                    </tbody></table><script>window.print()</script></body></html>`);
-                  w.document.close();
-                }}
+                onClick={() => handlePrintPDF(selectedSalary)}
                 style={{ marginTop: 12, width: '100%', background: '#546e7a', color: '#fff', border: 'none', borderRadius: 6, padding: '9px 0', cursor: 'pointer', fontWeight: 700, fontSize: 14 }}
               >
-                <i className="fas fa-print"></i> In phiếu lương
+                <i className="fas fa-file-pdf"></i> Tải phiếu lương (PDF)
               </button>
             </div>
             <div style={{ padding: '12px 24px', borderTop: '1px solid #e0e0e0', textAlign: 'right' }}>
