@@ -70,6 +70,7 @@ th, td {
 th {
   background-color: #f5f5f5;
   font-size: 15px;
+  color: #333;
 }
 
 td {
@@ -80,6 +81,50 @@ td {
 
 td:hover {
   opacity: 0.8;
+}
+
+/* ===== Reset cho bảng trong trang Lương - tránh xung đột global styles ===== */
+.salary-table th,
+.salary-table td {
+  max-width: none;
+  min-width: 0;
+  cursor: default;
+  padding: 10px;
+  border: none;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 13px;
+}
+
+.salary-table th {
+  background-color: transparent;
+  font-size: 13px;
+  color: inherit;
+}
+
+.salary-table td:hover {
+  opacity: 1;
+}
+
+.salary-table tfoot td {
+  border-bottom: none;
+}
+
+/* Modal chi tiết lương */
+.salary-detail-table th,
+.salary-detail-table td {
+  max-width: none;
+  min-width: 0;
+  cursor: default;
+  background-color: transparent;
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+  color: inherit;
+}
+
+.salary-detail-table td:hover {
+  opacity: 1;
 }
 /* Move the month calendar (the first table inside the right column) to the right
    so the 30-day calendar visually sits at the right edge of the content column.

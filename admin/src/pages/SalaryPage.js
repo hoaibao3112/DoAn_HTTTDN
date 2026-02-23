@@ -241,7 +241,7 @@ const SalaryPage = () => {
 
         {!loading && salaryList.length > 0 && (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+            <table className="salary-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead>
                 <tr style={{ background: '#1976d2', color: '#fff' }}>
                   <th style={th}>STT</th>
@@ -436,7 +436,7 @@ const SalaryPage = () => {
               </div>
 
               {/* Breakdown bảng */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+              <table className="salary-detail-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <tbody>
                   <DetailRow
                     label="Lương cơ bản (1 tháng)"
@@ -578,14 +578,34 @@ const DetailRow = ({ label, value, note, color, plus }) => (
 
 // Shared styles
 const th = {
-  padding: '12px 10px', textAlign: 'center', fontSize: 13,
-  borderBottom: '2px solid #0d47a1', whiteSpace: 'nowrap'
+  padding: '12px 10px',
+  textAlign: 'center',
+  fontSize: 13,
+  whiteSpace: 'nowrap',
+  background: '#1976d2',
+  color: '#fff',
+  fontWeight: 700,
+  border: 'none',
+  borderBottom: '2px solid #0d47a1',
 };
 const td = {
-  padding: '10px', textAlign: 'center', borderBottom: '1px solid #e0e0e0', fontSize: 13
+  padding: '10px',
+  textAlign: 'center',
+  borderBottom: '1px solid #e0e0e0',
+  fontSize: 13,
+  maxWidth: 'none',
+  cursor: 'default',
+  border: 'none',
+  borderBottom: '1px solid #e0e0e0',
 };
 const tdRight = {
-  padding: '10px', textAlign: 'right', borderBottom: '1px solid #e0e0e0', fontSize: 13
+  padding: '10px',
+  textAlign: 'right',
+  fontSize: 13,
+  maxWidth: 'none',
+  cursor: 'default',
+  border: 'none',
+  borderBottom: '1px solid #e0e0e0',
 };
 
 export default SalaryPage;
