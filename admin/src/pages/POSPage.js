@@ -662,13 +662,6 @@ const POSPage = () => {
                     <h1>Bookstore POS</h1>
                 </div>
 
-                <nav className="pos-nav">
-                    <button className="nav-btn active">Bán hàng</button>
-                    <button className="nav-btn">Kho hàng</button>
-                    <button className="nav-btn">Báo cáo</button>
-                    <button className="nav-btn">Thiết lập</button>
-                </nav>
-
                 <div className="cashier-info">
                     <span className="cashier-name">Nhân viên: {cashierName}</span>
                     <button className="btn-icon">
