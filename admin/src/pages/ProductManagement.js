@@ -106,7 +106,7 @@ const ProductManagement = () => {
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(API_URL);
+      const response = await axios.get(`${API_URL}?pageSize=1000`);
       const data = response.data.data || response.data;
       if (Array.isArray(data)) {
         const processedProducts = data.map((product) => ({
