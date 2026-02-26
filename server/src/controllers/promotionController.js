@@ -311,6 +311,19 @@ const promotionController = {
                 AND km.NgayKetThuc >= NOW()
             `, [MaCH]);
 
+            // Load tất cả product categories một lần để tránh N+1 query
+            let productCategoryMap = {};
+            if (ChiTiet && ChiTiet.length > 0) {
+                const productIds = ChiTiet.map(item => item.MaSP);
+                const [products] = await pool.query(
+                    'SELECT MaSP, MaTL FROM sanpham WHERE MaSP IN (?)',
+                    [productIds]
+                );
+                productCategoryMap = Object.fromEntries(
+                    products.map(p => [p.MaSP, p.MaTL])
+                );
+            }
+
             const availablePromotions = [];
 
             for (const promo of promotions) {
@@ -353,8 +366,9 @@ const promotionController = {
                             hasValidProduct = true;
                             break;
                         } else if (promo.ApDungCho === 'The_loai') {
-                            const [product] = await pool.query('SELECT MaTL FROM sanpham WHERE MaSP = ?', [item.MaSP]);
-                            if (product.length > 0 && allowedIds.includes(product[0].MaTL)) {
+                            // Sử dụng productCategoryMap đã load sẵn (không query trong loop)
+                            const maTL = productCategoryMap[item.MaSP];
+                            if (maTL && allowedIds.includes(maTL)) {
                                 hasValidProduct = true;
                                 break;
                             }

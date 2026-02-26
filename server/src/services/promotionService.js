@@ -97,12 +97,25 @@ class PromotionService {
 
         const allowedIds = details.map(d => d.MaDoiTuong);
 
+        // Nếu áp dụng cho thể loại, load tất cả product categories trước (tránh N+1 query)
+        let productCategoryMap = {};
+        if (promo.ApDungCho === 'The_loai' && chiTiet.length > 0) {
+            const productIds = chiTiet.map(item => item.MaSP);
+            const [products] = await pool.query(
+                'SELECT MaSP, MaTL FROM sanpham WHERE MaSP IN (?)',
+                [productIds]
+            );
+            productCategoryMap = Object.fromEntries(
+                products.map(p => [p.MaSP, p.MaTL])
+            );
+        }
+
         for (const item of chiTiet) {
             if (promo.ApDungCho === 'San_pham' && allowedIds.includes(item.MaSP)) {
                 return true;
             } else if (promo.ApDungCho === 'The_loai') {
-                const [product] = await pool.query('SELECT MaTL FROM sanpham WHERE MaSP = ?', [item.MaSP]);
-                if (product.length > 0 && allowedIds.includes(product[0].MaTL)) {
+                const maTL = productCategoryMap[item.MaSP];
+                if (maTL && allowedIds.includes(maTL)) {
                     return true;
                 }
             }
@@ -152,14 +165,27 @@ class PromotionService {
         const allowedIds = details.map(d => d.MaDoiTuong);
         let tongTienDuocGiam = 0;
 
+        // Nếu áp dụng cho thể loại, load tất cả product categories trước (tránh N+1 query)
+        let productCategoryMap = {};
+        if (promo.ApDungCho === 'The_loai' && chiTiet.length > 0) {
+            const productIds = chiTiet.map(item => item.MaSP);
+            const [products] = await pool.query(
+                'SELECT MaSP, MaTL FROM sanpham WHERE MaSP IN (?)',
+                [productIds]
+            );
+            productCategoryMap = Object.fromEntries(
+                products.map(p => [p.MaSP, p.MaTL])
+            );
+        }
+
         for (const item of chiTiet) {
             let isEligible = false;
 
             if (promo.ApDungCho === 'San_pham' && allowedIds.includes(item.MaSP)) {
                 isEligible = true;
             } else if (promo.ApDungCho === 'The_loai') {
-                const [product] = await pool.query('SELECT MaTL FROM sanpham WHERE MaSP = ?', [item.MaSP]);
-                if (product.length > 0 && allowedIds.includes(product[0].MaTL)) {
+                const maTL = productCategoryMap[item.MaSP];
+                if (maTL && allowedIds.includes(maTL)) {
                     isEligible = true;
                 }
             }

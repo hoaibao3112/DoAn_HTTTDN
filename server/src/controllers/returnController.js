@@ -137,21 +137,33 @@ const returnController = {
             );
 
             const MaTraHang = returnResult.insertId;
+            const MaCH = invoice[0].MaCH;
 
-            // Insert return details and restore inventory
-            for (const item of ChiTiet) {
-                // Insert detail
+            // Batch operations để tránh N+1 query
+            if (ChiTiet.length > 0) {
+                // Batch INSERT return details
+                const detailValues = ChiTiet.map(item => [
+                    MaTraHang, 
+                    item.MaSP, 
+                    item.SoLuong, 
+                    item.DonGia
+                ]);
                 await conn.query(
-                    'INSERT INTO chi_tiet_tra_hang (MaTraHang, MaSP, SoLuong, DonGia) VALUES (?, ?, ?, ?)',
-                    [MaTraHang, item.MaSP, item.SoLuong, item.DonGia]
+                    'INSERT INTO chi_tiet_tra_hang (MaTraHang, MaSP, SoLuong, DonGia) VALUES ?',
+                    [detailValues]
                 );
 
-                // Restore inventory (return to stock)
-                const MaCH = invoice[0].MaCH;
-                await conn.query(
-                    'UPDATE ton_kho SET SoLuongTon = SoLuongTon + ? WHERE MaSP = ? AND MaCH = ?',
-                    [item.SoLuong, item.MaSP, MaCH]
-                );
+                // Batch UPDATE restore inventory
+                const productIds = ChiTiet.map(item => item.MaSP);
+                const caseClauses = ChiTiet.map(item => 
+                    `WHEN MaSP = ${conn.escape(item.MaSP)} THEN SoLuongTon + ${item.SoLuong}`
+                ).join(' ');
+
+                await conn.query(`
+                    UPDATE ton_kho 
+                    SET SoLuongTon = CASE ${caseClauses} END
+                    WHERE MaSP IN (?) AND MaCH = ?
+                `, [productIds, MaCH]);
             }
 
             await logActivity({

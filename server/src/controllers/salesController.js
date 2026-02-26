@@ -64,19 +64,32 @@ const salesController = {
             );
             const MaHD = hdResult.insertId;
 
-            // 3. Process items
-            for (const item of ChiTiet) {
-                // Insert detail
+            // 3. Process items - Batch operations để tránh N+1 query
+            if (ChiTiet.length > 0) {
+                // 3a. Batch INSERT chi tiết hóa đơn
+                const detailValues = ChiTiet.map(item => [
+                    MaHD, 
+                    item.MaSP, 
+                    item.DonGia, 
+                    item.SoLuong, 
+                    item.GiamGia || 0
+                ]);
                 await conn.query(
-                    'INSERT INTO chitiethoadon (MaHD, MaSP, DonGia, SoLuong, GiamGia) VALUES (?, ?, ?, ?, ?)',
-                    [MaHD, item.MaSP, item.DonGia, item.SoLuong, item.GiamGia || 0]
+                    'INSERT INTO chitiethoadon (MaHD, MaSP, DonGia, SoLuong, GiamGia) VALUES ?',
+                    [detailValues]
                 );
 
-                // Deduct from ton_kho
-                await conn.query(
-                    'UPDATE ton_kho SET SoLuongTon = SoLuongTon - ? WHERE MaSP = ? AND MaCH = ?',
-                    [item.SoLuong, item.MaSP, MaCH]
-                );
+                // 3b. Batch UPDATE tồn kho bằng CASE WHEN
+                const productIds = ChiTiet.map(item => item.MaSP);
+                const caseClauses = ChiTiet.map(item => 
+                    `WHEN MaSP = ${conn.escape(item.MaSP)} THEN SoLuongTon - ${item.SoLuong}`
+                ).join(' ');
+
+                await conn.query(`
+                    UPDATE ton_kho 
+                    SET SoLuongTon = CASE ${caseClauses} END
+                    WHERE MaSP IN (?) AND MaCH = ?
+                `, [productIds, MaCH]);
             }
 
             // 4. Update Customer Points & Loyalty

@@ -233,35 +233,68 @@ const warehouseController = {
             );
             const MaPN = pnResult.insertId;
 
-            for (const item of ChiTiet) {
-                const soLuong = Number(item.SoLuong);
-                const giaNhap = Number(item.DonGiaNhap);
-
-                // 2. Insert chitietphieunhap
+            // Batch operations để tránh N+1 query
+            if (ChiTiet.length > 0) {
+                // 2. Batch INSERT chitietphieunhap
+                const detailValues = ChiTiet.map(item => [
+                    MaPN, 
+                    item.MaSP, 
+                    Number(item.DonGiaNhap), 
+                    Number(item.SoLuong)
+                ]);
                 await conn.query(
-                    'INSERT INTO chitietphieunhap (MaPN, MaSP, DonGiaNhap, SoLuong) VALUES (?, ?, ?, ?)',
-                    [MaPN, item.MaSP, giaNhap, soLuong]
+                    'INSERT INTO chitietphieunhap (MaPN, MaSP, DonGiaNhap, SoLuong) VALUES ?',
+                    [detailValues]
                 );
 
-                // 3. Update ton_kho
-                await conn.query(
-                    'INSERT INTO ton_kho (MaSP, MaCH, SoLuongTon) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?',
-                    [item.MaSP, MaCH, soLuong, soLuong]
-                );
+                // 3. Batch INSERT/UPDATE ton_kho
+                const stockValues = ChiTiet.map(item => [
+                    item.MaSP, 
+                    MaCH, 
+                    Number(item.SoLuong)
+                ]);
+                
+                for (const stockValue of stockValues) {
+                    await conn.query(
+                        'INSERT INTO ton_kho (MaSP, MaCH, SoLuongTon) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?',
+                        [...stockValue, stockValue[2]]
+                    );
+                }
 
-                // 4. Update product cost and status
-                // If TyLeLoi is provided, also update selling price (DonGia)
+                // 4. Batch UPDATE product cost and status
+                const productIds = ChiTiet.map(item => item.MaSP);
+                
                 if (TyLeLoi && Number(TyLeLoi) > 0) {
-                    const newDonGia = Math.round(giaNhap * (1 + Number(TyLeLoi) / 100));
-                    await conn.query(
-                        'UPDATE sanpham SET GiaNhap = ?, DonGia = ?, TinhTrang = 1 WHERE MaSP = ?',
-                        [giaNhap, newDonGia, item.MaSP]
-                    );
+                    // Build CASE statements for batch update with TyLeLoi
+                    const giaNhapCases = ChiTiet.map(item => 
+                        `WHEN MaSP = ${conn.escape(item.MaSP)} THEN ${Number(item.DonGiaNhap)}`
+                    ).join(' ');
+                    
+                    const donGiaCases = ChiTiet.map(item => {
+                        const giaNhap = Number(item.DonGiaNhap);
+                        const newDonGia = Math.round(giaNhap * (1 + Number(TyLeLoi) / 100));
+                        return `WHEN MaSP = ${conn.escape(item.MaSP)} THEN ${newDonGia}`;
+                    }).join(' ');
+                    
+                    await conn.query(`
+                        UPDATE sanpham 
+                        SET GiaNhap = CASE ${giaNhapCases} END,
+                            DonGia = CASE ${donGiaCases} END,
+                            TinhTrang = 1
+                        WHERE MaSP IN (?)
+                    `, [productIds]);
                 } else {
-                    await conn.query(
-                        'UPDATE sanpham SET GiaNhap = ?, TinhTrang = 1 WHERE MaSP = ?',
-                        [giaNhap, item.MaSP]
-                    );
+                    // Build CASE statements for batch update without TyLeLoi
+                    const giaNhapCases = ChiTiet.map(item => 
+                        `WHEN MaSP = ${conn.escape(item.MaSP)} THEN ${Number(item.DonGiaNhap)}`
+                    ).join(' ');
+                    
+                    await conn.query(`
+                        UPDATE sanpham 
+                        SET GiaNhap = CASE ${giaNhapCases} END,
+                            TinhTrang = 1
+                        WHERE MaSP IN (?)
+                    `, [productIds]);
                 }
             }
 

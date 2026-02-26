@@ -27,35 +27,55 @@ export const syncMissedAttendancesForDate = async (dateParam) => {
 
         console.log(`[Sync] Starting missed attendance sync for date: ${targetDate}`);
 
-        // Lấy tất cả nhân viên đang hoạt động
+        // 1. Lấy tất cả nhân viên đang hoạt động
         const [employees] = await pool.query('SELECT MaNV, MaCa FROM nhanvien WHERE TinhTrang = 1');
 
+        if (employees.length === 0) {
+            console.log('[Sync] No active employees found');
+            return;
+        }
+
+        const employeeIds = employees.map(e => e.MaNV);
+
+        // 2. Lấy tất cả bản ghi chấm công đã tồn tại trong 1 query (thay vì N queries)
+        const [existingRecords] = await pool.query(
+            'SELECT MaNV FROM cham_cong WHERE MaNV IN (?) AND Ngay = ?',
+            [employeeIds, targetDate]
+        );
+        const existingSet = new Set(existingRecords.map(e => e.MaNV));
+
+        // 3. Lấy tất cả đơn nghỉ phép đã duyệt trong 1 query (thay vì N queries)
+        const [leaveRecords] = await pool.query(
+            `SELECT MaNV FROM xin_nghi_phep 
+             WHERE MaNV IN (?) AND TrangThai = ? 
+             AND DATE(?) BETWEEN DATE(NgayBatDau) AND DATE(NgayKetThuc)`,
+            [employeeIds, 'Da_duyet', targetDate]
+        );
+        const leaveSet = new Set(leaveRecords.map(l => l.MaNV));
+
+        // 4. Chuẩn bị batch insert values
+        const insertValues = [];
         for (const emp of employees) {
-            const { MaNV, MaCa } = emp;
+            // Skip nếu đã có bản ghi chấm công
+            if (existingSet.has(emp.MaNV)) continue;
 
-            // Kiểm tra xem đã có bản ghi chấm công chưa
-            const [existing] = await pool.query(
-                'SELECT MaCC FROM cham_cong WHERE MaNV = ? AND Ngay = ?',
-                [MaNV, targetDate]
-            );
-
-            if (existing.length > 0) continue;
-
-            // Kiểm tra xem ngày đó có đơn nghỉ phép đã duyệt không
-            const [leaveRows] = await pool.query(
-                'SELECT id FROM xin_nghi_phep WHERE MaNV = ? AND TrangThai = ? AND DATE(?) BETWEEN DATE(NgayBatDau) AND DATE(NgayKetThuc)',
-                [MaNV, 'Da_duyet', targetDate]
-            );
-
-            const statusToInsert = leaveRows.length > 0 ? 'Nghi_phep' : 'Nghi_khong_phep';
+            const statusToInsert = leaveSet.has(emp.MaNV) ? 'Nghi_phep' : 'Nghi_khong_phep';
             const ghiChu = statusToInsert === 'Nghi_phep'
                 ? 'Tự động đồng bộ từ đơn nghỉ phép'
                 : 'Hệ thống tự động đánh dấu vắng mặt';
 
+            insertValues.push([emp.MaNV, emp.MaCa, targetDate, statusToInsert, ghiChu, 'System_Sync']);
+        }
+
+        // 5. Batch insert tất cả records cùng lúc (thay vì N queries)
+        if (insertValues.length > 0) {
             await pool.query(
-                'INSERT INTO cham_cong (MaNV, MaCa, Ngay, TrangThai, GhiChu, CreatedBy) VALUES (?, ?, ?, ?, ?, ?)',
-                [MaNV, MaCa, targetDate, statusToInsert, ghiChu, 'System_Sync']
+                'INSERT INTO cham_cong (MaNV, MaCa, Ngay, TrangThai, GhiChu, CreatedBy) VALUES ?',
+                [insertValues]
             );
+            console.log(`[Sync] Inserted ${insertValues.length} attendance records for date: ${targetDate}`);
+        } else {
+            console.log(`[Sync] No new attendance records to insert for date: ${targetDate}`);
         }
 
         console.log(`[Sync] Completed missed attendance sync for date: ${targetDate}`);
