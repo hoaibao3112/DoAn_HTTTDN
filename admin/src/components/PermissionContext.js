@@ -151,10 +151,7 @@ export const PermissionProvider = ({ children }) => {
     await fetchPermissions();
   };
 
-  if (loading) {
-    return <div>Loading permissions...</div>;
-  }
-
+  // IMPORTANT: always render children so BrowserRouter / React Router never unmounts
   return (
     <PermissionContext.Provider
       value={{ permissions, setPermissions, hasPermission, hasPermissionById, loading, refreshPermissions }}

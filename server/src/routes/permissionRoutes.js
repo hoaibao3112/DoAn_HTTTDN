@@ -51,7 +51,10 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const [result] = await pool.query(
       `INSERT INTO phanquyen_chitiet (MaNQ, MaCN, Xem, Them, Sua, Xoa, XuatFile, Duyet) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         Xem = VALUES(Xem), Them = VALUES(Them), Sua = VALUES(Sua),
+         Xoa = VALUES(Xoa), XuatFile = VALUES(XuatFile), Duyet = VALUES(Duyet)`,
       [MaNQ, MaCN, Xem || 0, Them || 0, Sua || 0, Xoa || 0, XuatFile || 0, Duyet || 0]
     );
     res.status(201).json({ success: true, MaCTQ: result.insertId });
