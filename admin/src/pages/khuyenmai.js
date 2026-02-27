@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
   Table, Button, Input, Modal, Form, Select, Switch, Tag, Space,
   Tooltip, message, Tabs, Card, Row, Col, Statistic, DatePicker,
-  InputNumber, Badge, Popconfirm, Divider, Typography, Empty
+  InputNumber, AutoComplete, Badge, Popconfirm, Divider, Typography, Empty
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined,
@@ -17,7 +17,6 @@ import '../styles/DiscountManagement.css';
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 const { Option } = Select;
-const { TabPane } = Tabs;
 const { TextArea } = Input;
 
 const API_URL = 'http://localhost:5000/api/promotions';
@@ -52,20 +51,34 @@ const KhuyenMai = () => {
         </Title>
       </div>
 
-      <Tabs activeKey={activeTab} onChange={setActiveTab} type="card" size="large">
-        <TabPane tab={<span><GiftOutlined />Chương trình KM</span>} key="promotions">
-          <PromotionList />
-        </TabPane>
-        <TabPane tab={<span><TagOutlined />Mã giảm giá</span>} key="vouchers">
-          <VoucherList />
-        </TabPane>
-        <TabPane tab={<span><BarChartOutlined />Thống kê</span>} key="statistics">
-          <PromotionStatistics />
-        </TabPane>
-        <TabPane tab={<span><HistoryOutlined />Lịch sử</span>} key="history">
-          <PromotionHistory />
-        </TabPane>
-      </Tabs>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        type="card"
+        size="large"
+        items={[
+          {
+            key: 'promotions',
+            label: <span><GiftOutlined /> Chương trình KM</span>,
+            children: <PromotionList />
+          },
+          {
+            key: 'vouchers',
+            label: <span><TagOutlined /> Mã giảm giá</span>,
+            children: <VoucherList />
+          },
+          {
+            key: 'statistics',
+            label: <span><BarChartOutlined /> Thống kê</span>,
+            children: <PromotionStatistics />
+          },
+          {
+            key: 'history',
+            label: <span><HistoryOutlined /> Lịch sử</span>,
+            children: <PromotionHistory />
+          },
+        ]}
+      />
     </div>
   );
 };
@@ -98,6 +111,38 @@ const PromotionList = () => {
 
   useEffect(() => { fetchPromotions(); }, [fetchPromotions]);
 
+  // Điền dữ liệu vào form khi mở modal chỉnh sửa
+  useEffect(() => {
+    if (isFormOpen) {
+      if (editingItem) {
+        form.setFieldsValue({
+          TenKM: editingItem.TenKM,
+          MoTa: editingItem.MoTa,
+          LoaiKM: editingItem.LoaiKM,
+          ApDungCho: editingItem.ApDungCho,
+          GiaTriGiam: editingItem.GiaTriGiam,
+          GiamToiDa: editingItem.GiamToiDa,
+          GiaTriDonToiThieu: editingItem.GiaTriDonToiThieu,
+          NgayBatDau: editingItem.NgayBatDau ? dayjs(editingItem.NgayBatDau) : null,
+          NgayKetThuc: editingItem.NgayKetThuc ? dayjs(editingItem.NgayKetThuc) : null,
+          GioApDung: editingItem.GioApDung,
+          NgayApDung: editingItem.NgayApDung,
+          GhiChu: editingItem.GhiChu,
+          TrangThai: editingItem.TrangThai === 1,
+        });
+      } else {
+        form.resetFields();
+      }
+    }
+  }, [isFormOpen, editingItem, form]);
+
+  const loaiKM = Form.useWatch('LoaiKM', form);
+  const giaTriGiamOptions = (loaiKM === 'giam_tien')
+    ? [10000, 20000, 30000, 50000, 100000, 150000, 200000]
+    : [5, 10, 15, 20, 25, 30, 50];
+  const giamToiDaOptions = [30000, 50000, 100000, 150000, 200000, 300000, 500000];
+  const donToiThieuOptions = [100000, 200000, 300000, 500000, 1000000];
+
   const handleViewDetail = async (id) => {
     try {
       const res = await axios.get(`${API_URL}/promotions/${id}`, {
@@ -112,15 +157,6 @@ const PromotionList = () => {
 
   const handleOpenForm = (item = null) => {
     setEditingItem(item);
-    if (item) {
-      form.setFieldsValue({
-        ...item,
-        NgayBatDau: item.NgayBatDau ? dayjs(item.NgayBatDau) : null,
-        NgayKetThuc: item.NgayKetThuc ? dayjs(item.NgayKetThuc) : null,
-      });
-    } else {
-      form.resetFields();
-    }
     setIsFormOpen(true);
   };
 
@@ -128,6 +164,9 @@ const PromotionList = () => {
     try {
       const payload = {
         ...values,
+        GiaTriGiam: values.GiaTriGiam !== undefined && values.GiaTriGiam !== '' ? Number(values.GiaTriGiam) : null,
+        GiamToiDa: values.GiamToiDa !== undefined && values.GiamToiDa !== '' ? Number(values.GiamToiDa) : null,
+        GiaTriDonToiThieu: values.GiaTriDonToiThieu !== undefined && values.GiaTriDonToiThieu !== '' ? Number(values.GiaTriDonToiThieu) : null,
         NgayBatDau: values.NgayBatDau ? values.NgayBatDau.format('YYYY-MM-DD HH:mm:ss') : null,
         NgayKetThuc: values.NgayKetThuc ? values.NgayKetThuc.format('YYYY-MM-DD HH:mm:ss') : null,
       };
@@ -365,7 +404,6 @@ const PromotionList = () => {
         cancelText="Hủy"
         width={700}
         className="form-modal"
-        destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Row gutter={16}>
@@ -401,17 +439,32 @@ const PromotionList = () => {
             </Col>
             <Col span={8}>
               <Form.Item name="GiaTriGiam" label="Giá trị giảm" rules={[{ required: true, message: 'Nhập giá trị!' }]}>
-                <InputNumber min={0} style={{ width: '100%' }} placeholder="10 (%) hoặc 50000 (đ)" />
+                <AutoComplete
+                  style={{ width: '100%' }}
+                  placeholder={loaiKM === 'giam_tien' ? 'VD: 50000' : 'VD: 10 (%)'}
+                  options={giaTriGiamOptions.map(v => ({ value: String(v), label: loaiKM === 'giam_tien' ? `${v.toLocaleString('vi-VN')}đ` : `${v}%` }))}
+                  filterOption={(input, option) => option.value.startsWith(input)}
+                />
               </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item name="GiamToiDa" label="Giảm tối đa (đ)">
-                <InputNumber min={0} style={{ width: '100%' }} placeholder="100000" formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
+                <AutoComplete
+                  style={{ width: '100%' }}
+                  placeholder="VD: 100000"
+                  options={giamToiDaOptions.map(v => ({ value: String(v), label: `${v.toLocaleString('vi-VN')}đ` }))}
+                  filterOption={(input, option) => option.value.startsWith(input)}
+                />
               </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item name="GiaTriDonToiThieu" label="Đơn tối thiểu (đ)">
-                <InputNumber min={0} style={{ width: '100%' }} placeholder="300000" formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
+                <AutoComplete
+                  style={{ width: '100%' }}
+                  placeholder="VD: 300000"
+                  options={donToiThieuOptions.map(v => ({ value: String(v), label: `${v.toLocaleString('vi-VN')}đ` }))}
+                  filterOption={(input, option) => option.value.startsWith(input)}
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -425,13 +478,48 @@ const PromotionList = () => {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="GioApDung" label="Giờ áp dụng" tooltip="VD: 10:00-12:00 (bỏ trống = cả ngày)">
-                <Input placeholder="10:00-12:00" />
+              <Form.Item name="GioApDung" label="Giờ áp dụng" tooltip="Bỏ trống = áp dụng cả ngày">
+                <AutoComplete
+                  style={{ width: '100%' }}
+                  placeholder="VD: 10:00-12:00"
+                  options={[
+                    { value: '07:00-09:00', label: '07:00 - 09:00 (Sáng sớm)' },
+                    { value: '08:00-10:00', label: '08:00 - 10:00 (Buổi sáng)' },
+                    { value: '10:00-12:00', label: '10:00 - 12:00 (Trưa)' },
+                    { value: '12:00-14:00', label: '12:00 - 14:00 (Nghỉ trưa)' },
+                    { value: '14:00-17:00', label: '14:00 - 17:00 (Chiều)' },
+                    { value: '17:00-20:00', label: '17:00 - 20:00 (Tối)' },
+                    { value: '20:00-22:00', label: '20:00 - 22:00 (Tối muộn)' },
+                    { value: '09:00-21:00', label: '09:00 - 21:00 (Cả ngày)' },
+                  ]}
+                  filterOption={(input, option) =>
+                    option.value.toLowerCase().includes(input.toLowerCase())
+                  }
+                  allowClear
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="NgayApDung" label="Ngày trong tuần" tooltip="VD: 2,4,6 (T2,T4,T6) bỏ trống = cả tuần">
-                <Input placeholder="2,4,6 hoặc bỏ trống" />
+              <Form.Item name="NgayApDung" label="Ngày trong tuần" tooltip="Bỏ trống = áp dụng cả tuần. Số: 2=T2, 3=T3... 1=CN">
+                <AutoComplete
+                  style={{ width: '100%' }}
+                  placeholder="VD: 2,4,6"
+                  options={[
+                    { value: '2,3,4,5,6', label: 'T2 - T6 (Ngày thường)' },
+                    { value: '7,1', label: 'T7 & Chủ nhật (Cuối tuần)' },
+                    { value: '2,3,4,5,6,7', label: 'T2 - T7' },
+                    { value: '2,4,6', label: 'T2, T4, T6' },
+                    { value: '3,5,7', label: 'T3, T5, T7' },
+                    { value: '7', label: 'Thứ 7' },
+                    { value: '1', label: 'Chủ nhật' },
+                    { value: '2,3,4,5,6,7,1', label: 'Tất cả các ngày' },
+                  ]}
+                  filterOption={(input, option) =>
+                    option.value.toLowerCase().includes(input.toLowerCase()) ||
+                    option.label.toLowerCase().includes(input.toLowerCase())
+                  }
+                  allowClear
+                />
               </Form.Item>
             </Col>
             <Col span={24}>
@@ -528,6 +616,10 @@ const VoucherList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [form] = Form.useForm();
+
+  useEffect(() => {
+    if (isFormOpen) form.resetFields();
+  }, [isFormOpen, form]);
 
   const fetchVouchers = useCallback(async () => {
     setLoading(true);
@@ -688,7 +780,6 @@ const VoucherList = () => {
         okText="Tạo mã"
         cancelText="Hủy"
         width={520}
-        destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={handleCreate}>
           <Form.Item name="MaKM" label="Chương trình khuyến mãi" rules={[{ required: true, message: 'Chọn chương trình!' }]}>

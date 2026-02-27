@@ -1,11 +1,11 @@
 import express from 'express';
 import promotionController from '../controllers/promotionController.js';
-import { checkPermission } from '../middlewares/rbacMiddleware.js';
+import { authenticateToken } from '../utils/generateToken.js';
 
 const router = express.Router();
 
-// Tạm thời không dùng permission check, dùng sau khi có MaCN
-// Bạn có thể thêm permission sau: checkPermission(FEATURES.PROMOTION, 'Xem')
+// Apply auth to all promotion routes
+router.use(authenticateToken);
 
 // ======================= QUẢN LÝ CHƯƠNG TRÌNH KHUYẾN MÃI =======================
 

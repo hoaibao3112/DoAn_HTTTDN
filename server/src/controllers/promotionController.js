@@ -120,8 +120,7 @@ const promotionController = {
             await conn.commit();
 
             // Log activity
-            await logActivity(req.user.MaTK, 'CREATE', 'khuyen_mai', MaKM, 
-                `Tạo chương trình khuyến mãi: ${TenKM}`);
+            await logActivity({ MaTK: req.user?.MaTK, HanhDong: 'Them', BangDuLieu: 'khuyen_mai', MaBanGhi: MaKM, GhiChu: `Tạo chương trình khuyến mãi: ${TenKM}`, DiaChi_IP: req.ip });
 
             res.json({ success: true, message: 'Tạo khuyến mãi thành công', MaKM });
         } catch (error) {
@@ -171,8 +170,7 @@ const promotionController = {
 
             await conn.commit();
 
-            await logActivity(req.user.MaTK, 'UPDATE', 'khuyen_mai', id, 
-                `Cập nhật khuyến mãi: ${TenKM}`);
+            await logActivity({ MaTK: req.user?.MaTK, HanhDong: 'Sua', BangDuLieu: 'khuyen_mai', MaBanGhi: id, GhiChu: `Cập nhật khuyến mãi: ${TenKM}`, DiaChi_IP: req.ip });
 
             res.json({ success: true, message: 'Cập nhật khuyến mãi thành công' });
         } catch (error) {
@@ -201,8 +199,7 @@ const promotionController = {
 
             await pool.query('DELETE FROM khuyen_mai WHERE MaKM = ?', [id]);
 
-            await logActivity(req.user.MaTK, 'DELETE', 'khuyen_mai', id, 
-                `Xóa chương trình khuyến mãi`);
+            await logActivity({ MaTK: req.user?.MaTK, HanhDong: 'Xoa', BangDuLieu: 'khuyen_mai', MaBanGhi: id, GhiChu: 'Xóa chương trình khuyến mãi', DiaChi_IP: req.ip });
 
             res.json({ success: true, message: 'Xóa khuyến mãi thành công' });
         } catch (error) {
@@ -218,8 +215,7 @@ const promotionController = {
         try {
             await pool.query('UPDATE khuyen_mai SET TrangThai = ? WHERE MaKM = ?', [TrangThai, id]);
 
-            await logActivity(req.user.MaTK, 'UPDATE', 'khuyen_mai', id, 
-                `${TrangThai ? 'Kích hoạt' : 'Tạm dừng'} khuyến mãi`);
+            await logActivity({ MaTK: req.user?.MaTK, HanhDong: 'Sua', BangDuLieu: 'khuyen_mai', MaBanGhi: id, GhiChu: `${TrangThai ? 'Kích hoạt' : 'Tạm dừng'} khuyến mãi`, DiaChi_IP: req.ip });
 
             res.json({ success: true, message: `${TrangThai ? 'Kích hoạt' : 'Tạm dừng'} thành công` });
         } catch (error) {
@@ -266,8 +262,7 @@ const promotionController = {
                 VALUES (?, ?, ?, ?, ?)
             `, [MaKM, MaCode, SoLuongPhatHanh, SoLanDungMoiKH, ApDungChoKHMoi]);
 
-            await logActivity(req.user.MaTK, 'CREATE', 'ma_giam_gia', result.insertId, 
-                `Tạo mã giảm giá: ${MaCode}`);
+            await logActivity({ MaTK: req.user?.MaTK, HanhDong: 'Them', BangDuLieu: 'ma_giam_gia', MaBanGhi: result.insertId, GhiChu: `Tạo mã giảm giá: ${MaCode}`, DiaChi_IP: req.ip });
 
             res.json({ success: true, message: 'Tạo mã giảm giá thành công', MaMGG: result.insertId });
         } catch (error) {
@@ -281,8 +276,7 @@ const promotionController = {
         try {
             await pool.query('DELETE FROM ma_giam_gia WHERE MaMGG = ?', [id]);
 
-            await logActivity(req.user.MaTK, 'DELETE', 'ma_giam_gia', id, 
-                `Xóa mã giảm giá`);
+            await logActivity({ MaTK: req.user?.MaTK, HanhDong: 'Xoa', BangDuLieu: 'ma_giam_gia', MaBanGhi: id, GhiChu: 'Xóa mã giảm giá', DiaChi_IP: req.ip });
 
             res.json({ success: true, message: 'Xóa mã giảm giá thành công' });
         } catch (error) {
@@ -604,7 +598,7 @@ const promotionController = {
                     sdkm.*,
                     km.TenKM,
                     hd.MaHD,
-                    kh.TenKH,
+                    kh.HoTen as TenKH,
                     nv.HoTen as TenNV,
                     mgg.MaCode
                 FROM su_dung_khuyen_mai sdkm
@@ -653,7 +647,7 @@ const promotionController = {
             const [customers] = await pool.query(`
                 SELECT 
                     kh.MaKH,
-                    kh.TenKH,
+                    kh.HoTen as TenKH,
                     kh.SDT,
                     COUNT(DISTINCT sdkm.MaHD) as SoDonHang,
                     COUNT(DISTINCT sdkm.MaKM) as SoKMDaSuDung,
