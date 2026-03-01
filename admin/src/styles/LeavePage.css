@@ -7,13 +7,6 @@
   background: #f0f2f5;
   min-height: 100vh;
   box-sizing: border-box;
-  margin-left: 260px; /* Offset for sidebar - matches --sidebar-open width */
-  transition: margin-left 0.3s ease;
-}
-
-/* When sidebar is closed */
-body.sidebar-closed .leave-page {
-  margin-left: 72px; /* Matches --sidebar-closed width */
 }
 
 /* Header Section */

@@ -209,6 +209,16 @@ const AttendancePage = () => {
   // Xử lý click vào ngày để lưu thay đổi tạm thời
   const handleDayClick = (day) => {
     if (isSunday(year, month, day)) return;
+
+    // Kiểm tra ngày tương lai – không cho phép cập nhật
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const clickedDate = new Date(year, month - 1, day);
+    if (clickedDate > today) {
+      alert('Không thể cập nhật chấm công cho ngày trong tương lai!');
+      return;
+    }
+
     if (!selectedEmployee || !selectedStatus) {
       alert('Vui lòng chọn trạng thái trước!');
       return;
@@ -570,6 +580,12 @@ const AttendancePage = () => {
                             );
                           }
 
+                          // Kiểm tra ngày tương lai
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          const thisDate = new Date(year, month - 1, day);
+                          const isFuture = thisDate > today;
+
                           const holidayInfo = calendarHolidayMap[ngay];
                           const dayData = pendingChanges[ngay] || (selectedEmployee?.days ? selectedEmployee.days[day] : {});
                           const apiStatus = dayData?.TrangThai || dayData?.trang_thai || 'Chua_cham_cong';
@@ -597,30 +613,36 @@ const AttendancePage = () => {
                             <td
                               key={day}
                               style={{
-                                background: bgColor,
-                                color: '#fff',
+                                background: isFuture ? '#cfd8dc' : bgColor,
+                                color: isFuture ? '#90a4ae' : '#fff',
                                 whiteSpace: 'pre-line',
-                                cursor: 'pointer',
+                                cursor: isFuture ? 'not-allowed' : 'pointer',
                                 minWidth: 55,
                                 maxWidth: 80,
                                 fontSize: 16,
                                 padding: 10,
                                 position: 'relative',
                                 boxSizing: 'border-box',
-                                border: isWorkedOnHoliday ? '3px solid #C62828' : undefined,
+                                border: !isFuture && isWorkedOnHoliday ? '3px solid #C62828' : undefined,
+                                opacity: isFuture ? 0.6 : 1,
                               }}
-                              onClick={() => handleDayClick(day)}
+                              onClick={() => !isFuture && handleDayClick(day)}
                               onDoubleClick={() => {
+                                if (isFuture) return;
                                 const maCC = selectedEmployee?.days?.[day]?.id;
                                 if (maCC) fetchHistory(maCC);
                               }}
                               title={
-                                holidayInfo
+                                isFuture
+                                  ? 'Không thể cập nhật ngày trong tương lai'
+                                  : holidayInfo
                                   ? `${holidayInfo.TenNgayLe} (x${holidayInfo.HeSoLuong}) | Nhấp: đánh dấu | Nhấp đúp: xem lịch sử`
                                   : 'Nhấp: đánh dấu | Nhấp đúp: xem lịch sử'
                               }
                             >
-                              <div style={{ fontWeight: 'bold' }}>{day}</div>
+                              <div style={{ fontWeight: 'bold' }}>
+                                {day}{isFuture ? ' 🔒' : ''}
+                              </div>
                               {holidayInfo && (
                                 <div style={{
                                   fontSize: 9,

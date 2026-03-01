@@ -12,17 +12,17 @@ const isValidCheckInTime = (checkTime, shiftStart) => {
     return checkDate >= earlyLimit && checkDate <= lateLimit;
 };
 
+// Chuyển 'HH:MM:SS' hoặc 'HH:MM' sang số phút từ 00:00
+const timeToMinutes = (t) => {
+    const parts = t.split(':').map(Number);
+    return parts[0] * 60 + parts[1];
+};
+
 // Tính số phút làm việc (xử lý qua đêm)
 const calculateWorkMinutes = (gioVao, gioRa) => {
-    const [hourIn, minIn] = gioVao.split(':').map(Number);
-    const [hourOut, minOut] = gioRa.split(':').map(Number);
-    let totalMinutes = (hourOut * 60 + minOut) - (hourIn * 60 + minIn);
-    
+    let totalMinutes = timeToMinutes(gioRa) - timeToMinutes(gioVao);
     // Xử lý qua đêm
-    if (totalMinutes < 0) {
-        totalMinutes += 24 * 60;
-    }
-    
+    if (totalMinutes < 0) totalMinutes += 24 * 60;
     return totalMinutes;
 };
 
@@ -254,31 +254,44 @@ const attendanceController = {
 
             let totalMinutes = calculateWorkMinutes(gioVao, checkTime);
 
-            // Validate: Số giờ làm không quá 16 giờ (trừ trường hợp đặc biệt)
-            if (totalMinutes > 960) { // 16 hours
+            // Validate: Số giờ làm không quá 16 giờ
+            if (totalMinutes > 960) {
                 return res.status(400).json({ 
                     success: false, 
                     message: 'Số giờ làm việc bất thường (>16 giờ). Vui lòng kiểm tra lại thời gian.' 
                 });
             }
 
-            // Automatic break deduction: if work > 5 hours, subtract PhutNghi
+            // ── Tách giờ chuẩn và giờ tăng ca ──────────────────────────────
+            // SoGioTangCa = thời gian làm NGOÀI ca (GioRa - GioKetThuc)
+            // SoGioLam    = thời gian làm TRONG ca (tối đa đến GioKetThuc), trừ PhutNghi
+            let overtimeMinutes = 0;
+            let standardMinutes = totalMinutes;
+
+            if (record.GioKetThuc) {
+                const shiftEndMin = timeToMinutes(record.GioKetThuc);
+                const checkOutMin = timeToMinutes(checkTime);
+
+                if (checkOutMin > shiftEndMin) {
+                    // Làm quá giờ ca → có tăng ca
+                    overtimeMinutes = checkOutMin - shiftEndMin;
+                    // Giờ trong ca = GioKetThuc - GioVao
+                    standardMinutes = calculateWorkMinutes(gioVao, record.GioKetThuc);
+                }
+                // Nếu GioRa <= GioKetThuc → không tăng ca, standardMinutes = totalMinutes
+            }
+
+            // Trừ giờ nghỉ giữa ca (chỉ áp dụng cho giờ chuẩn, nếu làm > 5 tiếng)
             let breakMinutes = 0;
-            if (totalMinutes > 300) { // 5 hours = 300 minutes
-                breakMinutes = record.PhutNghi || 60; // Mặc định 60 phút nếu không có
-                totalMinutes -= breakMinutes;
+            if (standardMinutes > 300) {
+                breakMinutes = record.PhutNghi || 60;
+                standardMinutes -= breakMinutes;
             }
 
-            const soGioLam = (totalMinutes / 60).toFixed(2);
-
-            // Validate SoGioTangCa
-            const validatedOT = SoGioTangCa || 0;
-            if (validatedOT < 0 || validatedOT > 12) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'Số giờ tăng ca không hợp lệ (phải từ 0-12 giờ)' 
-                });
-            }
+            const soGioLam = parseFloat((standardMinutes / 60).toFixed(2));
+            const autoOT   = parseFloat((overtimeMinutes / 60).toFixed(2));
+            // Làm tròn xuống 0.5h gần nhất (tùy chính sách – đang để nguyên giá trị thực)
+            const validatedOT = autoOT;
 
             // Determine status: Kết hợp trạng thái vào và ra
             let finalStatus = record.TrangThai; // Giữ trạng thái vào (Tre hoặc Di_lam)
@@ -286,7 +299,7 @@ const attendanceController = {
             if (record.GioKetThuc && checkTime < record.GioKetThuc) {
                 // Về sớm
                 if (finalStatus === 'Tre') {
-                    finalStatus = 'Tre_Ve_som'; // Đi trễ VÀ về sớm
+                    finalStatus = 'Tre_Ve_som';
                 } else {
                     finalStatus = 'Ve_som';
                 }
@@ -308,16 +321,21 @@ const attendanceController = {
                 DiaChi_IP: req.ip
             });
 
+            let outMsg = 'Chấm công ra thành công';
+            if (finalStatus.includes('Ve_som')) outMsg += ' (Về sớm)';
+            if (validatedOT > 0) outMsg += ` | Tăng ca: ${validatedOT}h`;
+
             res.json({
                 success: true,
-                message: finalStatus.includes('Ve_som') ? 'Chấm công ra thành công (Về sớm)' : 'Chấm công ra thành công',
+                message: outMsg,
                 data: { 
                     Ngay: checkDate, 
                     GioRa: checkTime, 
                     SoGioLam: soGioLam, 
                     SoGioTangCa: validatedOT,
                     TrangThai: finalStatus,
-                    PhutNghiTru: breakMinutes
+                    PhutNghiTru: breakMinutes,
+                    TangCaTuDong: true  // đánh dấu OT được tính tự động
                 }
             });
         } catch (error) {
