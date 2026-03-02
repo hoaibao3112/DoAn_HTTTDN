@@ -86,7 +86,115 @@ const reportController = {
             console.error('Error fetching revenue by date range:', error);
             res.status(500).json({ success: false, message: error.message });
         }
-    }
+    },
+
+    // Lấy nhật ký hoạt động (Audit Logs)
+    getAuditLogs: async (req, res) => {
+        try {
+            const { startDate, endDate, user, action, module, page = 1, limit = 50 } = req.query;
+            const offset = (parseInt(page) - 1) * parseInt(limit);
+
+            // Map frontend action (CREATE/UPDATE/DELETE) sang HanhDong trong DB
+            const ACTION_MAP = {
+                CREATE: ['Them', 'Dang_nhap', 'Dang_nhap_that_bai', 'CheckIn'],
+                UPDATE: ['Sua', 'CapNhat', 'VoHieuHoa', 'KichHoat', 'CheckOut', 'Kiem_Ke'],
+                DELETE: ['Xoa', 'XoaHD'],
+            };
+
+            const conditions = [];
+            const params = [];
+
+            // Lọc ngày bắt đầu
+            if (startDate) {
+                conditions.push('DATE(n.ThoiGian) >= ?');
+                params.push(startDate);
+            }
+            // Lọc ngày kết thúc
+            if (endDate) {
+                conditions.push('DATE(n.ThoiGian) <= ?');
+                params.push(endDate);
+            }
+            // Lọc người dùng
+            if (user && user !== 'all') {
+                conditions.push('tk.TenTK LIKE ?');
+                params.push(`%${user}%`);
+            }
+            // Lọc hành động
+            if (action && action !== 'all' && ACTION_MAP[action]) {
+                const actionList = ACTION_MAP[action];
+                const placeholders = actionList.map(() => '?').join(', ');
+                conditions.push(`n.HanhDong IN (${placeholders})`);
+                params.push(...actionList);
+            }
+            // Lọc module (bảng dữ liệu)
+            if (module && module !== 'all') {
+                conditions.push('n.BangDuLieu = ?');
+                params.push(module);
+            }
+
+            const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+            // Đếm tổng số bản ghi
+            const countQuery = `
+                SELECT COUNT(*) as total
+                FROM nhat_ky_hoat_dong n
+                LEFT JOIN taikhoan tk ON n.MaTK = tk.MaTK
+                ${whereClause}
+            `;
+            const [countResult] = await pool.query(countQuery, params);
+            const total = countResult[0].total;
+
+            // Lấy dữ liệu phân trang
+            const dataQuery = `
+                SELECT 
+                    n.MaNK,
+                    n.ThoiGian,
+                    tk.TenTK,
+                    n.HanhDong,
+                    n.BangDuLieu,
+                    n.MaBanGhi,
+                    n.DuLieuCu,
+                    n.DuLieuMoi,
+                    n.DiaChi_IP,
+                    n.GhiChu,
+                    CASE
+                        WHEN n.HanhDong IN ('Them', 'Dang_nhap', 'Dang_nhap_that_bai', 'CheckIn') THEN 'CREATE'
+                        WHEN n.HanhDong IN ('Sua', 'CapNhat', 'VoHieuHoa', 'KichHoat', 'CheckOut', 'Kiem_Ke') THEN 'UPDATE'
+                        WHEN n.HanhDong IN ('Xoa', 'XoaHD') THEN 'DELETE'
+                        ELSE 'CREATE'
+                    END AS ActionType
+                FROM nhat_ky_hoat_dong n
+                LEFT JOIN taikhoan tk ON n.MaTK = tk.MaTK
+                ${whereClause}
+                ORDER BY n.ThoiGian DESC
+                LIMIT ? OFFSET ?
+            `;
+            const dataParams = [...params, parseInt(limit), offset];
+            const [rows] = await pool.query(dataQuery, dataParams);
+
+            // Normalize dữ liệu JSON
+            const data = rows.map(row => ({
+                ...row,
+                HanhDong: row.ActionType,         // Trả về CREATE/UPDATE/DELETE
+                HanhDongGoc: row.HanhDong,        // Giữ nguyên tiếng Việt để hiển thị
+                DuLieuCu: row.DuLieuCu
+                    ? (typeof row.DuLieuCu === 'string' ? JSON.parse(row.DuLieuCu) : row.DuLieuCu)
+                    : null,
+                DuLieuMoi: row.DuLieuMoi
+                    ? (typeof row.DuLieuMoi === 'string' ? JSON.parse(row.DuLieuMoi) : row.DuLieuMoi)
+                    : null,
+            }));
+
+            res.json({
+                success: true,
+                data,
+                pagination: { total, page: parseInt(page), limit: parseInt(limit) }
+            });
+        } catch (error) {
+            console.error('Error fetching audit logs:', error);
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
 };
 
 export default reportController;

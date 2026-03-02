@@ -9,7 +9,7 @@ import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined,
   SearchOutlined, ReloadOutlined, TagOutlined, BarChartOutlined,
   GiftOutlined, StopOutlined, CheckCircleOutlined, HistoryOutlined,
-  PercentageOutlined, DollarOutlined, ClockCircleOutlined
+  PercentageOutlined, DollarOutlined, ClockCircleOutlined, PrinterOutlined, DownloadOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import '../styles/DiscountManagement.css';
@@ -609,13 +609,389 @@ const PromotionList = () => {
 };
 
 // ==================== TAB 2: MÃ GIẢM GIÁ ====================
+// ==================== HÀM IN PHIẾU GIẢM GIÁ ====================
+const printVoucherTicket = (voucher) => {
+  const discountText = voucher.LoaiKM === 'giam_tien'
+    ? `${Number(voucher.GiaTriGiam).toLocaleString('vi-VN')}đ`
+    : `${voucher.GiaTriGiam}%`;
+  const loaiLabel = {
+    giam_phan_tram: 'Giảm phần trăm', giam_tien: 'Giảm tiền trực tiếp',
+    giam_gio_vang: 'Ưu đãi giờ vàng', mua_X_tang_Y: 'Mua X tặng Y'
+  }[voucher.LoaiKM] || voucher.LoaiKM;
+  const now = new Date().toLocaleDateString('vi-VN');
+
+  const html = `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8">
+  <title>Phiếu Giảm Giá - ${voucher.MaCode}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f0f2f5; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: 'Inter', Arial, sans-serif; padding: 20px; }
+    .page-title { font-size: 13px; color: #888; margin-bottom: 18px; letter-spacing: 1px; text-transform: uppercase; }
+    .ticket {
+      width: 720px; height: 240px; display: flex; border-radius: 18px; overflow: visible;
+      box-shadow: 0 20px 60px rgba(99,51,187,0.25), 0 4px 16px rgba(0,0,0,0.12);
+      position: relative;
+    }
+    /* Left panel */
+    .ticket-left {
+      width: 220px; flex-shrink: 0;
+      background: linear-gradient(135deg, #6333bb 0%, #9b59b6 40%, #e040fb 100%);
+      border-radius: 18px 0 0 18px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 22px 20px; color: #fff; position: relative; overflow: hidden;
+    }
+    .ticket-left::before {
+      content: 'GIẢM GIÁ';
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-35deg);
+      font-size: 38px; font-weight: 900; color: rgba(255,255,255,0.06); white-space: nowrap;
+      letter-spacing: 4px; pointer-events: none;
+    }
+    .shop-logo {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .shop-icon {
+      width: 36px; height: 36px; background: rgba(255,255,255,0.2);
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .shop-name { font-size: 15px; font-weight: 800; letter-spacing: 0.5px; line-height: 1.2; }
+    .shop-sub { font-size: 10px; opacity: 0.75; }
+    .promo-name { font-size: 13px; font-weight: 600; opacity: 0.9; line-height: 1.4; }
+    .promo-type {
+      display: inline-block; background: rgba(255,255,255,0.18); border-radius: 20px;
+      padding: 3px 10px; font-size: 10px; font-weight: 600; margin-top: 4px;
+    }
+    .issue-date { font-size: 10px; opacity: 0.7; }
+    /* Notch cutout */
+    .notch-top, .notch-bottom {
+      position: absolute; width: 28px; height: 28px; background: #f0f2f5;
+      border-radius: 50%; z-index: 10;
+    }
+    .notch-top { top: -14px; left: 205px; }
+    .notch-bottom { bottom: -14px; left: 205px; }
+    /* Center panel */
+    .ticket-center {
+      flex: 1; background: #fff;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 20px 28px; border-left: 2px dashed #e0d0f5; border-right: 2px dashed #e0d0f5;
+      position: relative;
+    }
+    .discount-badge {
+      background: linear-gradient(135deg, #6333bb, #e040fb);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; font-size: 68px; font-weight: 900; line-height: 1;
+      letter-spacing: -2px;
+    }
+    .discount-label { font-size: 13px; color: #6333bb; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+    .divider-dots { display: flex; gap: 4px; margin: 8px 0; }
+    .dot { width: 5px; height: 5px; border-radius: 50%; background: #d0b8f5; }
+    .conditions { text-align: center; }
+    .cond-item { font-size: 11px; color: #666; padding: 2px 0; }
+    .cond-item span { font-weight: 700; color: #444; }
+    /* Right panel */
+    .ticket-right {
+      width: 200px; flex-shrink: 0;
+      background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      border-radius: 0 18px 18px 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+      padding: 20px 16px; color: #fff; position: relative; overflow: hidden;
+    }
+    .ticket-right::after {
+      content: ''; position: absolute; top: -30px; right: -30px;
+      width: 100px; height: 100px; border-radius: 50%;
+      background: rgba(99,51,187,0.2);
+    }
+    .code-label { font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 2px; }
+    .code-value {
+      font-size: 22px; font-weight: 900; color: #fff; letter-spacing: 2px;
+      background: rgba(255,255,255,0.1); border-radius: 10px;
+      padding: 8px 12px; text-align: center; margin: 4px 0;
+      border: 1px solid rgba(255,255,255,0.15);
+      word-break: break-all;
+    }
+    .barcode-visual {
+      display: flex; gap: 2px; align-items: flex-end; height: 38px; margin: 6px 0;
+    }
+    .bar { background: rgba(255,255,255,0.6); border-radius: 2px; }
+    .validity { text-align: center; }
+    .valid-label { font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
+    .valid-value { font-size: 11px; font-weight: 700; color: #e0b0ff; }
+    /* Footer */
+    .ticket-footer {
+      width: 720px; margin-top: 14px;
+      background: rgba(255,255,255,0.7); border-radius: 10px;
+      padding: 10px 20px; display: flex; justify-content: space-between; align-items: center;
+      font-size: 10px; color: #999;
+    }
+    @media print {
+      body { background: white; padding: 0; }
+      .ticket { box-shadow: none; }
+      .notch-top, .notch-bottom { background: white; }
+      .ticket-footer { background: transparent; }
+    }
+  </style>
+</head><body>
+  <p class="page-title">Phiếu Giảm Giá Khuyến Mãi</p>
+  <div class="ticket">
+    <!-- Notch cutouts -->
+    <div class="notch-top"></div>
+    <div class="notch-bottom"></div>
+    <!-- LEFT -->
+    <div class="ticket-left">
+      <div class="shop-logo">
+        <div class="shop-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 4.5C2 3.12 3.12 2 4.5 2H12v20H4.5C3.12 22 2 20.88 2 19.5V4.5Z" fill="rgba(255,255,255,0.9)"/>
+            <path d="M12 2h7.5C20.88 2 22 3.12 22 4.5v15c0 1.38-1.12 2.5-2.5 2.5H12V2Z" fill="rgba(255,255,255,0.55)"/>
+            <path d="M12 2v20" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+            <path d="M5 7h5M5 10h5M5 13h3" stroke="rgba(99,51,187,0.6)" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="shop-name">WebSách</div>
+          <div class="shop-sub">Nhà sách uy tín #1</div>
+        </div>
+      </div>
+      <div>
+        <div class="promo-name">${voucher.TenKM || 'Chương trình khuyến mãi'}</div>
+        <div class="promo-type">${loaiLabel}</div>
+      </div>
+      <div class="issue-date">Phát hành: ${now}</div>
+    </div>
+    <!-- CENTER -->
+    <div class="ticket-center">
+      <div class="discount-label">Ưu đãi giảm</div>
+      <div class="discount-badge">${discountText}</div>
+      <div class="divider-dots">${Array(9).fill('<div class="dot"></div>').join('')}</div>
+      <div class="conditions">
+        <div class="cond-item">Số lần dùng / khách: <span>${voucher.SoLanDungMoiKH ?? 'Không giới hạn'}</span></div>
+        <div class="cond-item">Còn lại: <span>${voucher.ConLai ?? 'Không giới hạn'}</span> lượt</div>
+        <div class="cond-item">Đối tượng: <span>${voucher.ApDungChoKHMoi ? 'Khách hàng mới' : 'Tất cả khách hàng'}</span></div>
+      </div>
+    </div>
+    <!-- RIGHT -->
+    <div class="ticket-right">
+      <div>
+        <div class="code-label">Mã voucher</div>
+        <div class="code-value">${voucher.MaCode}</div>
+      </div>
+      <div class="barcode-visual">
+        ${[3,5,2,6,4,7,3,5,8,4,2,6,3,5,4,7,2,5].map(h =>
+          `<div class="bar" style="width:${h > 5 ? 3 : 2}px;height:${h * 4 + 8}px;"></div>`
+        ).join('')}
+      </div>
+      <div class="validity">
+        <div class="valid-label">Trạng thái</div>
+        <div class="valid-value">${voucher.TrangThai ? '✓ Đang hoạt động' : '✗ Hết hạn'}</div>
+      </div>
+    </div>
+  </div>
+  <div class="ticket-footer">
+    <span>* Mỗi mã chỉ sử dụng 1 lần / giao dịch</span>
+    <span>* Không áp dụng đồng thời nhiều mã</span>
+    <span>WebSách © ${new Date().getFullYear()}</span>
+  </div>
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body></html>`;
+
+  const pw = window.open('', '_blank', 'width=800,height=600');
+  pw.document.write(html);
+  pw.document.close();
+};
+
+// ==================== LƯU PDF PHIẾU GIẢM GIÁ ====================
+const downloadVoucherPDF = async (voucher) => {
+  const { default: html2canvas } = await import('html2canvas');
+  const { jsPDF } = await import('jspdf');
+
+  const discountText = voucher.LoaiKM === 'giam_tien'
+    ? `${Number(voucher.GiaTriGiam).toLocaleString('vi-VN')}đ`
+    : `${voucher.GiaTriGiam}%`;
+  const loaiLabel = {
+    giam_phan_tram: 'Giảm phần trăm', giam_tien: 'Giảm tiền trực tiếp',
+    giam_gio_vang: 'Ưu đãi giờ vàng', mua_X_tang_Y: 'Mua X tặng Y',
+  }[voucher.LoaiKM] || voucher.LoaiKM;
+  const now = new Date().toLocaleDateString('vi-VN');
+
+  // Wrapper ngoài cùng - render trực tiếp trong document (không dùng iframe)
+  const wrap = document.createElement('div');
+  wrap.style.cssText = [
+    'position:absolute', 'left:-9999px', 'top:0',
+    'width:876px', 'background:#f0f2f5', 'padding:28px 28px 20px',
+    'font-family:Arial,Helvetica,sans-serif',
+  ].join(';');
+
+  const barsHTML = [3,5,2,6,4,7,3,5,8,4,2,6,3,5,4,7,2,5].map(h =>
+    `<div style="background:rgba(255,255,255,0.7);border-radius:2px;width:${h>5?4:2}px;height:${h*3+8}px;display:inline-block;margin:0 1px;vertical-align:bottom;"></div>`
+  ).join('');
+
+  wrap.innerHTML = `
+    <div style="text-align:center;font-size:11px;color:#888;margin-bottom:14px;letter-spacing:2px;text-transform:uppercase;font-weight:600;">
+      PHIẾU GIẢM GIÁ KHUYẾN MÃI
+    </div>
+
+    <div style="display:flex;width:820px;height:236px;border-radius:16px;overflow:hidden;
+                box-shadow:0 8px 30px rgba(99,51,187,0.25);">
+
+      <!-- LEFT: gradient tím -->
+      <div style="width:218px;flex-shrink:0;
+                  background:linear-gradient(135deg,#6333bb 0%,#9b59b6 50%,#d060ea 100%);
+                  display:flex;flex-direction:column;justify-content:space-between;
+                  padding:20px 18px;color:#fff;position:relative;overflow:hidden;">
+        <!-- watermark -->
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);
+                    font-size:36px;font-weight:900;color:rgba(255,255,255,0.07);
+                    white-space:nowrap;letter-spacing:4px;pointer-events:none;">GIẢM GIÁ</div>
+        <!-- logo -->
+        <div style="display:flex;align-items:center;gap:10px;position:relative;">
+          <div style="width:36px;height:36px;background:rgba(255,255,255,0.22);border-radius:9px;
+                      display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 4.5C2 3.12 3.12 2 4.5 2H12v20H4.5C3.12 22 2 20.88 2 19.5V4.5Z" fill="rgba(255,255,255,0.9)"/>
+            <path d="M12 2h7.5C20.88 2 22 3.12 22 4.5v15c0 1.38-1.12 2.5-2.5 2.5H12V2Z" fill="rgba(255,255,255,0.55)"/>
+            <path d="M12 2v20" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+            <path d="M5 7h5M5 10h5M5 13h3" stroke="rgba(99,51,187,0.6)" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </div>
+          <div>
+            <div style="font-size:15px;font-weight:800;line-height:1.2;">WebSách</div>
+            <div style="font-size:10px;opacity:0.75;">Nhà sách uy tín #1</div>
+          </div>
+        </div>
+        <!-- tên KM -->
+        <div style="position:relative;">
+          <div style="font-size:12px;font-weight:600;opacity:0.92;line-height:1.45;margin-bottom:5px;">
+            ${voucher.TenKM || 'Chương trình khuyến mãi'}
+          </div>
+          <div style="display:inline-block;background:rgba(255,255,255,0.2);border-radius:30px;
+                      padding:3px 11px;font-size:9px;font-weight:700;">${loaiLabel}</div>
+        </div>
+        <div style="font-size:9px;opacity:0.7;position:relative;">Phát hành: ${now}</div>
+      </div>
+
+      <!-- NOTCH trái (giả lập) -->
+      <div style="width:2px;background:repeating-linear-gradient(to bottom,#e0d0f5 0,#e0d0f5 6px,transparent 6px,transparent 12px);flex-shrink:0;"></div>
+
+      <!-- CENTER: trắng -->
+      <div style="flex:1;background:#fff;display:flex;flex-direction:column;
+                  align-items:center;justify-content:center;padding:14px 22px;">
+        <div style="font-size:11px;color:#7c3aed;font-weight:700;text-transform:uppercase;
+                    letter-spacing:1px;margin-bottom:6px;">Ưu đãi giảm</div>
+        <div style="font-size:62px;font-weight:900;line-height:1;color:#6333bb;letter-spacing:-2px;">
+          ${discountText}
+        </div>
+        <div style="margin:8px 0;line-height:0;">
+          ${Array(9).fill('<span style="width:6px;height:6px;border-radius:50%;background:#d0b8f5;display:inline-block;margin:0 2px;"></span>').join('')}
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:11px;color:#555;padding:2px 0;">
+            Số lần dùng / khách: <b style="color:#222;">${voucher.SoLanDungMoiKH ?? 'Không giới hạn'}</b>
+          </div>
+          <div style="font-size:11px;color:#555;padding:2px 0;">
+            Còn lại: <b style="color:#222;">${voucher.ConLai ?? 'Không giới hạn'}</b> lượt
+          </div>
+          <div style="font-size:11px;color:#555;padding:2px 0;">
+            Đối tượng: <b style="color:#222;">${voucher.ApDungChoKHMoi ? 'Khách hàng mới' : 'Tất cả khách hàng'}</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOTCH phải (giả lập) -->
+      <div style="width:2px;background:repeating-linear-gradient(to bottom,#e0d0f5 0,#e0d0f5 6px,transparent 6px,transparent 12px);flex-shrink:0;"></div>
+
+      <!-- RIGHT: tối xanh đêm -->
+      <div style="width:196px;flex-shrink:0;
+                  background:linear-gradient(180deg,#1a1a2e 0%,#16213e 55%,#0f3460 100%);
+                  display:flex;flex-direction:column;align-items:center;
+                  justify-content:space-between;padding:18px 14px;color:#fff;overflow:hidden;position:relative;">
+        <div style="position:absolute;top:-28px;right:-28px;width:90px;height:90px;
+                    border-radius:50%;background:rgba(99,51,187,0.25);"></div>
+        <!-- mã -->
+        <div style="text-align:center;position:relative;">
+          <div style="font-size:9px;color:rgba(255,255,255,0.45);text-transform:uppercase;
+                      letter-spacing:2px;margin-bottom:5px;">Mã Voucher</div>
+          <div style="font-size:20px;font-weight:900;color:#fff;letter-spacing:3px;
+                      background:rgba(255,255,255,0.1);border-radius:9px;
+                      padding:8px 10px;border:1px solid rgba(255,255,255,0.18);
+                      word-break:break-all;line-height:1.2;">${voucher.MaCode}</div>
+        </div>
+        <!-- barcode visual -->
+        <div style="line-height:0;">${barsHTML}</div>
+        <!-- trạng thái -->
+        <div style="text-align:center;">
+          <div style="font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;
+                      letter-spacing:1px;margin-bottom:3px;">Trạng thái</div>
+          <div style="font-size:12px;font-weight:700;color:#e0b0ff;">
+            ${voucher.TrangThai ? '✓ Đang hoạt động' : '✗ Hết hạn'}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="width:820px;margin:10px 0 0;background:rgba(255,255,255,0.75);border-radius:8px;
+                padding:8px 18px;display:flex;justify-content:space-between;font-size:9px;color:#999;">
+      <span>* Mỗi mã chỉ sử dụng 1 lần / giao dịch</span>
+      <span>* Không áp dụng đồng thời nhiều mã</span>
+      <span>WebSách © ${new Date().getFullYear()}</span>
+    </div>`;
+
+  document.body.appendChild(wrap);
+
+  try {
+    // Đợi browser paint xong
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise(r => setTimeout(r, 200));
+
+    const canvas = await html2canvas(wrap, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#f0f2f5',
+      width: wrap.offsetWidth,
+      height: wrap.offsetHeight,
+      scrollX: 0,
+      scrollY: 0,
+      logging: false,
+    });
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.98);
+    const pdfW = canvas.width / 2;
+    const pdfH = canvas.height / 2;
+
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'px',
+      format: [pdfW, pdfH],
+      hotfixes: ['px_scaling'],
+    });
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
+    pdf.save(`PhieuGiamGia_${voucher.MaCode}.pdf`);
+  } finally {
+    document.body.removeChild(wrap);
+  }
+};
+
+// ==================== VOUCHER LIST ====================
 const VoucherList = () => {
   const [vouchers, setVouchers] = useState([]);
   const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [form] = Form.useForm();
+
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: (keys) => setSelectedRowKeys(keys),
+  };
+
+  const handleBatchPrint = () => {
+    const selected = vouchers.filter(v => selectedRowKeys.includes(v.MaMGG));
+    if (!selected.length) return message.warning('Chọn ít nhất 1 mã để in!');
+    selected.forEach((v, i) => setTimeout(() => printVoucherTicket(v), i * 300));
+  };
 
   useEffect(() => {
     if (isFormOpen) form.resetFields();
@@ -729,15 +1105,34 @@ const VoucherList = () => {
     {
       title: 'Thao tác',
       key: 'action',
-      width: 80,
+      width: 110,
       render: (_, record) => (
-        <Popconfirm
-          title="Xóa mã giảm giá này?"
-          onConfirm={() => handleDelete(record.MaMGG)}
-          okText="Xóa" cancelText="Hủy" okButtonProps={{ danger: true }}
-        >
-          <Button icon={<DeleteOutlined />} size="small" danger />
-        </Popconfirm>
+        <Space size={4}>
+          <Tooltip title="In phiếu giảm giá">
+            <Button
+              icon={<PrinterOutlined />}
+              size="small"
+              type="primary"
+              ghost
+              onClick={() => printVoucherTicket(record)}
+            />
+          </Tooltip>
+          <Tooltip title="Tải PDF phiếu giảm giá">
+            <Button
+              icon={<DownloadOutlined />}
+              size="small"
+              style={{ color: '#52c41a', borderColor: '#52c41a' }}
+              onClick={() => downloadVoucherPDF(record)}
+            />
+          </Tooltip>
+          <Popconfirm
+            title="Xóa mã giảm giá này?"
+            onConfirm={() => handleDelete(record.MaMGG)}
+            okText="Xóa" cancelText="Hủy" okButtonProps={{ danger: true }}
+          >
+            <Button icon={<DeleteOutlined />} size="small" danger />
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
@@ -754,6 +1149,15 @@ const VoucherList = () => {
           allowClear
         />
         <Button icon={<ReloadOutlined />} onClick={fetchVouchers}>Làm mới</Button>
+        {selectedRowKeys.length > 0 && (
+          <Button
+            icon={<PrinterOutlined />}
+            onClick={handleBatchPrint}
+            style={{ background: '#6333bb', borderColor: '#6333bb', color: '#fff' }}
+          >
+            In {selectedRowKeys.length} phiếu
+          </Button>
+        )}
         <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setIsFormOpen(true); }}>
           Tạo mã giảm giá
         </Button>
@@ -766,6 +1170,7 @@ const VoucherList = () => {
           dataSource={filtered}
           rowKey="MaMGG"
           loading={loading}
+          rowSelection={rowSelection}
           pagination={{ pageSize: 10, showTotal: (t) => `Tổng ${t} mã` }}
           locale={{ emptyText: <Empty description="Chưa có mã giảm giá nào" /> }}
         />

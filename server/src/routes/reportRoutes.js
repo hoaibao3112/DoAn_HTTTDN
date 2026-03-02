@@ -30,4 +30,10 @@ router.post('/doanhthu/khoangtg',
     reportController.getRevenueByDateRange
 );
 
+// Nhật ký hoạt động (Audit Logs)
+router.get('/audit-logs',
+    checkPermission(FEATURES.AUDIT_LOGS, PERMISSIONS.VIEW),
+    reportController.getAuditLogs
+);
+
 export default router;

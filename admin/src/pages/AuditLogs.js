@@ -144,10 +144,11 @@ const AuditLogs = () => {
                     details: {
                         table: item.BangDuLieu || item.details?.table,
                         recordId: item.MaBanGhi || item.details?.recordId,
-                        action: item.HanhDong || item.details?.action,
+                        action: item.HanhDongGoc || item.HanhDong || item.details?.action,
+                        note: item.GhiChu || null,
                         changes: {
-                            old: typeof item.DuLieuCu === 'string' ? JSON.parse(item.DuLieuCu) : (item.DuLieuCu || item.details?.changes?.old),
-                            new: typeof item.DuLieuMoi === 'string' ? JSON.parse(item.DuLieuMoi) : (item.DuLieuMoi || item.details?.changes?.new)
+                            old: item.DuLieuCu || item.details?.changes?.old || null,
+                            new: item.DuLieuMoi || item.details?.changes?.new || null,
                         }
                     }
                 }));
