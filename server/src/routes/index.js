@@ -10,7 +10,6 @@ import supplierRoutes from './supplierRoutes.js';
 import financeRoutes from './financeRoutes.js';
 import returnRoutes from './returnRoutes.js';
 import customerRoutes from './customerRoutes.js';
-import branchRoutes from './branchRoutes.js';
 import catalogRoutes from './catalogRoutes.js';
 import chatRoutes from './chat.js';
 import paymentRoutes from './paymentRoutes.js';
@@ -30,7 +29,6 @@ export const initRoutes = (app) => {
         warehouse: ['/api/warehouse (includes products, stock, transfers)', '/api/suppliers'],
         catalog: ['/api/catalog (authors, categories)'],
         sales: ['/api/sales', '/api/returns', '/api/customers'],
-        branches: ['/api/branches'],
         finance: ['/api/finance']
       }
     });
@@ -78,10 +76,8 @@ export const initRoutes = (app) => {
   // ======================= LOYALTY & MEMBERSHIP =======================
   app.use('/api/loyalty', loyaltyRoutes);
 
-  // ======================= BRANCH MANAGEMENT =======================
-  app.use('/api/branches', branchRoutes);
-
   // ======================= FINANCE MANAGEMENT =======================
+  // (Branch management removed - no longer used)
   app.use('/api/finance', financeRoutes);
   app.use('/api/chat', chatRoutes);
   app.use('/api/payments', paymentRoutes);

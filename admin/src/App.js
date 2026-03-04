@@ -22,7 +22,6 @@ import LeavePage from './pages/LeavePage';
 import AttendancePage from './pages/AttendancePage';
 import { PermissionContext } from './components/PermissionContext';
 import AdminHome from './pages/AdminHome';
-import StockManagement from './pages/StockManagement';
 import POSPage from './pages/POSPage';
 import StockTransfer from './pages/StockTransfer';
 import InventoryCheck from './pages/InventoryCheck';
@@ -30,6 +29,7 @@ import SupplierDebts from './pages/SupplierDebts';
 import AuditLogs from './pages/AuditLogs';
 import BranchManagement from './pages/BranchManagement';
 import BarcodeGeneratorPage from './pages/BarcodeGeneratorPage';
+import SubWarehouseManagement from './pages/SubWarehouseManagement';
 import { FEATURES } from './constants/permissions';
 
 const PrivateRoute = ({ component: Component }) => {
@@ -233,17 +233,6 @@ const App = () => {
       />
 
       <Route
-        path="/admin/stock"
-        element={
-          <PrivateRoute
-            component={() => (
-              <RestrictedRoute component={StockManagement} permissionId={FEATURES.STOCK} />
-            )}
-          />
-        }
-      />
-
-      <Route
         path="/admin/pos"
         element={
           <PrivateRoute
@@ -304,6 +293,17 @@ const App = () => {
           <PrivateRoute
             component={() => (
               <RestrictedRoute component={BranchManagement} permissionId={FEATURES.CATEGORIES} />
+            )}
+          />
+        }
+      />
+
+      <Route
+        path="/admin/sub-warehouses"
+        element={
+          <PrivateRoute
+            component={() => (
+              <RestrictedRoute component={SubWarehouseManagement} permissionId={FEATURES.STOCK} />
             )}
           />
         }

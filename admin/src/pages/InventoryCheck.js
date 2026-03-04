@@ -1,169 +1,188 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { PermissionContext } from '../components/PermissionContext';
 import { FEATURES } from '../constants/permissions';
 import '../styles/InventoryCheck.css';
 
+const API = 'http://localhost:5000/api/warehouse';
+const getHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('authToken')}` });
+
+const StatusBadge = ({ status }) => {
+    const map = { Dang_kiem: ['badge-pending', 'Đang kiểm'], Hoan_thanh: ['badge-done', 'Hoàn thành'] };
+    const [cls, text] = map[status] || ['badge-pending', status];
+    return <span className={`ic-badge ${cls}`}>{text}</span>;
+};
+
+// ────────────────────────────────────────────────────────────────────────────────
 const InventoryCheck = () => {
     const { hasPermissionById } = useContext(PermissionContext);
-    const [checkSession, setCheckSession] = useState(null);
-    const [branches, setBranches] = useState([]);
-    const [inventoryItems, setInventoryItems] = useState([]);
-    const [selectedBranch, setSelectedBranch] = useState('');
-    const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        fetchBranches();
+    // screens: 'list' | 'create' | 'detail'
+    const [view, setView] = useState('list');
+
+    // LIST
+    const [checks, setChecks] = useState([]);
+    const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
+    const [filterStore, setFilterStore] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [listLoading, setListLoading] = useState(false);
+
+    // SHARED
+    const [stores, setStores] = useState([]);
+
+    // CREATE
+    const [createStore, setCreateStore] = useState('');
+    const [createDate, setCreateDate] = useState(new Date().toISOString().split('T')[0]);
+    const [createNote, setCreateNote] = useState('');
+    const [createItems, setCreateItems] = useState([]); // { MaSP, TenSP, TonHeThong, SoLuongThucTe, LyDo }
+    const [createLoading, setCreateLoading] = useState(false);
+    const [stockLoading, setStockLoading] = useState(false);
+
+    // DETAIL
+    const [detailData, setDetailData] = useState(null); // header + items
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [completeModal, setCompleteModal] = useState(false);
+    const [apDung, setApDung] = useState(true);
+    const [completing, setCompleting] = useState(false);
+
+    // ── fetch ─────────────────────────────────────────────────
+    const fetchStores = useCallback(async () => {
+        try {
+            const r = await axios.get(`${API}/stores`, { headers: getHeaders() });
+            if (r.data.success) setStores(r.data.data);
+        } catch (e) { console.error(e); }
     }, []);
 
-    const fetchBranches = async () => {
+    const fetchChecks = useCallback(async (page = 1) => {
+        setListLoading(true);
         try {
-            const token = localStorage.getItem('authToken');
-            const response = await axios.get('http://localhost:5000/api/branches', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (response.data.success) {
-                setBranches(response.data.data || []);
+            const p = new URLSearchParams({ page, pageSize: 20 });
+            if (filterStore) p.append('MaCH', filterStore);
+            if (filterStatus) p.append('TrangThai', filterStatus);
+            const r = await axios.get(`${API}/inventory-checks?${p}`, { headers: getHeaders() });
+            if (r.data.success) {
+                setChecks(r.data.data || []);
+                setPagination(r.data.pagination || { page: 1, totalPages: 1 });
             }
-        } catch (error) {
-            console.error('Error fetching branches:', error);
-        }
-    };
+        } catch (e) { console.error(e); }
+        finally { setListLoading(false); }
+    }, [filterStore, filterStatus]);
 
-    const startInventoryCheck = async () => {
-        if (!selectedBranch) {
-            alert('Vui lòng chọn chi nhánh');
-            return;
-        }
+    useEffect(() => { fetchStores(); }, [fetchStores]);
+    useEffect(() => { fetchChecks(1); }, [fetchChecks]);
 
+    // ── create: load stock khi chọn cửa hàng ─────────────────
+    const loadStockForStore = async (MaCH) => {
+        setCreateStore(MaCH);
+        setCreateItems([]);
+        if (!MaCH) return;
+        setStockLoading(true);
         try {
-            setLoading(true);
-            const token = localStorage.getItem('authToken');
-            // Fetch real stock for this branch
-            const response = await axios.get(`http://localhost:5000/api/warehouse/stock?MaCH=${selectedBranch}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            if (response.data.success) {
-                const stockData = response.data.data.map(item => ({
-                    MaSP: item.MaSP,
-                    TenSP: item.TenSP,
-                    TonHeThong: item.SoLuongTon || 0,
-                    ThucTe: item.SoLuongTon || 0, // Default to system qty
-                    ChenhLech: 0,
-                    Note: ''
+            const r = await axios.get(`${API}/stock?MaCH=${MaCH}&pageSize=500`, { headers: getHeaders() });
+            if (r.data.success) {
+                const items = (r.data.data || []).map(s => ({
+                    MaSP: s.MaSP,
+                    TenSP: s.TenSP,
+                    TonHeThong: s.SoLuongTon ?? 0,
+                    SoLuongThucTe: s.SoLuongTon ?? 0, // default = hệ thống
+                    LyDo: '',
                 }));
-
-                if (stockData.length === 0) {
-                    alert('Chi nhánh này hiện chưa có sản phẩm nào trong kho!');
-                    setLoading(false);
-                    return;
-                }
-
-                setCheckSession({
-                    MaCH: selectedBranch,
-                    NgayKiemKe: new Date().toISOString().split('T')[0],
-                    NguoiKiemKe: JSON.parse(localStorage.getItem('userInfo') || '{}').HoTen || 'Nhân viên quản lý'
-                });
-                setInventoryItems(stockData);
+                setCreateItems(items);
+                if (items.length === 0) alert('Cửa hàng này chưa có sản phẩm nào trong kho!');
             }
-        } catch (error) {
-            console.error('Error fetching inventory:', error);
-            alert('Không thể tải dữ liệu tồn thực tế của chi nhánh!');
-        } finally {
-            setLoading(false);
-        }
+        } catch (e) { console.error(e); alert('Lỗi tải tồn kho'); }
+        finally { setStockLoading(false); }
     };
 
-    const updateActualQty = (productId, value) => {
-        setInventoryItems(items => items.map(item => {
-            if (item.MaSP === productId) {
-                const thucTe = parseInt(value) || 0;
-                const chenhLech = thucTe - item.TonHeThong;
-                return { ...item, ThucTe: thucTe, ChenhLech: chenhLech };
-            }
-            return item;
-        }));
-    };
-
-    const updateNote = (productId, note) => {
-        setInventoryItems(items => items.map(item =>
-            item.MaSP === productId ? { ...item, Note: note } : item
+    const updateThucTe = (MaSP, val) => {
+        const num = Math.max(0, parseInt(val) || 0);
+        setCreateItems(items => items.map(i =>
+            i.MaSP === MaSP ? { ...i, SoLuongThucTe: num } : i
         ));
     };
 
-    const getDiscrepancyClass = (diff) => {
-        if (diff === 0) return 'diff-zero';
-        if (diff > 0) return 'diff-positive';
-        return 'diff-negative';
+    const updateLyDo = (MaSP, val) => {
+        setCreateItems(items => items.map(i =>
+            i.MaSP === MaSP ? { ...i, LyDo: val } : i
+        ));
     };
 
-    const calculateStats = () => {
-        const checked = inventoryItems.filter(i => i.ThucTe !== undefined && typeof i.ThucTe === 'number').length;
-        const totalItems = inventoryItems.length;
-        const percentage = totalItems > 0 ? ((checked / totalItems) * 100).toFixed(1) : 0;
+    const handleCreateSubmit = async () => {
+        if (!createStore) { alert('Vui lòng chọn cửa hàng'); return; }
+        if (!createItems.length) { alert('Không có sản phẩm để kiểm kê'); return; }
 
-        const totalDiff = inventoryItems.reduce((sum, item) => {
-            if (item.ChenhLech < 0) return sum + Math.abs(item.ChenhLech);
-            return sum;
-        }, 0);
-
-        const negativeItems = inventoryItems.filter(i => i.ChenhLech < 0).length;
-
-        return { checked, totalItems, percentage, totalDiff, negativeItems };
-    };
-
-    const handleCompleteCheck = async () => {
-        const unchecked = inventoryItems.filter(i => i.ThucTe === undefined || typeof i.ThucTe !== 'number');
-
-        if (unchecked.length > 0) {
-            if (!window.confirm(`Còn ${unchecked.length} sản phẩm chưa kiểm. Bạn có chắc muốn hoàn tất?`)) {
-                return;
-            }
-        }
-
+        setCreateLoading(true);
         try {
-            setLoading(true);
-            const token = localStorage.getItem('authToken');
-
-            const checkData = {
-                MaCH: checkSession.MaCH,
-                items: inventoryItems.map(item => ({
-                    MaSP: item.MaSP,
-                    SoLuongHeThong: item.TonHeThong,
-                    SoLuongThucTe: item.ThucTe || 0,
-                    ChenhLech: item.ChenhLech || 0,
-                    GhiChu: item.Note || ''
+            const r = await axios.post(`${API}/inventory-checks`, {
+                MaCH: createStore,
+                NgayKiemKe: createDate,
+                GhiChu: createNote || null,
+                items: createItems.map(i => ({
+                    MaSP: i.MaSP,
+                    SoLuongThucTe: i.SoLuongThucTe,
+                    LyDo: i.LyDo || null,
                 }))
-            };
+            }, { headers: getHeaders() });
 
-            const response = await axios.post(
-                'http://localhost:5000/api/warehouse/inventory-check',
-                checkData,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-
-            if (response.data.success) {
-                alert('Hoàn tất kiểm kê thành công!');
-                // Reset
-                setCheckSession(null);
-                setInventoryItems([]);
-                setSelectedBranch('');
+            if (r.data.success) {
+                alert(`Tạo phiếu kiểm kê thành công! Mã: ${r.data.MaKiemKe}`);
+                setView('list');
+                setCreateStore('');
+                setCreateItems([]);
+                setCreateNote('');
+                fetchChecks(1);
             }
-        } catch (error) {
-            console.error('Error completing inventory check:', error);
-            alert('Lỗi hoàn tất kiểm kê: ' + (error.response?.data?.message || error.message));
-        } finally {
-            setLoading(false);
-        }
+        } catch (e) { alert('Lỗi: ' + (e.response?.data?.message || e.message)); }
+        finally { setCreateLoading(false); }
     };
 
-    const exportPDF = () => {
-        alert('Xuất PDF - Chức năng đang phát triển');
+    // ── detail ────────────────────────────────────────────────
+    const openDetail = async (MaKiemKe) => {
+        setDetailLoading(true);
+        setView('detail');
+        try {
+            const r = await axios.get(`${API}/inventory-checks/${MaKiemKe}`, { headers: getHeaders() });
+            if (r.data.success) setDetailData(r.data.data);
+        } catch (e) { alert('Lỗi tải chi tiết'); setView('list'); }
+        finally { setDetailLoading(false); }
     };
 
-    const stats = calculateStats();
+    const doComplete = async () => {
+        if (!detailData) return;
+        setCompleting(true);
+        try {
+            const r = await axios.put(
+                `${API}/inventory-checks/${detailData.MaKiemKe}/complete`,
+                { apDungChenhLech: apDung },
+                { headers: getHeaders() }
+            );
+            if (r.data.success) {
+                alert(r.data.message);
+                setCompleteModal(false);
+                // Refresh detail
+                const r2 = await axios.get(`${API}/inventory-checks/${detailData.MaKiemKe}`, { headers: getHeaders() });
+                if (r2.data.success) setDetailData(r2.data.data);
+                fetchChecks(1);
+            }
+        } catch (e) { alert('Lỗi: ' + (e.response?.data?.message || e.message)); }
+        finally { setCompleting(false); }
+    };
 
+    // ── helpers ───────────────────────────────────────────────
+    const createStats = () => {
+        const total = createItems.length;
+        const changed = createItems.filter(i => i.SoLuongThucTe !== i.TonHeThong).length;
+        const totalDiff = createItems.reduce((s, i) => s + (i.SoLuongThucTe - i.TonHeThong), 0);
+        return { total, changed, totalDiff };
+    };
+
+    const diffClass = (chenh) => {
+        if (chenh === 0) return 'diff-zero';
+        if (chenh > 0) return 'diff-plus';
+        return 'diff-minus';
+    };
+
+    // ── guard ─────────────────────────────────────────────────
     if (!hasPermissionById(FEATURES.INVENTORY_CHECK, 'xem')) {
         return (
             <div className="no-permission">
@@ -173,196 +192,419 @@ const InventoryCheck = () => {
         );
     }
 
+    const canCreate = hasPermissionById(FEATURES.INVENTORY_CHECK, 'them');
+    const canComplete = hasPermissionById(FEATURES.INVENTORY_CHECK, 'sua');
+
+    // ────────────────────────────────────────────────────────
     return (
-        <div className="inventory-check-page">
-            {!checkSession ? (
-                // Start Screen
-                <div className="start-screen">
-                    <div className="start-card">
-                        <div className="start-icon">
-                            <span className="material-icons">inventory</span>
-                        </div>
-                        <h1>Kiểm Kê Kho (Inventory Check)</h1>
-                        <p>Chi nhánh: <strong>Central Bookstore</strong></p>
-                        <p>Ngày: <strong>{new Date().toLocaleDateString('vi-VN')}</strong></p>
-                        <p>Người phụ trách: <strong>{JSON.parse(localStorage.getItem('userInfo') || '{}').HoTen || 'Nguyễn Văn A'}</strong></p>
+        <div className="ic-page">
 
-                        <div className="select-branch">
-                            <label>Chọn chi nhánh cần kiểm kê</label>
-                            <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)}>
-                                <option value="">-- Chọn chi nhánh --</option>
-                                {branches.map(b => (
-                                    <option key={b.MaCH} value={b.MaCH}>{b.TenCH}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <button className="btn-start" onClick={startInventoryCheck}>
-                            <span className="material-icons">play_arrow</span>
-                            Bắt Đầu Kiểm Kê
-                        </button>
-                    </div>
+            {/* ── PAGE HEADER ── */}
+            <div className="ic-page-header">
+                <div>
+                    <h1>
+                        {view === 'list'   && 'Kiểm Kê Kho'}
+                        {view === 'create' && 'Tạo Phiếu Kiểm Kê'}
+                        {view === 'detail' && `Phiếu Kiểm Kê ${detailData ? `#${detailData.MaKiemKe}` : ''}`}
+                    </h1>
+                    <p>
+                        {view === 'list'   && 'Quản lý các phiếu kiểm kê tồn kho theo cửa hàng'}
+                        {view === 'create' && 'Nhập số lượng thực tế để đối chiếu với hệ thống'}
+                        {view === 'detail' && 'Chi tiết kết quả kiểm kê'}
+                    </p>
                 </div>
-            ) : (
-                // Check Screen
-                <div className="check-screen">
-                    <div className="check-header">
-                        <div className="breadcrumb">
-                            <span>Trang chủ</span>
-                            <span className="material-icons">chevron_right</span>
-                            <span>Quản lý kho</span>
-                            <span className="material-icons">chevron_right</span>
-                            <span>Phiên kiểm kê #{new Date().getTime()}</span>
+                <div className="ic-header-actions">
+                    {view !== 'list' && (
+                        <button className="ic-btn-outline" onClick={() => { setView('list'); setDetailData(null); }}>
+                            <span className="material-icons">arrow_back</span> Quay lại
+                        </button>
+                    )}
+                    {view === 'list' && canCreate && (
+                        <button className="ic-btn-primary" onClick={() => { setCreateStore(''); setCreateItems([]); setView('create'); }}>
+                            <span className="material-icons">add</span> Tạo phiếu kiểm kê
+                        </button>
+                    )}
+                    {view === 'detail' && detailData?.TrangThai === 'Dang_kiem' && canComplete && (
+                        <button className="ic-btn-primary" onClick={() => setCompleteModal(true)}>
+                            <span className="material-icons">check_circle</span> Hoàn tất kiểm kê
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* ══════════════════════════════════════════════════════════ */}
+            {/* LIST VIEW */}
+            {/* ══════════════════════════════════════════════════════════ */}
+            {view === 'list' && (
+                <div className="ic-list">
+                    <div className="ic-filter-bar">
+                        <div className="ic-tabs">
+                            {[['', 'Tất cả'], ['Dang_kiem', 'Đang kiểm'], ['Hoan_thanh', 'Hoàn thành']].map(([val, label]) => (
+                                <button key={val} className={`ic-tab ${filterStatus === val ? 'active' : ''}`}
+                                    onClick={() => setFilterStatus(val)}>
+                                    {label}
+                                </button>
+                            ))}
                         </div>
-
-                        <h1>Kiểm Kê Kho (Inventory Check)</h1>
-
-                        <div className="check-info">
-                            <span className="material-icons">business</span>
-                            <span>Chi nhánh: Central Bookstore</span>
-                            <span className="separator">|</span>
-                            <span className="material-icons">event</span>
-                            <span>Ngày: {new Date().toLocaleDateString('vi-VN')}</span>
-                            <span className="separator">|</span>
-                            <span className="material-icons">person</span>
-                            <span>Người phụ trách: {checkSession.NguoiKiemKe}</span>
-                        </div>
-
-                        <div className="check-actions">
-                            <button className="btn-pdf" onClick={exportPDF}>
-                                <span className="material-icons">picture_as_pdf</span>
-                                Xuất PDF
-                            </button>
-                            <button className="btn-complete" onClick={handleCompleteCheck} disabled={loading}>
-                                <span className="material-icons">check_circle</span>
-                                {loading ? 'Đang xử lý...' : 'Hoàn tất phiên kiểm kê'}
+                        <div className="ic-filter-right">
+                            <select value={filterStore} onChange={e => setFilterStore(e.target.value)}>
+                                <option value="">Tất cả cửa hàng</option>
+                                {stores.map(s => <option key={s.MaCH} value={s.MaCH}>{s.TenCH}</option>)}
+                            </select>
+                            <button className="ic-btn-icon" onClick={() => fetchChecks(1)} title="Làm mới">
+                                <span className="material-icons">refresh</span>
                             </button>
                         </div>
                     </div>
 
-                    {/* Progress Stats */}
-                    <div className="progress-section">
-                        <div className="progress-card">
-                            <div className="progress-header">
-                                <span>Sản phẩm đã kiểm</span>
-                                <button className="btn-action">Bước 1: Khởi tạo</button>
-                            </div>
-                            <div className="progress-stats">
-                                <div className="big-stat">
-                                    {stats.checked} / {stats.totalItems} items
-                                </div>
-                                <div className="progress-bar">
-                                    <div className="progress-fill" style={{ width: `${stats.percentage}%` }}></div>
-                                </div>
-                                <div className="percentage">{stats.percentage}%</div>
-                            </div>
-                        </div>
-
-                        <div className="loss-card">
-                            <div className="loss-header">
-                                <span>Tổng giá trị chênh lệch thực tế</span>
-                            </div>
-                            <div className="loss-value">-{stats.totalDiff.toLocaleString()}.000 VND</div>
-                            <div className="loss-note">* Dựa trên giá mua tính giản mật</div>
-                        </div>
-                    </div>
-
-                    {/* Inventory Table */}
-                    <div className="inventory-table-section">
-                        <div className="table-header">
-                            <div className="section-title">
-                                <span className="material-icons">assignment</span>
-                                <span>Tiến độ kiểm kê <strong>({stats.checked}/{stats.totalItems}) 37.5%</strong></span>
-                            </div>
-                            <div className="table-info">
-                                <span className="material-icons">error</span>
-                                <span>Đã tự động nhập giá lúc nhập kho. Lúc 14:35</span>
-                            </div>
-                            <div className="status-summary">
-                                <span>Trạng thái lưu</span>
-                                <span className="material-icons check-icon">check_circle</span>
-                                <span>Đã tự động lưu</span>
-                            </div>
-                        </div>
-
-                        <table className="inventory-table">
-                            <thead>
-                                <tr>
-                                    <th>MÃ SP</th>
-                                    <th>TÊN SÁCH / SẢN PHẨM</th>
-                                    <th>TỒN HỆ THỐNG</th>
-                                    <th>THỰC TẾ</th>
-                                    <th>CHÊNH LỆCH</th>
-                                    <th>LÝ DO & GHI CHÚ</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {inventoryItems.map(item => (
-                                    <tr key={item.MaSP} className={item.ChenhLech !== 0 ? 'has-discrepancy' : ''}>
-                                        <td className="code-cell">{item.MaSP}</td>
-                                        <td className="product-name">{item.TenSP}</td>
-                                        <td className="system-qty">{item.TonHeThong}</td>
-                                        <td className="actual-qty">
-                                            <input
-                                                type="number"
-                                                value={item.ThucTe === undefined ? '' : item.ThucTe}
-                                                onChange={(e) => updateActualQty(item.MaSP, e.target.value)}
-                                                placeholder="0"
-                                                className="qty-input"
-                                            />
-                                        </td>
-                                        <td className={`diff-cell ${getDiscrepancyClass(item.ChenhLech)}`}>
-                                            {item.ChenhLech > 0 ? '+' : ''}{item.ChenhLech || 0}
-                                        </td>
-                                        <td className="note-cell">
-                                            <div className="note-wrapper">
-                                                <input
-                                                    type="text"
-                                                    value={item.Note}
-                                                    onChange={(e) => updateNote(item.MaSP, e.target.value)}
-                                                    placeholder={item.ChenhLech !== 0 ? 'Nhập lý do chênh lệch...' : 'Không cần điều'}
-                                                    className="note-input"
-                                                />
-                                                {item.Note && (
-                                                    <button className="btn-clear-note" onClick={() => updateNote(item.MaSP, '')}>
-                                                        <span className="material-icons">close</span>
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
+                    <div className="ic-table-wrap">
+                        {listLoading ? (
+                            <div className="ic-loading"><span className="material-icons spin">autorenew</span> Đang tải...</div>
+                        ) : (
+                            <table className="ic-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Cửa hàng</th>
+                                        <th>Ngày kiểm kê</th>
+                                        <th>Người kiểm</th>
+                                        <th>Số SP</th>
+                                        <th>SP chênh lệch</th>
+                                        <th>Trạng thái</th>
+                                        <th>Hành động</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {checks.length > 0 ? checks.map(c => (
+                                        <tr key={c.MaKiemKe}>
+                                            <td className="text-muted">#{c.MaKiemKe}</td>
+                                            <td>{c.TenCH}</td>
+                                            <td>{new Date(c.NgayKiemKe).toLocaleDateString('vi-VN')}</td>
+                                            <td>{c.TenNguoiKiemKe}</td>
+                                            <td>{c.SoSanPham}</td>
+                                            <td>
+                                                {c.SoChenhLech > 0
+                                                    ? <span className="ic-diff-warning">{c.SoChenhLech} SP</span>
+                                                    : <span className="ic-diff-ok">Không có</span>}
+                                            </td>
+                                            <td><StatusBadge status={c.TrangThai} /></td>
+                                            <td>
+                                                <button className="ic-btn-icon" title="Xem chi tiết"
+                                                    onClick={() => openDetail(c.MaKiemKe)}>
+                                                    <span className="material-icons">visibility</span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    )) : (
+                                        <tr>
+                                            <td colSpan="8" className="ic-empty-row">
+                                                <span className="material-icons">inventory_2</span>
+                                                <p>Chưa có phiếu kiểm kê nào</p>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
 
-                    {/* Footer Summary */}
-                    <div className="check-footer">
-                        <div className="footer-stats">
-                            <div className="stat-item">
-                                <span>TIẾN ĐỘ KIỂM KÊ</span>
-                                <strong>{stats.checked} / {stats.totalItems} ({stats.percentage}%)</strong>
+                    {pagination.totalPages > 1 && (
+                        <div className="ic-pagination">
+                            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(p => (
+                                <button key={p} className={pagination.page === p ? 'active' : ''}
+                                    onClick={() => fetchChecks(p)}>{p}</button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════ */}
+            {/* CREATE VIEW */}
+            {/* ══════════════════════════════════════════════════════════ */}
+            {view === 'create' && (
+                <div className="ic-create">
+                    {/* Setup */}
+                    <div className="ic-create-setup">
+                        <div className="ic-form-row">
+                            <div className="ic-form-group">
+                                <label>Cửa hàng kiểm kê *</label>
+                                <select value={createStore} onChange={e => loadStockForStore(e.target.value)}>
+                                    <option value="">-- Chọn cửa hàng --</option>
+                                    {stores.map(s => <option key={s.MaCH} value={s.MaCH}>{s.TenCH}</option>)}
+                                </select>
                             </div>
-                            <div className="stat-item">
-                                <span>TỔNG CHÊNH LỆCH THỰC TẾ</span>
-                                <strong className="negative">{stats.negativeItems} Sản phẩm</strong>
+                            <div className="ic-form-group">
+                                <label>Ngày kiểm kê</label>
+                                <input type="date" value={createDate}
+                                    onChange={e => setCreateDate(e.target.value)} />
                             </div>
-                            <div className="stat-item">
-                                <span>TRẠNG THÁI LƯU</span>
-                                <div className="status-indicator">
-                                    <span className="material-icons">timer</span>
-                                    <span>Đã tự động lưu lúc: nhập lúc 14:35</span>
-                                </div>
+                            <div className="ic-form-group">
+                                <label>Ghi chú</label>
+                                <input type="text" value={createNote}
+                                    onChange={e => setCreateNote(e.target.value)}
+                                    placeholder="Ghi chú phiếu kiểm kê..." />
                             </div>
                         </div>
+                    </div>
 
-                        <div className="footer-actions">
-                            <button className="btn-save">
-                                Tạm dừng & Lưu
+                    {/* Stats */}
+                    {createItems.length > 0 && (() => {
+                        const s = createStats();
+                        return (
+                            <div className="ic-stats-bar">
+                                <div className="ic-stat">
+                                    <span className="material-icons">inventory</span>
+                                    <div><strong>{s.total}</strong><p>Tổng SP</p></div>
+                                </div>
+                                <div className="ic-stat">
+                                    <span className="material-icons">compare_arrows</span>
+                                    <div><strong className={s.changed > 0 ? 'warn' : ''}>{s.changed}</strong><p>SP chênh lệch</p></div>
+                                </div>
+                                <div className="ic-stat">
+                                    <span className="material-icons">{s.totalDiff < 0 ? 'trending_down' : 'trending_flat'}</span>
+                                    <div>
+                                        <strong className={s.totalDiff < 0 ? 'negative' : s.totalDiff > 0 ? 'positive' : ''}>
+                                            {s.totalDiff > 0 ? '+' : ''}{s.totalDiff}
+                                        </strong>
+                                        <p>Tổng chênh lệch</p>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Table */}
+                    {stockLoading ? (
+                        <div className="ic-loading"><span className="material-icons spin">autorenew</span> Đang tải tồn kho...</div>
+                    ) : createItems.length > 0 ? (
+                        <div className="ic-check-table-wrap">
+                            <table className="ic-check-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Mã SP</th>
+                                        <th>Tên sách</th>
+                                        <th>Tồn hệ thống</th>
+                                        <th>Tồn thực tế</th>
+                                        <th>Chênh lệch</th>
+                                        <th>Lý do</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {createItems.map((item, idx) => {
+                                        const chenh = item.SoLuongThucTe - item.TonHeThong;
+                                        return (
+                                            <tr key={item.MaSP} className={chenh !== 0 ? 'has-diff' : ''}>
+                                                <td className="text-muted">{idx + 1}</td>
+                                                <td className="text-muted">{item.MaSP}</td>
+                                                <td className="ic-product-name">{item.TenSP}</td>
+                                                <td className="text-center ic-system-qty">{item.TonHeThong}</td>
+                                                <td>
+                                                    <input type="number" min="0"
+                                                        value={item.SoLuongThucTe}
+                                                        onChange={e => updateThucTe(item.MaSP, e.target.value)}
+                                                        className="ic-qty-input" />
+                                                </td>
+                                                <td className={`ic-diff ${diffClass(chenh)}`}>
+                                                    {chenh > 0 ? '+' : ''}{chenh}
+                                                </td>
+                                                <td>
+                                                    <input type="text"
+                                                        value={item.LyDo}
+                                                        onChange={e => updateLyDo(item.MaSP, e.target.value)}
+                                                        placeholder={chenh !== 0 ? 'Nhập lý do...' : ''}
+                                                        className="ic-note-input" />
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : createStore ? (
+                        <div className="ic-empty-create">
+                            <span className="material-icons">inventory_2</span>
+                            <p>Cửa hàng này chưa có sản phẩm nào trong kho</p>
+                        </div>
+                    ) : (
+                        <div className="ic-hint-create">
+                            <span className="material-icons">touch_app</span>
+                            <p>Hãy chọn cửa hàng để bắt đầu kiểm kê</p>
+                        </div>
+                    )}
+
+                    {/* Actions */}
+                    {createItems.length > 0 && (
+                        <div className="ic-create-footer">
+                            <button className="ic-btn-outline" onClick={() => setView('list')}>Hủy</button>
+                            <button className="ic-btn-primary" onClick={handleCreateSubmit} disabled={createLoading}>
+                                {createLoading
+                                    ? <><span className="material-icons spin">autorenew</span> Đang lưu...</>
+                                    : <><span className="material-icons">save</span> Lưu phiếu kiểm kê</>
+                                }
                             </button>
-                            <button className="btn-finalize" onClick={handleCompleteCheck}>
-                                <span className="material-icons">check_circle</span>
-                                HOÀN TẤT KIỂM KÊ
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════ */}
+            {/* DETAIL VIEW */}
+            {/* ══════════════════════════════════════════════════════════ */}
+            {view === 'detail' && (
+                <div className="ic-detail">
+                    {detailLoading ? (
+                        <div className="ic-loading"><span className="material-icons spin">autorenew</span> Đang tải...</div>
+                    ) : detailData ? (
+                        <>
+                            {/* Header info */}
+                            <div className="ic-detail-header">
+                                <div className="ic-detail-info-grid">
+                                    <div className="ic-detail-item">
+                                        <label>Cửa hàng</label>
+                                        <span>{detailData.TenCH}</span>
+                                    </div>
+                                    <div className="ic-detail-item">
+                                        <label>Ngày kiểm kê</label>
+                                        <span>{new Date(detailData.NgayKiemKe).toLocaleDateString('vi-VN')}</span>
+                                    </div>
+                                    <div className="ic-detail-item">
+                                        <label>Người kiểm</label>
+                                        <span>{detailData.TenNguoiKiemKe}</span>
+                                    </div>
+                                    <div className="ic-detail-item">
+                                        <label>Trạng thái</label>
+                                        <StatusBadge status={detailData.TrangThai} />
+                                    </div>
+                                    {detailData.GhiChu && (
+                                        <div className="ic-detail-item ic-full">
+                                            <label>Ghi chú</label>
+                                            <span>{detailData.GhiChu}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Summary stats */}
+                                {detailData.items?.length > 0 && (
+                                    <div className="ic-stats-bar">
+                                        <div className="ic-stat">
+                                            <span className="material-icons">inventory</span>
+                                            <div><strong>{detailData.items.length}</strong><p>Tổng SP</p></div>
+                                        </div>
+                                        <div className="ic-stat">
+                                            <span className="material-icons">compare_arrows</span>
+                                            <div>
+                                                <strong className={detailData.items.filter(i => i.ChenhLech !== 0).length > 0 ? 'warn' : ''}>
+                                                    {detailData.items.filter(i => i.ChenhLech !== 0).length}
+                                                </strong>
+                                                <p>SP chênh lệch</p>
+                                            </div>
+                                        </div>
+                                        <div className="ic-stat">
+                                            <span className="material-icons">trending_down</span>
+                                            <div>
+                                                <strong className="negative">
+                                                    {detailData.items.filter(i => i.ChenhLech < 0).length}
+                                                </strong>
+                                                <p>SP thiếu</p>
+                                            </div>
+                                        </div>
+                                        <div className="ic-stat">
+                                            <span className="material-icons">trending_up</span>
+                                            <div>
+                                                <strong className="positive">
+                                                    {detailData.items.filter(i => i.ChenhLech > 0).length}
+                                                </strong>
+                                                <p>SP thừa</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Items table */}
+                            <div className="ic-check-table-wrap">
+                                <table className="ic-check-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Mã SP</th>
+                                            <th>Tên sách</th>
+                                            <th>Tồn hệ thống</th>
+                                            <th>Tồn thực tế</th>
+                                            <th>Chênh lệch</th>
+                                            <th>Lý do</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(detailData.items || []).map((item, idx) => (
+                                            <tr key={item.MaSP} className={item.ChenhLech !== 0 ? 'has-diff' : ''}>
+                                                <td className="text-muted">{idx + 1}</td>
+                                                <td className="text-muted">{item.MaSP}</td>
+                                                <td className="ic-product-name">{item.TenSP}</td>
+                                                <td className="text-center ic-system-qty">{item.SoLuongHeThong}</td>
+                                                <td className="text-center">{item.SoLuongThucTe}</td>
+                                                <td className={`ic-diff ${diffClass(item.ChenhLech)}`}>
+                                                    {item.ChenhLech > 0 ? '+' : ''}{item.ChenhLech}
+                                                </td>
+                                                <td>{item.LyDo || (item.ChenhLech === 0 ? '–' : <span className="ic-no-reason">Chưa có lý do</span>)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
+                    ) : null}
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════ */}
+            {/* COMPLETE MODAL */}
+            {/* ══════════════════════════════════════════════════════════ */}
+            {completeModal && detailData && (
+                <div className="ic-overlay" onClick={() => setCompleteModal(false)}>
+                    <div className="ic-modal" onClick={e => e.stopPropagation()}>
+                        <div className="ic-modal-header">
+                            <h2>Hoàn tất phiếu kiểm kê #{detailData.MaKiemKe}</h2>
+                            <button className="ic-btn-icon" onClick={() => setCompleteModal(false)}>
+                                <span className="material-icons">close</span>
+                            </button>
+                        </div>
+                        <div className="ic-modal-body">
+                            <p>Bạn muốn hoàn tất phiếu kiểm kê với <strong>{detailData.items?.filter(i => i.ChenhLech !== 0).length || 0}</strong> sản phẩm chênh lệch.</p>
+
+                            <div className="ic-complete-options">
+                                <label className={`ic-option ${apDung ? 'selected' : ''}`} onClick={() => setApDung(true)}>
+                                    <div className="ic-option-icon sync">
+                                        <span className="material-icons">sync</span>
+                                    </div>
+                                    <div>
+                                        <strong>Đồng bộ tồn kho</strong>
+                                        <p>Cập nhật tồn kho theo số lượng thực tế đếm được. Dữ liệu kho sẽ khớp với thực tế.</p>
+                                    </div>
+                                    <span className="material-icons ic-radio">{apDung ? 'radio_button_checked' : 'radio_button_unchecked'}</span>
+                                </label>
+
+                                <label className={`ic-option ${!apDung ? 'selected' : ''}`} onClick={() => setApDung(false)}>
+                                    <div className="ic-option-icon nosync">
+                                        <span className="material-icons">block</span>
+                                    </div>
+                                    <div>
+                                        <strong>Chỉ lưu kết quả, không đồng bộ</strong>
+                                        <p>Lưu kết quả kiểm kê để báo cáo, tồn kho hệ thống không thay đổi.</p>
+                                    </div>
+                                    <span className="material-icons ic-radio">{!apDung ? 'radio_button_checked' : 'radio_button_unchecked'}</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div className="ic-modal-footer">
+                            <button className="ic-btn-outline" onClick={() => setCompleteModal(false)}>Hủy</button>
+                            <button className="ic-btn-primary" onClick={doComplete} disabled={completing}>
+                                {completing
+                                    ? <><span className="material-icons spin">autorenew</span> Đang xử lý...</>
+                                    : <><span className="material-icons">check_circle</span> Xác nhận hoàn tất</>
+                                }
                             </button>
                         </div>
                     </div>

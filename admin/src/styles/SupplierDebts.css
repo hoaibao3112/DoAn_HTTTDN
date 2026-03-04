@@ -123,6 +123,8 @@
 
 .stat-content {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .stat-content h3 {
@@ -134,10 +136,14 @@
 }
 
 .stat-value {
-    font-size: 24px;
+    font-size: clamp(14px, 1.4vw, 20px);
     font-weight: 700;
     color: #050505;
     margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .stat-trend {

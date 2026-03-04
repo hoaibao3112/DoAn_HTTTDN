@@ -1,8 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { Button, Input, message, Table, Modal, Space, Select } from 'antd';
+import { Button, Input, message, Table, Modal, Space, Select, AutoComplete } from 'antd';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
 import '../styles/ProductManagement.css';
+
+const TRONG_LUONG_OPTIONS = [50,100,150,200,250,300,350,400,450,500,600,700,800,1000,1200,1500].map(v => ({ value: String(v), label: `${v} g` }));
+const KICH_THUOC_OPTIONS = ['13x19 cm','14x20.5 cm','14.5x20.5 cm','16x24 cm','17x24 cm','19x27 cm','20.5x29.7 cm','21x29.7 cm'].map(v => ({ value: v }));
+const HINH_THUC_OPTIONS = ['Bìa mềm','Bìa cứng','Bìa mềm có tay gấp','Bìa cứng mạ vàng','Bìa plastic','Bìa vải'].map(v => ({ value: v }));
 
 const { Search } = Input;
 const { confirm } = Modal;
@@ -113,8 +117,9 @@ const ProductManagement = () => {
           ...product,
           ...product,
           HinhAnh: product.HinhAnh || PLACEHOLDER_IMAGE,
-          // ✅ SỬA LOGIC: Nếu SoLuong > 0 thì "Còn hàng", ngược lại "Hết hàng"
-          TinhTrang: (product.SoLuong && product.SoLuong > 0) ? 'Còn hàng' : 'Hết hàng',
+          // Dùng TongTonKho (SUM từ bảng ton_kho) để xác định tình trạng
+          SoLuong: Number(product.TongTonKho) || 0,
+          TinhTrang: (Number(product.TongTonKho) > 0) ? 'Còn hàng' : 'Hết hàng',
           MinSoLuong: product.MinSoLuong || 0,
           MoTa: product.MoTa || null,
           MaNCC: product.MaNCC || null,
@@ -541,6 +546,7 @@ const ProductManagement = () => {
       key: 'SoLuong',
       width: 80,
       align: 'center',
+      render: (v) => v ?? 0,
     },
     {
       title: 'Ngưỡng tối thiểu',
@@ -565,7 +571,8 @@ const ProductManagement = () => {
               // fetch full product details (including images) before opening modal
               try {
                 const res = await axios.get(`${API_URL}/${record.MaSP}`);
-                setEditingProduct(res.data);
+                const productData = res.data?.data || res.data;
+                setEditingProduct(productData);
                 setIsModalVisible(true);
               } catch (err) {
                 console.error('Lỗi khi lấy chi tiết sản phẩm để sửa:', err);
@@ -879,30 +886,37 @@ const ProductManagement = () => {
 
             <div className="info-item">
               <p className="info-label">Trọng lượng (g):</p>
-              <Input
+              <AutoComplete
                 size="small"
-                type="number"
-                value={editingProduct ? editingProduct.TrongLuong : newProduct.TrongLuong}
-                onChange={(e) =>
+                style={{ width: '100%' }}
+                options={TRONG_LUONG_OPTIONS}
+                value={String(editingProduct ? (editingProduct.TrongLuong ?? '') : (newProduct.TrongLuong ?? ''))}
+                onChange={(val) =>
                   editingProduct
-                    ? setEditingProduct({ ...editingProduct, TrongLuong: e.target.value })
-                    : setNewProduct({ ...newProduct, TrongLuong: e.target.value })
+                    ? setEditingProduct({ ...editingProduct, TrongLuong: val })
+                    : setNewProduct({ ...newProduct, TrongLuong: val })
                 }
+                filterOption={(input, option) => option.value.includes(input)}
                 placeholder="Trọng lượng (gram)"
+                allowClear
               />
             </div>
 
             <div className="info-item">
               <p className="info-label">Kích thước:</p>
-              <Input
+              <AutoComplete
                 size="small"
-                value={editingProduct ? editingProduct.KichThuoc : newProduct.KichThuoc}
-                onChange={(e) =>
+                style={{ width: '100%' }}
+                options={KICH_THUOC_OPTIONS}
+                value={editingProduct ? (editingProduct.KichThuoc ?? '') : (newProduct.KichThuoc ?? '')}
+                onChange={(val) =>
                   editingProduct
-                    ? setEditingProduct({ ...editingProduct, KichThuoc: e.target.value })
-                    : setNewProduct({ ...newProduct, KichThuoc: e.target.value })
+                    ? setEditingProduct({ ...editingProduct, KichThuoc: val })
+                    : setNewProduct({ ...newProduct, KichThuoc: val })
                 }
-                placeholder="Ví dụ: 20x13x2 cm"
+                filterOption={(input, option) => option.value.toLowerCase().includes(input.toLowerCase())}
+                placeholder="Ví dụ: 14x20.5 cm"
+                allowClear
               />
             </div>
 
@@ -923,15 +937,19 @@ const ProductManagement = () => {
 
             <div className="info-item">
               <p className="info-label">Hình thức:</p>
-              <Input
+              <AutoComplete
                 size="small"
-                value={editingProduct ? editingProduct.HinhThuc : newProduct.HinhThuc}
-                onChange={(e) =>
+                style={{ width: '100%' }}
+                options={HINH_THUC_OPTIONS}
+                value={editingProduct ? (editingProduct.HinhThuc ?? '') : (newProduct.HinhThuc ?? '')}
+                onChange={(val) =>
                   editingProduct
-                    ? setEditingProduct({ ...editingProduct, HinhThuc: e.target.value })
-                    : setNewProduct({ ...newProduct, HinhThuc: e.target.value })
+                    ? setEditingProduct({ ...editingProduct, HinhThuc: val })
+                    : setNewProduct({ ...newProduct, HinhThuc: val })
                 }
-                placeholder="Ví dụ: Bìa mềm / Bìa cứng"
+                filterOption={(input, option) => option.value.toLowerCase().includes(input.toLowerCase())}
+                placeholder="Bìa mềm / Bìa cứng"
+                allowClear
               />
             </div>
 

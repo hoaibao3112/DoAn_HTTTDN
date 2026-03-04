@@ -80,15 +80,21 @@ const SupplierDebts = () => {
             });
             if (response.data.success) {
                 const processed = (response.data.data || []).map(d => {
+                    const remaining = Number(d.remaining) || 0;
+                    const paid = Number(d.paid) || 0;
+                    const totalAmount = Number(d.totalAmount) || 0;
                     let status = 'unpaid';
                     if (d.status === 'Da_thanh_toan') status = 'paid';
-                    else if (d.dueDate && new Date(d.dueDate) < new Date() && d.remaining > 0) status = 'overdue';
+                    else if (d.dueDate && new Date(d.dueDate) < new Date() && remaining > 0) status = 'overdue';
 
                     return {
                         ...d,
                         id: d.MaCongNo,
                         purchaseOrder: d.purchaseOrder ? `PN-${d.purchaseOrder}` : 'N/A',
-                        status: status
+                        status,
+                        remaining,
+                        paid,
+                        totalAmount,
                     };
                 });
                 setDebts(processed);
@@ -113,11 +119,14 @@ const SupplierDebts = () => {
         }
     };
 
+    const formatVND = (n) =>
+        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0);
+
     const calculateStats = () => {
-        const totalDebt = debts.reduce((sum, d) => sum + d.remaining, 0);
-        const paidThisMonth = debts.reduce((sum, d) => sum + d.paid, 0);
-        const overdue = debts.filter(d => d.status === 'overdue').reduce((sum, d) => sum + d.remaining, 0);
-        const suppliersWithDebt = new Set(debts.filter(d => d.remaining > 0).map(d => d.supplier)).size;
+        const totalDebt = debts.reduce((sum, d) => sum + (Number(d.remaining) || 0), 0);
+        const paidThisMonth = debts.reduce((sum, d) => sum + (Number(d.paid) || 0), 0);
+        const overdue = debts.filter(d => d.status === 'overdue').reduce((sum, d) => sum + (Number(d.remaining) || 0), 0);
+        const suppliersWithDebt = new Set(debts.filter(d => (Number(d.remaining) || 0) > 0).map(d => d.supplier)).size;
 
         return { totalDebt, paidThisMonth, overdue, suppliersWithDebt };
     };
@@ -220,7 +229,7 @@ const SupplierDebts = () => {
                     </div>
                     <div className="stat-content">
                         <h3>TỔNG NỢ CẦN TRẢ</h3>
-                        <div className="stat-value">{stats.totalDebt.toLocaleString()} đ</div>
+                        <div className="stat-value">{formatVND(stats.totalDebt)}</div>
                         <div className="stat-trend positive">+4.2% so với tháng trước</div>
                     </div>
                 </div>
@@ -231,7 +240,7 @@ const SupplierDebts = () => {
                     </div>
                     <div className="stat-content">
                         <h3>ĐÃ TRẢ THÁNG NÀY</h3>
-                        <div className="stat-value">{stats.paidThisMonth.toLocaleString()} đ</div>
+                        <div className="stat-value">{formatVND(stats.paidThisMonth)}</div>
                         <div className="stat-trend positive">+12.4% so với tháng trước</div>
                     </div>
                 </div>
@@ -242,7 +251,7 @@ const SupplierDebts = () => {
                     </div>
                     <div className="stat-content">
                         <h3>NỢ QUÁ HẠN</h3>
-                        <div className="stat-value">{stats.overdue.toLocaleString()} đ</div>
+                        <div className="stat-value">{formatVND(stats.overdue)}</div>
                         <div className="stat-trend negative">-2.1% cảnh báo quá hạn</div>
                     </div>
                 </div>
@@ -312,13 +321,13 @@ const SupplierDebts = () => {
                                             </div>
                                         </td>
                                         <td className="po-code">{debt.purchaseOrder}</td>
-                                        <td className="amount-cell">{debt.totalAmount.toLocaleString()} đ</td>
+                                        <td className="amount-cell">{formatVND(debt.totalAmount)}</td>
                                         <td className="paid-cell">
-                                            {debt.paid > 0 ? `${debt.paid.toLocaleString()} đ` : '0 đ'}
+                                            {debt.paid > 0 ? formatVND(debt.paid) : '0 đ'}
                                         </td>
                                         <td className="remaining-cell">
                                             {debt.remaining > 0 ? (
-                                                <span className="remaining-amount">{debt.remaining.toLocaleString()} đ</span>
+                                                <span className="remaining-amount">{formatVND(debt.remaining)}</span>
                                             ) : (
                                                 '0 đ'
                                             )}
@@ -400,7 +409,7 @@ const SupplierDebts = () => {
                                 </div>
                                 <div className="info-row">
                                     <span>Nợ còn lại:</span>
-                                    <strong className="debt-amount">{selectedDebt.remaining.toLocaleString()} đ</strong>
+                                    <strong className="debt-amount">{formatVND(selectedDebt.remaining)}</strong>
                                 </div>
                             </div>
 
