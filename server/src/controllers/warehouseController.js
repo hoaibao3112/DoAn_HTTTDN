@@ -499,6 +499,30 @@ const warehouseController = {
         }
     },
 
+    // Lấy tồn kho Kho quầy (Priority=1) cho POS
+    getCounterStock: async (req, res) => {
+        const { MaCH, pageSize = 1000 } = req.query;
+        try {
+            const params = [];
+            let where = 'WHERE sp.TinhTrang = 1 AND kc.Priority = 1';
+            if (MaCH) { where += ' AND kc.MaCH = ?'; params.push(MaCH); }
+
+            const [rows] = await pool.query(`
+                SELECT tkct.MaSP, tkct.MaKho, tkct.SoLuongTon,
+                       kc.TenKho, kc.MaCH, kc.Priority
+                FROM ton_kho_chi_tiet tkct
+                JOIN kho_con kc ON tkct.MaKho = kc.MaKho
+                JOIN sanpham sp ON tkct.MaSP = sp.MaSP
+                ${where}
+                LIMIT ?
+            `, [...params, parseInt(pageSize)]);
+
+            res.json({ success: true, data: rows });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
     getLowStockAlerts: async (req, res) => {
         const { MaCH } = req.query;
         try {
@@ -708,28 +732,28 @@ const warehouseController = {
     // ========================= CHUYỂN KHO (chuyen_kho) =========================
 
     getTransfers: async (req, res) => {
-        const { MaCHNguon, MaCHDich, TrangThai, page = 1, pageSize = 20 } = req.query;
+        const { MaKhoNguon, MaKhoDich, TrangThai, page = 1, pageSize = 20 } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(pageSize);
         try {
             const params = [];
             let where = 'WHERE 1=1';
-            if (MaCHNguon) { where += ' AND ck.MaCHNguon = ?'; params.push(MaCHNguon); }
-            if (MaCHDich)  { where += ' AND ck.MaCHDich = ?';  params.push(MaCHDich); }
-            if (TrangThai) { where += ' AND ck.TrangThai = ?';  params.push(TrangThai); }
+            if (MaKhoNguon) { where += ' AND ck.MaKhoNguon = ?'; params.push(MaKhoNguon); }
+            if (MaKhoDich)  { where += ' AND ck.MaKhoDich = ?';  params.push(MaKhoDich); }
+            if (TrangThai)  { where += ' AND ck.TrangThai = ?';   params.push(TrangThai); }
 
             const [rows] = await pool.query(`
                 SELECT ck.*,
                        sp.TenSP, sp.HinhAnh,
-                       kc1.TenKho AS TenCHNguon,
-                       kc2.TenKho AS TenCHDich,
+                       kc1.TenKho AS TenKhoNguon, kc1.Priority AS PriorityNguon,
+                       kc2.TenKho AS TenKhoDich,  kc2.Priority AS PriorityDich,
                        nv1.HoTen AS TenNguoiChuyen,
                        nv2.HoTen AS TenNguoiNhan
                 FROM chuyen_kho ck
                 JOIN sanpham sp ON ck.MaSP = sp.MaSP
-                LEFT JOIN kho_con kc1 ON ck.MaCHNguon = kc1.MaKho
-                LEFT JOIN kho_con kc2 ON ck.MaCHDich = kc2.MaKho
+                LEFT JOIN kho_con kc1 ON ck.MaKhoNguon = kc1.MaKho
+                LEFT JOIN kho_con kc2 ON ck.MaKhoDich  = kc2.MaKho
                 LEFT JOIN nhanvien nv1 ON ck.NguoiChuyen = nv1.MaNV
-                LEFT JOIN nhanvien nv2 ON ck.NguoiNhan = nv2.MaNV
+                LEFT JOIN nhanvien nv2 ON ck.NguoiNhan   = nv2.MaNV
                 ${where}
                 ORDER BY ck.NgayChuyen DESC
                 LIMIT ? OFFSET ?
@@ -754,16 +778,16 @@ const warehouseController = {
             const [rows] = await pool.query(`
                 SELECT ck.*,
                        sp.TenSP, sp.HinhAnh, sp.ISBN,
-                       kc1.TenKho AS TenCHNguon,
-                       kc2.TenKho AS TenCHDich,
+                       kc1.TenKho AS TenKhoNguon, kc1.Priority AS PriorityNguon,
+                       kc2.TenKho AS TenKhoDich,  kc2.Priority AS PriorityDich,
                        nv1.HoTen AS TenNguoiChuyen,
                        nv2.HoTen AS TenNguoiNhan
                 FROM chuyen_kho ck
                 JOIN sanpham sp ON ck.MaSP = sp.MaSP
-                LEFT JOIN kho_con kc1 ON ck.MaCHNguon = kc1.MaKho
-                LEFT JOIN kho_con kc2 ON ck.MaCHDich = kc2.MaKho
+                LEFT JOIN kho_con kc1 ON ck.MaKhoNguon = kc1.MaKho
+                LEFT JOIN kho_con kc2 ON ck.MaKhoDich  = kc2.MaKho
                 LEFT JOIN nhanvien nv1 ON ck.NguoiChuyen = nv1.MaNV
-                LEFT JOIN nhanvien nv2 ON ck.NguoiNhan = nv2.MaNV
+                LEFT JOIN nhanvien nv2 ON ck.NguoiNhan   = nv2.MaNV
                 WHERE ck.MaCK = ?
             `, [id]);
 
@@ -775,9 +799,12 @@ const warehouseController = {
     },
 
     createTransfer: async (req, res) => {
-        const { MaCHNguon, MaCHDich, items, GhiChu } = req.body;
+        const { MaKhoNguon, MaKhoDich, items, GhiChu } = req.body;
 
-        if (MaCHNguon === MaCHDich) {
+        if (!MaKhoNguon || !MaKhoDich) {
+            return res.status(400).json({ success: false, message: 'Thiếu kho nguồn hoặc kho đích' });
+        }
+        if (String(MaKhoNguon) === String(MaKhoDich)) {
             return res.status(400).json({ success: false, message: 'Kho nguồn và kho đích không được trùng nhau' });
         }
         if (!Array.isArray(items) || !items.length) {
@@ -788,6 +815,12 @@ const warehouseController = {
         try {
             await conn.beginTransaction();
 
+            // Kiểm tra kho nguồn và kho đích tồn tại
+            const [[khoNguon]] = await conn.query('SELECT MaKho, TenKho FROM kho_con WHERE MaKho = ? AND TinhTrang = 1', [MaKhoNguon]);
+            const [[khoDich]]  = await conn.query('SELECT MaKho, TenKho FROM kho_con WHERE MaKho = ? AND TinhTrang = 1', [MaKhoDich]);
+            if (!khoNguon) throw new Error('Kho nguồn không tồn tại hoặc đã ngưng hoạt động');
+            if (!khoDich)  throw new Error('Kho đích không tồn tại hoặc đã ngưng hoạt động');
+
             const [emp] = await conn.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
             const nguoiChuyen = emp[0]?.MaNV || null;
 
@@ -796,17 +829,18 @@ const warehouseController = {
                 const { MaSP, SoLuong } = item;
                 if (!MaSP || !SoLuong || SoLuong <= 0) throw new Error('Sản phẩm hoặc số lượng không hợp lệ');
 
-                const [stock] = await conn.query(
-                    'SELECT SoLuongTon FROM ton_kho WHERE MaSP = ? AND MaCH = ?', [MaSP, MaCHNguon]
+                // Kiểm tra tồn kho tại kho nguồn (ton_kho_chi_tiet)
+                const [[stock]] = await conn.query(
+                    'SELECT SoLuongTon FROM ton_kho_chi_tiet WHERE MaKho = ? AND MaSP = ?', [MaKhoNguon, MaSP]
                 );
-                if (!stock.length || stock[0].SoLuongTon < SoLuong) {
-                    throw new Error(`Không đủ hàng cho SP ${MaSP}. Tồn: ${stock[0]?.SoLuongTon || 0}, Yêu cầu: ${SoLuong}`);
+                if (!stock || stock.SoLuongTon < SoLuong) {
+                    throw new Error(`Kho "${khoNguon.TenKho}" không đủ hàng SP ${MaSP}. Tồn: ${stock?.SoLuongTon || 0}, yêu cầu: ${SoLuong}`);
                 }
 
                 const [ck] = await conn.query(`
-                    INSERT INTO chuyen_kho (MaCHNguon, MaCHDich, MaSP, SoLuong, NguoiChuyen, TrangThai, GhiChu)
+                    INSERT INTO chuyen_kho (MaKhoNguon, MaKhoDich, MaSP, SoLuong, NguoiChuyen, TrangThai, GhiChu)
                     VALUES (?, ?, ?, ?, ?, 'Cho_duyet', ?)
-                `, [MaCHNguon, MaCHDich, MaSP, SoLuong, nguoiChuyen, GhiChu || null]);
+                `, [MaKhoNguon, MaKhoDich, MaSP, SoLuong, nguoiChuyen, GhiChu || null]);
 
                 created.push(ck.insertId);
             }
@@ -837,28 +871,50 @@ const warehouseController = {
                 throw new Error(`Không thể duyệt — trạng thái hiện tại: ${rows[0].TrangThai}`);
             }
 
-            const { MaCHNguon, MaCHDich, MaSP, SoLuong } = rows[0];
+            const { MaKhoNguon, MaKhoDich, MaSP, SoLuong } = rows[0];
 
-            const [stock] = await conn.query(
-                'SELECT SoLuongTon FROM ton_kho WHERE MaSP = ? AND MaCH = ? FOR UPDATE', [MaSP, MaCHNguon]
+            // Kiểm tra tồn kho tại kho nguồn (ton_kho_chi_tiet)
+            const [[stockSrc]] = await conn.query(
+                'SELECT SoLuongTon FROM ton_kho_chi_tiet WHERE MaKho = ? AND MaSP = ? FOR UPDATE',
+                [MaKhoNguon, MaSP]
             );
-            if (!stock.length || stock[0].SoLuongTon < SoLuong) {
-                throw new Error(`Không đủ hàng. Tồn kho nguồn: ${stock[0]?.SoLuongTon || 0}`);
+            if (!stockSrc || stockSrc.SoLuongTon < SoLuong) {
+                throw new Error(`Không đủ hàng tại kho nguồn. Tồn: ${stockSrc?.SoLuongTon || 0}, yêu cầu: ${SoLuong}`);
             }
 
             const [emp] = await conn.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
             const nguoiNhan = emp[0]?.MaNV || null;
 
-            await conn.query(
-                'UPDATE ton_kho SET SoLuongTon = SoLuongTon - ? WHERE MaSP = ? AND MaCH = ?',
-                [SoLuong, MaSP, MaCHNguon]
-            );
+            // Lấy MaCH của kho nguồn và kho đích để cập nhật ton_kho (tổng)
+            const [[khoNguon]] = await conn.query('SELECT MaCH FROM kho_con WHERE MaKho = ?', [MaKhoNguon]);
+            const [[khoDich]]  = await conn.query('SELECT MaCH FROM kho_con WHERE MaKho = ?', [MaKhoDich]);
 
+            // 1. Cập nhật ton_kho_chi_tiet (kho con cụ thể)
+            await conn.query(
+                'UPDATE ton_kho_chi_tiet SET SoLuongTon = SoLuongTon - ? WHERE MaKho = ? AND MaSP = ?',
+                [SoLuong, MaKhoNguon, MaSP]
+            );
             await conn.query(`
-                INSERT INTO ton_kho (MaSP, MaCH, SoLuongTon)
+                INSERT INTO ton_kho_chi_tiet (MaKho, MaSP, SoLuongTon)
                 VALUES (?, ?, ?)
                 ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?
-            `, [MaSP, MaCHDich, SoLuong, SoLuong]);
+            `, [MaKhoDich, MaSP, SoLuong, SoLuong]);
+
+            // 2. Cập nhật ton_kho (tổng chi nhánh) — chỉ cập nhật nếu khác chi nhánh
+            if (khoNguon && khoDich) {
+                if (String(khoNguon.MaCH) !== String(khoDich.MaCH)) {
+                    await conn.query(
+                        'UPDATE ton_kho SET SoLuongTon = SoLuongTon - ? WHERE MaSP = ? AND MaCH = ?',
+                        [SoLuong, MaSP, khoNguon.MaCH]
+                    );
+                    await conn.query(`
+                        INSERT INTO ton_kho (MaSP, MaCH, SoLuongTon)
+                        VALUES (?, ?, ?)
+                        ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?
+                    `, [MaSP, khoDich.MaCH, SoLuong, SoLuong]);
+                }
+                // Nếu cùng chi nhánh: ton_kho không đổi (chỉ di chuyển nội bộ giữa kho con)
+            }
 
             await conn.query(
                 'UPDATE chuyen_kho SET TrangThai = ?, NguoiNhan = ?, NgayNhan = NOW() WHERE MaCK = ?',
@@ -1024,12 +1080,28 @@ const warehouseController = {
             const [items] = await conn.query('SELECT * FROM chi_tiet_kiem_ke WHERE MaKiemKe = ?', [id]);
 
             if (apDungChenhLech) {
+                // Lấy MaKho của kho quầy (Priority=1) để cập nhật chi tiết
+                const [[counterKho]] = await conn.query(
+                    'SELECT MaKho FROM kho_con WHERE MaCH = ? AND TinhTrang = 1 ORDER BY Priority ASC LIMIT 1',
+                    [kk[0].MaCH]
+                );
+
                 for (const item of items) {
+                    // Cập nhật ton_kho (tổng)
                     await conn.query(`
                         INSERT INTO ton_kho (MaSP, MaCH, SoLuongTon)
                         VALUES (?, ?, ?)
                         ON DUPLICATE KEY UPDATE SoLuongTon = ?
                     `, [item.MaSP, kk[0].MaCH, item.SoLuongThucTe, item.SoLuongThucTe]);
+
+                    // Cập nhật ton_kho_chi_tiet (kho quầy)
+                    if (counterKho) {
+                        await conn.query(`
+                            INSERT INTO ton_kho_chi_tiet (MaKho, MaSP, SoLuongTon)
+                            VALUES (?, ?, ?)
+                            ON DUPLICATE KEY UPDATE SoLuongTon = ?
+                        `, [counterKho.MaKho, item.MaSP, item.SoLuongThucTe, item.SoLuongThucTe]);
+                    }
                 }
 
                 await logActivity({

@@ -82,12 +82,12 @@ const POSPage = () => {
         return null;
     };
 
-    // Lấy tồn kho theo chi nhánh và gắn SoLuong vào products
+    // Lấy tồn kho kho quầy (Priority=1) và gắn SoLuong vào products
     const fetchStockByBranch = async (MaCH, productList) => {
         try {
             const token = localStorage.getItem('authToken');
             const res = await axios.get(
-                `http://localhost:5000/api/warehouse/stock?MaCH=${MaCH}&pageSize=1000`,
+                `http://localhost:5000/api/warehouse/counter-stock?MaCH=${MaCH}&pageSize=1000`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             if (res.data.success) {
@@ -95,13 +95,13 @@ const POSPage = () => {
                 (res.data.data || []).forEach(s => { stockMap[s.MaSP] = s.SoLuongTon; });
                 return (productList || []).map(p => ({
                     ...p,
-                    SoLuong: stockMap[p.MaSP] ?? 0
+                    SoLuong: stockMap[p.MaSP] ?? 0  // tồn kho tại kho quầy
                 }));
             }
         } catch (e) {
-            console.error('Error fetching branch stock:', e);
+            console.error('Error fetching counter stock:', e);
         }
-        return (productList || []).map(p => ({ ...p, SoLuong: p.TongTonKho || 0 }));
+        return (productList || []).map(p => ({ ...p, SoLuong: 0 }));
     };
 
     const fetchProducts = async (MaCH) => {
@@ -113,14 +113,10 @@ const POSPage = () => {
 
             if (response.data.success && response.data.data) {
                 const raw = response.data.data.items || response.data.data;
-                const branchId = MaCH || session?.MaCH;
-                if (branchId) {
-                    const merged = await fetchStockByBranch(branchId, raw);
-                    setProducts(merged);
-                } else {
-                    // Fallback: dùng tổng tồn kho
-                    setProducts(raw.map(p => ({ ...p, SoLuong: p.TongTonKho || 0 })));
-                }
+                // Luôn dùng kho quầy (Priority=1), mặc định MaCH=1 nếu chưa có session
+                const branchId = MaCH || session?.MaCH || 1;
+                const merged = await fetchStockByBranch(branchId, raw);
+                setProducts(merged);
             }
         } catch (error) {
             console.error('Error fetching products:', error);
@@ -447,14 +443,14 @@ const POSPage = () => {
 
     const addToCart = (product) => {
         if (product.SoLuong <= 0) {
-            alert(`"${product.TenSP}" đã hết hàng tại chi nhánh này!`);
+            alert(`"${product.TenSP}" đã hết hàng tại kho quầy! Vui lòng chuyển kho trước.`);
             return;
         }
 
         const existing = cart.find(item => item.MaSP === product.MaSP);
         if (existing) {
             if (existing.quantity >= product.SoLuong) {
-                alert(`Chỉ còn ${product.SoLuong} cuốn "${product.TenSP}" trong kho!`);
+                alert(`Kho quầy chỉ còn ${product.SoLuong} cuốn "${product.TenSP}". Chuyển kho để bổ sung thêm.`);
                 return;
             }
             setCart(cart.map(item =>
@@ -478,7 +474,7 @@ const POSPage = () => {
         const qty = Math.min(parseInt(newQuantity) || 1, maxQty);
 
         if (parseInt(newQuantity) > maxQty) {
-            alert(`Chỉ còn ${maxQty} cuốn "${product?.TenSP}" trong kho!`);
+            alert(`Kho quầy chỉ còn ${maxQty} cuốn "${product?.TenSP}". Chuyển kho để bổ sung thêm.`);
         }
 
         setCart(cart.map(item =>
@@ -983,7 +979,7 @@ const POSPage = () => {
                                     <h4 title={product.TenSP}>{product.TenSP}</h4>
                                     <div className="product-item-footer">
                                         <span className="price">{product.DonGia?.toLocaleString()}đ</span>
-                                        <span className={`stock ${product.SoLuong <= 0 ? 'stock-empty' : product.SoLuong <= 5 ? 'stock-low' : ''}`}>Kho: {product.SoLuong}</span>
+                                        <span className={`stock ${product.SoLuong <= 0 ? 'stock-empty' : product.SoLuong <= 5 ? 'stock-low' : ''}`}>Quầy: {product.SoLuong}</span>
                                     </div>
                                 </div>
                             </div>

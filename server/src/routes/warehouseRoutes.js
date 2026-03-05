@@ -105,6 +105,11 @@ router.get('/stock',
     checkPermission(FEATURES.STOCK, PERMISSIONS.VIEW),
     warehouseController.getStock
 );
+// Tồn kho kho quầy (Priority=1) dùng cho POS
+router.get('/counter-stock',
+    checkPermission(FEATURES.POS, PERMISSIONS.VIEW),
+    warehouseController.getCounterStock
+);
 router.get('/stock/alerts',
     checkPermission(FEATURES.STOCK, PERMISSIONS.VIEW),
     warehouseController.getLowStockAlerts

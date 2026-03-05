@@ -410,6 +410,7 @@ const SubWarehouseManagement = () => {
                                 <table className="stock-table">
                                     <thead>
                                         <tr>
+                                            <th>ẢNH</th>
                                             <th>MÃ SP</th>
                                             <th>TÊN SÁCH</th>
                                             <th>SỐ LƯỢNG</th>
@@ -420,6 +421,14 @@ const SubWarehouseManagement = () => {
                                     <tbody>
                                         {stockData.map((item, i) => (
                                             <tr key={i}>
+                                                <td className="img-cell">
+                                                    <img
+                                                        src={item.HinhAnh ? `http://localhost:5000${item.HinhAnh}` : 'https://via.placeholder.com/48x64?text=No+Img'}
+                                                        alt={item.TenSP}
+                                                        style={{ width: 48, height: 64, objectFit: 'cover', borderRadius: 4, border: '1px solid #e0e0e0' }}
+                                                        onError={e => { e.target.src = 'https://via.placeholder.com/48x64?text=No+Img'; }}
+                                                    />
+                                                </td>
                                                 <td className="code-cell">{item.MaSP}</td>
                                                 <td className="name-cell">{item.TenSP}</td>
                                                 <td><strong>{item.SoLuongTon.toLocaleString()}</strong> cuốn</td>

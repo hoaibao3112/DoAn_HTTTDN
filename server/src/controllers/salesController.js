@@ -58,9 +58,9 @@ const salesController = {
 
             // 2. Create hoadon record
             const [hdResult] = await conn.query(
-                `INSERT INTO hoadon (MaKH, MaNV, MaCH, MaPhien, TongTien, GiamGia, DiemSuDung, DiemTichLuy, ThanhToan, PhuongThucTT, TrangThai) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Hoan_thanh')`,
-                [MaKH || null, req.user.MaTK, MaCH, MaPhien, subTotal, GiamGia, DiemSuDung || 0, diemTichLuyMoi, tongThanhToan, PhuongThucTT]
+                `INSERT INTO hoadon (MaKH, MaNV, MaCH, TongTien, GiamGia, DiemSuDung, DiemTichLuy, ThanhToan, PhuongThucTT, TrangThai) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Hoan_thanh')`,
+                [MaKH || null, req.user.MaTK, MaCH, subTotal, GiamGia, DiemSuDung || 0, diemTichLuyMoi, tongThanhToan, PhuongThucTT]
             );
             const MaHD = hdResult.insertId;
 
@@ -91,30 +91,31 @@ const salesController = {
                     WHERE MaSP IN (?) AND MaCH = ?
                 `, [productIds, MaCH]);
 
-                // 3c. Cập nhật tồn kho chi tiết kho con (ton_kho_chi_tiet)
-                // Trừ theo thứ tự priority giảm dần (trừ kho có priority cao nhất trước)
+                // 3c. Cập nhật tồn kho kho quầy (Priority=1) - CHỈ trừ kho quầy
+                // Nếu không đủ hàng → báo lỗi, nhân viên phải chuyển kho trước khi bán
                 for (const item of ChiTiet) {
-                    let remaining = item.SoLuong;
-                    const [subWhs] = await conn.query(`
-                        SELECT tkct.MaKho, tkct.SoLuongTon
+                    const [[counterWh]] = await conn.query(`
+                        SELECT tkct.MaKho, tkct.SoLuongTon, kc.TenKho
                         FROM ton_kho_chi_tiet tkct
                         JOIN kho_con kc ON tkct.MaKho = kc.MaKho
-                        WHERE tkct.MaSP = ? AND kc.MaCH = ? AND kc.TinhTrang = 1
-                        ORDER BY kc.Priority ASC
+                        WHERE tkct.MaSP = ? AND kc.MaCH = ? AND kc.Priority = 1 AND kc.TinhTrang = 1
                         FOR UPDATE
                     `, [item.MaSP, MaCH]);
 
-                    for (const wh of subWhs) {
-                        if (remaining <= 0) break;
-                        const deduct = Math.min(remaining, wh.SoLuongTon);
-                        if (deduct > 0) {
-                            await conn.query(
-                                'UPDATE ton_kho_chi_tiet SET SoLuongTon = SoLuongTon - ? WHERE MaKho = ? AND MaSP = ?',
-                                [deduct, wh.MaKho, item.MaSP]
-                            );
-                            remaining -= deduct;
-                        }
+                    if (!counterWh) {
+                        throw new Error(`Sản phẩm MaSP=${item.MaSP} chưa có tồn kho tại kho quầy.`);
                     }
+                    if (counterWh.SoLuongTon < item.SoLuong) {
+                        throw new Error(
+                            `Kho quầy (${counterWh.TenKho}) không đủ hàng. ` +
+                            `Tồn: ${counterWh.SoLuongTon}, yêu cầu: ${item.SoLuong}. ` +
+                            `Vui lòng chuyển kho trước khi bán.`
+                        );
+                    }
+                    await conn.query(
+                        'UPDATE ton_kho_chi_tiet SET SoLuongTon = SoLuongTon - ? WHERE MaKho = ? AND MaSP = ?',
+                        [item.SoLuong, counterWh.MaKho, item.MaSP]
+                    );
                 }
             }
 
@@ -126,16 +127,7 @@ const salesController = {
                 );
             }
 
-            // 5. Update POS Session Totals
-            const isCash = PhuongThucTT === 'Tien_mat';
-            await conn.query(
-                `UPDATE phien_ban_hang SET 
-          TongTienMat = TongTienMat + ?, 
-          TongDoanhThu = TongDoanhThu + ?, 
-          SoHoaDon = SoHoaDon + 1 
-         WHERE MaPhien = ?`,
-                [isCash ? tongThanhToan : 0, tongThanhToan, MaPhien]
-            );
+            // 5. (phien_ban_hang chưa có trong DB - bỏ qua)
 
             await logActivity({
                 MaTK: req.user.MaTK,
@@ -162,11 +154,11 @@ const salesController = {
         try {
             const { search, MaCH, fromDate, toDate } = req.query;
             let sql = `
-                SELECT hd.*, kh.HoTen as TenKH, kh.SDT as SDTKH, nv.HoTen as TenNV, kc.TenKho AS TenCH
+                SELECT hd.*, kh.HoTen as TenKH, kh.SDT as SDTKH, nv.HoTen as TenNV, ch.TenCH AS TenCH
                 FROM hoadon hd
                 LEFT JOIN khachhang kh ON hd.MaKH = kh.MaKH
                 LEFT JOIN nhanvien nv ON hd.MaNV = nv.MaNV
-                LEFT JOIN kho_con kc ON hd.MaCH = kc.MaKho
+                LEFT JOIN cua_hang ch ON hd.MaCH = ch.MaCH
                 WHERE 1=1
             `;
             const params = [];
@@ -202,11 +194,11 @@ const salesController = {
         try {
             // Get invoice header
             const [hd] = await pool.query(`
-                SELECT hd.*, kh.HoTen as TenKH, kh.SDT as SDTKH, kh.Email as EmailKH, nv.HoTen as TenNV, kc.TenKho AS TenCH, kc.ViTri as DiaChiCH, NULL as SDTCH
+                SELECT hd.*, kh.HoTen as TenKH, kh.SDT as SDTKH, kh.Email as EmailKH, nv.HoTen as TenNV, ch.TenCH AS TenCH, ch.DiaChi as DiaChiCH, ch.SDT as SDTCH
                 FROM hoadon hd
                 LEFT JOIN khachhang kh ON hd.MaKH = kh.MaKH
                 LEFT JOIN nhanvien nv ON hd.MaNV = nv.MaNV
-                LEFT JOIN kho_con kc ON hd.MaCH = kc.MaKho
+                LEFT JOIN cua_hang ch ON hd.MaCH = ch.MaCH
                 WHERE hd.MaHD = ?
             `, [id]);
 

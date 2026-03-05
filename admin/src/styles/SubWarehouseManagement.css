@@ -500,6 +500,7 @@
 }
 .stock-table tr:hover td { background: #fafafa; }
 .stock-table tr:last-child td { border-bottom: none; }
+.stock-table .img-cell { width: 60px; text-align: center; padding: 6px 8px; }
 .stock-table .code-cell { font-family: monospace; color: #3b82f6; font-size: 0.82rem; }
 .stock-table .name-cell { font-weight: 500; color: #111827; }
 

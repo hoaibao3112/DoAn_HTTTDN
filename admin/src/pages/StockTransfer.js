@@ -40,17 +40,17 @@ const StockTransfer = () => {
     const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
     const [loading, setLoading] = useState(false);
     const [filterStatus, setFilterStatus] = useState('');
-    const [filterStore, setFilterStore] = useState('');
+    const [filterWarehouse, setFilterWarehouse] = useState('');
 
     // shared
-    const [stores, setStores] = useState([]);
+    const [subWarehouses, setSubWarehouses] = useState([]);
     const [products, setProducts] = useState([]);
 
     // view: 'list' | 'create'
     const [view, setView] = useState('list');
 
     // create form
-    const [form, setForm] = useState({ MaCHNguon: '', MaCHDich: '', GhiChu: '', items: [] });
+    const [form, setForm] = useState({ MaKhoNguon: '', MaKhoDich: '', GhiChu: '', items: [] });
     const [sourceStock, setSourceStock] = useState([]);
     const [productSearch, setProductSearch] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -61,11 +61,11 @@ const StockTransfer = () => {
     const [cancelReason, setCancelReason] = useState('');
 
     // ── helpers ──────────────────────────────────────────────
-    const fetchStores = useCallback(async () => {
+    const fetchSubWarehouses = useCallback(async () => {
         try {
-            const r = await axios.get(`${API}/stores`, { headers: getHeaders() });
-            if (r.data.success) setStores(r.data.data);
-        } catch (e) { console.error('fetchStores', e); }
+            const r = await axios.get(`${API}/sub-warehouses`, { headers: getHeaders() });
+            if (r.data.success) setSubWarehouses(r.data.data || []);
+        } catch (e) { console.error('fetchSubWarehouses', e); }
     }, []);
 
     const fetchProducts = useCallback(async () => {
@@ -79,8 +79,8 @@ const StockTransfer = () => {
         setLoading(true);
         try {
             const p = new URLSearchParams({ page, pageSize: 20 });
-            if (filterStatus) p.append('TrangThai', filterStatus);
-            if (filterStore) p.append('MaCHNguon', filterStore);
+            if (filterStatus)    p.append('TrangThai', filterStatus);
+            if (filterWarehouse) p.append('MaKhoNguon', filterWarehouse);
             const r = await axios.get(`${API}/transfers?${p}`, { headers: getHeaders() });
             if (r.data.success) {
                 setTransfers(r.data.data || []);
@@ -88,23 +88,23 @@ const StockTransfer = () => {
             }
         } catch (e) { console.error('fetchTransfers', e); }
         finally { setLoading(false); }
-    }, [filterStatus, filterStore]);
+    }, [filterStatus, filterWarehouse]);
 
-    const fetchSourceStock = async (MaCH) => {
-        if (!MaCH) { setSourceStock([]); return; }
+    const fetchSourceStock = async (MaKho) => {
+        if (!MaKho) { setSourceStock([]); return; }
         try {
-            const r = await axios.get(`${API}/stock?MaCH=${MaCH}&pageSize=300`, { headers: getHeaders() });
+            const r = await axios.get(`${API}/stock-by-subwarehouse?MaKho=${MaKho}&pageSize=300`, { headers: getHeaders() });
             if (r.data.success) setSourceStock(r.data.data || []);
         } catch (e) { console.error('fetchSourceStock', e); }
     };
 
-    useEffect(() => { fetchStores(); fetchProducts(); }, [fetchStores, fetchProducts]);
+    useEffect(() => { fetchSubWarehouses(); fetchProducts(); }, [fetchSubWarehouses, fetchProducts]);
     useEffect(() => { fetchTransfers(1); }, [fetchTransfers]);
 
     // ── create form actions ───────────────────────────────────
-    const handleSourceChange = (MaCH) => {
-        setForm(f => ({ ...f, MaCHNguon: MaCH, items: [] }));
-        fetchSourceStock(MaCH);
+    const handleSourceChange = (MaKho) => {
+        setForm(f => ({ ...f, MaKhoNguon: MaKho, items: [] }));
+        fetchSourceStock(MaKho);
     };
 
     const addItem = (product) => {
@@ -132,14 +132,14 @@ const StockTransfer = () => {
     const removeItem = (MaSP) => setForm(f => ({ ...f, items: f.items.filter(i => i.MaSP !== MaSP) }));
 
     const resetCreate = () => {
-        setForm({ MaCHNguon: '', MaCHDich: '', GhiChu: '', items: [] });
+        setForm({ MaKhoNguon: '', MaKhoDich: '', GhiChu: '', items: [] });
         setSourceStock([]);
         setProductSearch('');
     };
 
     const handleSubmit = async () => {
-        if (!form.MaCHNguon || !form.MaCHDich) { alert('Vui lòng chọn kho nguồn và kho đích'); return; }
-        if (form.MaCHNguon === form.MaCHDich) { alert('Kho nguồn và kho đích không được trùng nhau'); return; }
+        if (!form.MaKhoNguon || !form.MaKhoDich) { alert('Vui lòng chọn kho nguồn và kho đích'); return; }
+        if (form.MaKhoNguon === form.MaKhoDich) { alert('Kho nguồn và kho đích không được trùng nhau'); return; }
         if (!form.items.length) { alert('Vui lòng thêm ít nhất 1 sản phẩm'); return; }
         const over = form.items.find(i => i.SoLuong > i.TonNguon);
         if (over) { alert(`"${over.TenSP}" vượt số lượng tồn kho (${over.TonNguon})`); return; }
@@ -147,8 +147,8 @@ const StockTransfer = () => {
         setSubmitting(true);
         try {
             const r = await axios.post(`${API}/transfers`, {
-                MaCHNguon: form.MaCHNguon,
-                MaCHDich: form.MaCHDich,
+                MaKhoNguon: form.MaKhoNguon,
+                MaKhoDich: form.MaKhoDich,
                 GhiChu: form.GhiChu,
                 items: form.items.map(i => ({ MaSP: i.MaSP, SoLuong: i.SoLuong }))
             }, { headers: getHeaders() });
@@ -251,20 +251,20 @@ const StockTransfer = () => {
 
                             <div className="st-form-group">
                                 <label>Kho nguồn *</label>
-                                <select value={form.MaCHNguon} onChange={e => handleSourceChange(e.target.value)}>
+                                <select value={form.MaKhoNguon} onChange={e => handleSourceChange(e.target.value)}>
                                     <option value="">-- Chọn kho chuyển đi --</option>
-                                    {stores.map(s => <option key={s.MaCH} value={s.MaCH}>{s.TenCH}</option>)}
+                                    {subWarehouses.map(k => <option key={k.MaKho} value={k.MaKho}>{k.TenKho}</option>)}
                                 </select>
                             </div>
 
                             <div className="st-form-group">
                                 <label>Kho đích *</label>
-                                <select value={form.MaCHDich}
-                                    onChange={e => setForm(f => ({ ...f, MaCHDich: e.target.value }))}>
+                                <select value={form.MaKhoDich}
+                                    onChange={e => setForm(f => ({ ...f, MaKhoDich: e.target.value }))}>
                                     <option value="">-- Chọn kho nhận --</option>
-                                    {stores
-                                        .filter(s => String(s.MaCH) !== String(form.MaCHNguon))
-                                        .map(s => <option key={s.MaCH} value={s.MaCH}>{s.TenCH}</option>)}
+                                    {subWarehouses
+                                        .filter(k => String(k.MaKho) !== String(form.MaKhoNguon))
+                                        .map(k => <option key={k.MaKho} value={k.MaKho}>{k.TenKho}</option>)}
                                 </select>
                             </div>
 
@@ -275,7 +275,7 @@ const StockTransfer = () => {
                                     onChange={e => setForm(f => ({ ...f, GhiChu: e.target.value }))} />
                             </div>
 
-                            {form.MaCHNguon && (
+                            {form.MaKhoNguon && (
                                 <div className="st-search-products">
                                     <h4>
                                         <span className="material-icons">search</span>
@@ -320,7 +320,7 @@ const StockTransfer = () => {
                                 </div>
                             )}
 
-                            {!form.MaCHNguon && (
+                            {!form.MaKhoNguon && (
                                 <div className="st-hint">
                                     <span className="material-icons">info</span>
                                     Hãy chọn kho nguồn để xem sản phẩm có thể chuyển
@@ -406,7 +406,7 @@ const StockTransfer = () => {
                                     Hủy
                                 </button>
                                 <button className="st-btn-primary" onClick={handleSubmit}
-                                    disabled={submitting || !form.items.length || !form.MaCHNguon || !form.MaCHDich ||
+                                    disabled={submitting || !form.items.length || !form.MaKhoNguon || !form.MaKhoDich ||
                                         form.items.some(i => i.SoLuong > i.TonNguon)}>
                                     {submitting
                                         ? <><span className="material-icons spin">autorenew</span> Đang gửi...</>
@@ -442,9 +442,9 @@ const StockTransfer = () => {
                             ))}
                         </div>
                         <div className="st-filter-right">
-                            <select value={filterStore} onChange={e => setFilterStore(e.target.value)}>
-                                <option value="">Tất cả cửa hàng</option>
-                                {stores.map(s => <option key={s.MaCH} value={s.MaCH}>{s.TenCH}</option>)}
+                            <select value={filterWarehouse} onChange={e => setFilterWarehouse(e.target.value)}>
+                                <option value="">Tất cả kho</option>
+                                {subWarehouses.map(k => <option key={k.MaKho} value={k.MaKho}>{k.TenKho}</option>)}
                             </select>
                             <button className="st-btn-icon" onClick={() => fetchTransfers(1)} title="Làm mới">
                                 <span className="material-icons">refresh</span>
@@ -483,8 +483,8 @@ const StockTransfer = () => {
                                                     <span>{t.TenSP}</span>
                                                 </div>
                                             </td>
-                                            <td>{t.TenCHNguon}</td>
-                                            <td>{t.TenCHDich}</td>
+                                            <td>{t.TenKhoNguon}</td>
+                                            <td>{t.TenKhoDich}</td>
                                             <td><strong>{t.SoLuong}</strong></td>
                                             <td className="text-muted">
                                                 {t.NgayChuyen ? new Date(t.NgayChuyen).toLocaleDateString('vi-VN') : '–'}
@@ -566,12 +566,12 @@ const StockTransfer = () => {
                                     <StatusBadge status={detailData.TrangThai} />
                                 </div>
                                 <div className="st-detail-item">
-                                    <label>Từ cửa hàng</label>
-                                    <span>{detailData.TenCHNguon}</span>
+                                    <label>Từ kho</label>
+                                    <span>{detailData.TenKhoNguon}</span>
                                 </div>
                                 <div className="st-detail-item">
-                                    <label>Đến cửa hàng</label>
-                                    <span>{detailData.TenCHDich}</span>
+                                    <label>Đến kho</label>
+                                    <span>{detailData.TenKhoDich}</span>
                                 </div>
                                 <div className="st-detail-item">
                                     <label>Số lượng</label>
