@@ -79,7 +79,7 @@ const salesController = {
                     [detailValues]
                 );
 
-                // 3b. Batch UPDATE tồn kho bằng CASE WHEN
+                // 3b. Batch UPDATE tồn kho chính (ton_kho)
                 const productIds = ChiTiet.map(item => item.MaSP);
                 const caseClauses = ChiTiet.map(item => 
                     `WHEN MaSP = ${conn.escape(item.MaSP)} THEN SoLuongTon - ${item.SoLuong}`
@@ -90,6 +90,32 @@ const salesController = {
                     SET SoLuongTon = CASE ${caseClauses} END
                     WHERE MaSP IN (?) AND MaCH = ?
                 `, [productIds, MaCH]);
+
+                // 3c. Cập nhật tồn kho chi tiết kho con (ton_kho_chi_tiet)
+                // Trừ theo thứ tự priority giảm dần (trừ kho có priority cao nhất trước)
+                for (const item of ChiTiet) {
+                    let remaining = item.SoLuong;
+                    const [subWhs] = await conn.query(`
+                        SELECT tkct.MaKho, tkct.SoLuongTon
+                        FROM ton_kho_chi_tiet tkct
+                        JOIN kho_con kc ON tkct.MaKho = kc.MaKho
+                        WHERE tkct.MaSP = ? AND kc.MaCH = ? AND kc.TinhTrang = 1
+                        ORDER BY kc.Priority ASC
+                        FOR UPDATE
+                    `, [item.MaSP, MaCH]);
+
+                    for (const wh of subWhs) {
+                        if (remaining <= 0) break;
+                        const deduct = Math.min(remaining, wh.SoLuongTon);
+                        if (deduct > 0) {
+                            await conn.query(
+                                'UPDATE ton_kho_chi_tiet SET SoLuongTon = SoLuongTon - ? WHERE MaKho = ? AND MaSP = ?',
+                                [deduct, wh.MaKho, item.MaSP]
+                            );
+                            remaining -= deduct;
+                        }
+                    }
+                }
             }
 
             // 4. Update Customer Points & Loyalty

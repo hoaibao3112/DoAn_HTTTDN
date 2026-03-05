@@ -4,6 +4,7 @@ import { Button, Input, message, Table, Modal, Space, DatePicker } from 'antd';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
 import { PermissionContext } from '../components/PermissionContext';
 import dayjs from 'dayjs';
+import { handleApiError } from '../utils/errorHandler';
 
 const { Search } = Input;
 const { confirm } = Modal;
@@ -70,7 +71,7 @@ const AuthorManagement = () => {
       }
     } catch (error) {
       console.error('[ERROR] Lỗi khi lấy danh sách tác giả:', error.response || error);
-      message.error(error.response?.data?.error || 'Lỗi khi tải danh sách tác giả');
+      handleApiError(error, 'Lỗi khi tải danh sách tác giả');
     } finally {
       setLoading(false);
     }
@@ -153,7 +154,7 @@ const AuthorManagement = () => {
       message.success(response.data.message || 'Thêm tác giả thành công!');
     } catch (error) {
       console.error('[ERROR] Lỗi khi thêm tác giả:', error.response || error);
-      message.error(error.response?.data?.error || 'Lỗi khi thêm tác giả!');
+      handleApiError(error, 'Lỗi khi thêm tác giả!');
     }
   };
 
@@ -207,7 +208,7 @@ const AuthorManagement = () => {
       message.success(response.data.message || 'Sửa tác giả thành công!');
     } catch (error) {
       console.error('[ERROR] Lỗi khi sửa tác giả:', error.response || error);
-      message.error(error.response?.data?.error || 'Lỗi khi sửa tác giả!');
+      handleApiError(error, 'Lỗi khi sửa tác giả!');
     }
   };
 
@@ -233,7 +234,7 @@ const AuthorManagement = () => {
           message.success(response.data.message || 'Xóa tác giả thành công!');
         } catch (error) {
           console.error('[ERROR] Lỗi khi xóa tác giả:', error.response || error);
-          message.error(error.response?.data?.error || 'Xóa tác giả thất bại!');
+          handleApiError(error, 'Xóa tác giả thất bại!');
         }
       },
     });

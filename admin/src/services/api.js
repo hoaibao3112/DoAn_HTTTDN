@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { message } from 'antd';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -35,6 +36,13 @@ apiClient.interceptors.response.use(
             localStorage.removeItem('authToken');
             localStorage.removeItem('userInfo');
             window.location.href = '/admin/login';
+        }
+        if (error.response?.status === 403) {
+            message.error({
+                content: 'Bạn không có quyền thực hiện chức năng này!',
+                key: 'permission-denied',
+                duration: 3,
+            });
         }
         return Promise.reject(error);
     }

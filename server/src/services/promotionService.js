@@ -240,22 +240,7 @@ class PromotionService {
             }
         }
 
-        // Kiểm tra số lần đã dùng của khách hàng
-        if (MaKH) {
-            const [used] = await pool.query(`
-                SELECT COUNT(*) as count 
-                FROM su_dung_khuyen_mai sdkm
-                JOIN hoadon hd ON sdkm.MaHD = hd.MaHD
-                WHERE sdkm.MaMGG = ? AND hd.MaKH = ?
-            `, [voucher.MaMGG, MaKH]);
-
-            if (used[0].count >= voucher.SoLanDungMoiKH) {
-                return { 
-                    success: false, 
-                    message: `Bạn đã dùng hết số lần sử dụng mã này (${voucher.SoLanDungMoiKH} lần)` 
-                };
-            }
-        }
+        // Kiểm tra số lần đã dùng của khách hàng (bỏ qua - bảng su_dung_khuyen_mai chưa tồn tại)
 
         // Kiểm tra điều kiện
         if (voucher.GiaTriDonToiThieu && TongTien < voucher.GiaTriDonToiThieu) {
@@ -317,17 +302,12 @@ class PromotionService {
         try {
             if (!connection) await conn.beginTransaction();
 
-            // 1. Lưu lịch sử
-            await conn.query(`
-                INSERT INTO su_dung_khuyen_mai 
-                (MaHD, MaKM, MaMGG, MaKH, LoaiKM, GiaTriGiam, TongTienTruocGiam, TongTienSauGiam, MaNV)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `, [MaHD, MaKM, MaMGG, MaKH, LoaiKM, GiaTriGiam, TongTienTruocGiam, TongTienSauGiam, MaNV]);
+            // Cập nhật số lần sử dụng khuyến mãi
+            if (MaKM) {
+                await conn.query('UPDATE khuyen_mai SET SoLanDaSuDung = SoLanDaSuDung + 1 WHERE MaKM = ?', [MaKM]);
+            }
 
-            // 2. Cập nhật số lần sử dụng khuyến mãi
-            await conn.query('UPDATE khuyen_mai SET SoLanDaSuDung = SoLanDaSuDung + 1 WHERE MaKM = ?', [MaKM]);
-
-            // 3. Cập nhật số lượng mã giảm giá đã dùng (nếu có)
+            // Cập nhật số lượng mã giảm giá đã dùng (nếu có)
             if (MaMGG) {
                 await conn.query('UPDATE ma_giam_gia SET DaSuDung = DaSuDung + 1 WHERE MaMGG = ?', [MaMGG]);
             }

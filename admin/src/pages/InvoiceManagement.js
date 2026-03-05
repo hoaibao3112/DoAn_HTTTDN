@@ -3,6 +3,7 @@ import axios from 'axios';
 import '../styles/InvoiceManagement.css';
 import { Modal, Button, Select, message, Table, Tag, Space, Input, Divider } from 'antd';
 import { ExclamationCircleFilled, EyeOutlined, DeleteOutlined } from '@ant-design/icons';
+import { handleApiError } from '../utils/errorHandler';
 
 const { confirm } = Modal;
 const { Search } = Input;
@@ -88,7 +89,7 @@ const InvoiceManagement = () => {
       fetchInvoices();
     } catch (error) {
       console.error('❌ Status change error:', error);
-      message.error(error.response?.data?.error || 'Cập nhật trạng thái thất bại');
+      handleApiError(error, 'Cập nhật trạng thái thất bại');
     }
   };
 
@@ -112,7 +113,7 @@ const InvoiceManagement = () => {
           fetchInvoices();
         } catch (error) {
           console.error('❌ Cancel invoice error:', error);
-          message.error('Hủy hóa đơn thất bại');
+          handleApiError(error, 'Hủy hóa đơn thất bại');
         }
       },
     });

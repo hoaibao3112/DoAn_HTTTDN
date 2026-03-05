@@ -5,6 +5,7 @@ import {
   Tooltip, message, Tabs, Card, Row, Col, Statistic, DatePicker,
   InputNumber, AutoComplete, Badge, Popconfirm, Divider, Typography, Empty
 } from 'antd';
+import { handleApiError } from '../utils/errorHandler';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined,
   SearchOutlined, ReloadOutlined, TagOutlined, BarChartOutlined,
@@ -185,7 +186,7 @@ const PromotionList = () => {
       setIsFormOpen(false);
       fetchPromotions();
     } catch (err) {
-      message.error(err.response?.data?.message || 'Lỗi khi lưu khuyến mãi');
+      handleApiError(err, 'Lỗi khi lưu khuyến mãi');
     }
   };
 
@@ -197,7 +198,7 @@ const PromotionList = () => {
       message.success('Xóa khuyến mãi thành công');
       fetchPromotions();
     } catch (err) {
-      message.error(err.response?.data?.message || 'Không thể xóa khuyến mãi này');
+      handleApiError(err, 'Không thể xóa khuyến mãi này');
     }
   };
 
@@ -209,8 +210,8 @@ const PromotionList = () => {
       );
       message.success(currentStatus ? 'Đã tạm dừng khuyến mãi' : 'Đã kích hoạt khuyến mãi');
       fetchPromotions();
-    } catch {
-      message.error('Lỗi khi thay đổi trạng thái');
+    } catch (err) {
+      handleApiError(err, 'Lỗi khi thay đổi trạng thái');
     }
   };
 
@@ -1025,7 +1026,7 @@ const VoucherList = () => {
       form.resetFields();
       fetchVouchers();
     } catch (err) {
-      message.error(err.response?.data?.message || 'Lỗi khi tạo mã giảm giá');
+      handleApiError(err, 'Lỗi khi tạo mã giảm giá');
     }
   };
 
@@ -1037,7 +1038,7 @@ const VoucherList = () => {
       message.success('Xóa mã giảm giá thành công');
       fetchVouchers();
     } catch (err) {
-      message.error(err.response?.data?.message || 'Lỗi khi xóa mã');
+      handleApiError(err, 'Lỗi khi xóa mã');
     }
   };
 

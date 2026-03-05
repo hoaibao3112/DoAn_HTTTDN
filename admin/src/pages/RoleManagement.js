@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Button, Input, message, Table, Modal, Space, Form, Tag, Checkbox, Card } from 'antd';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
+import { handleApiError } from '../utils/errorHandler';
 
 const { Search } = Input;
 const { confirm } = Modal;
@@ -44,7 +45,7 @@ const RoleManagement = () => {
       }
     } catch (error) {
       console.error('Lỗi khi lấy danh sách nhóm quyền:', error);
-      message.error('Lỗi khi tải danh sách nhóm quyền');
+      handleApiError(error, 'Lỗi khi tải danh sách nhóm quyền');
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,7 @@ const RoleManagement = () => {
       }
     } catch (error) {
       console.error('Lỗi khi lấy danh sách chức năng:', error);
-      message.error('Lỗi khi tải danh sách chức năng');
+      handleApiError(error, 'Lỗi khi tải danh sách chức năng');
     }
   };
 
@@ -158,7 +159,7 @@ const RoleManagement = () => {
       }
     } catch (error) {
       console.error('Lỗi khi thêm nhóm quyền:', error.response || error);
-      message.error(error.response?.data?.message || 'Lỗi khi thêm nhóm quyền!');
+      handleApiError(error, 'Lỗi khi thêm nhóm quyền!');
     }
   };
 
@@ -186,7 +187,7 @@ const RoleManagement = () => {
       }
     } catch (error) {
       console.error('Lỗi khi cập nhật nhóm quyền:', error.response || error);
-      message.error(error.response?.data?.message || 'Lỗi khi cập nhật nhóm quyền!');
+      handleApiError(error, 'Lỗi khi cập nhật nhóm quyền!');
     }
   };
 
@@ -208,7 +209,7 @@ const RoleManagement = () => {
           }
         } catch (error) {
           console.error('Lỗi khi xóa nhóm quyền:', error.response || error);
-          message.error(error.response?.data?.message || 'Xóa nhóm quyền thất bại!');
+          handleApiError(error, 'Xóa nhóm quyền thất bại!');
         }
       },
     });
@@ -266,7 +267,7 @@ const RoleManagement = () => {
                 });
                 setIsModalVisible(true);
               } catch (error) {
-                message.error('Lỗi khi tải thông tin nhóm quyền!');
+                handleApiError(error, 'Lỗi khi tải thông tin nhóm quyền!');
               }
             }}
           />

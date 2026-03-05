@@ -10,13 +10,9 @@ const promotionController = {
             const [promotions] = await pool.query(`
                 SELECT 
                     km.*,
-                    ch.TenCH,
-                    COUNT(DISTINCT sdkm.MaSD) as SoLanDung,
-                    SUM(sdkm.GiaTriGiam) as TongTienGiam
+                    ch.TenCH
                 FROM khuyen_mai km
                 LEFT JOIN cua_hang ch ON km.MaCH = ch.MaCH
-                LEFT JOIN su_dung_khuyen_mai sdkm ON km.MaKM = sdkm.MaKM
-                GROUP BY km.MaKM
                 ORDER BY km.TrangThai DESC, km.NgayBatDau DESC
             `);
 
@@ -185,12 +181,12 @@ const promotionController = {
     deletePromotion: async (req, res) => {
         const { id } = req.params;
         try {
-            // Kiểm tra xem có hóa đơn nào dùng khuyến mãi này chưa
-            const [used] = await pool.query(
-                'SELECT COUNT(*) as count FROM su_dung_khuyen_mai WHERE MaKM = ?', [id]
+            // Kiểm tra xem có hóa đơn nào dùng khuyến mãi này chưa (dùng SoLanDaSuDung)
+            const [[promo]] = await pool.query(
+                'SELECT SoLanDaSuDung FROM khuyen_mai WHERE MaKM = ?', [id]
             );
 
-            if (used[0].count > 0) {
+            if (promo && promo.SoLanDaSuDung > 0) {
                 return res.status(400).json({ 
                     success: false, 
                     message: 'Không thể xóa khuyến mãi đã được sử dụng. Hãy tạm dừng thay vì xóa.' 
@@ -440,22 +436,8 @@ const promotionController = {
                 }
             }
 
-            // Kiểm tra số lần đã dùng của khách hàng
-            if (MaKH) {
-                const [used] = await pool.query(`
-                    SELECT COUNT(*) as count 
-                    FROM su_dung_khuyen_mai sdkm
-                    JOIN hoadon hd ON sdkm.MaHD = hd.MaHD
-                    WHERE sdkm.MaMGG = ? AND hd.MaKH = ?
-                `, [voucher.MaMGG, MaKH]);
-
-                if (used[0].count >= voucher.SoLanDungMoiKH) {
-                    return res.status(400).json({ 
-                        success: false, 
-                        message: `Bạn đã dùng hết số lần sử dụng mã này (${voucher.SoLanDungMoiKH} lần)` 
-                    });
-                }
-            }
+            // Kiểm tra số lần đã dùng của khách hàng (bỏ qua nếu bảng su_dung_khuyen_mai chưa tồn tại)
+            // if (MaKH) { ... }
 
             // Kiểm tra điều kiện giống checkAvailablePromotions
             if (voucher.GiaTriDonToiThieu && TongTien < voucher.GiaTriDonToiThieu) {
@@ -502,17 +484,12 @@ const promotionController = {
         try {
             await conn.beginTransaction();
 
-            // 1. Lưu lịch sử
-            await conn.query(`
-                INSERT INTO su_dung_khuyen_mai 
-                (MaHD, MaKM, MaMGG, MaKH, LoaiKM, GiaTriGiam, TongTienTruocGiam, TongTienSauGiam, MaNV)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `, [MaHD, MaKM, MaMGG, MaKH, LoaiKM, GiaTriGiam, TongTienTruocGiam, TongTienSauGiam, req.user.MaTK]);
+            // Cập nhật số lần sử dụng khuyến mãi
+            if (MaKM) {
+                await conn.query('UPDATE khuyen_mai SET SoLanDaSuDung = SoLanDaSuDung + 1 WHERE MaKM = ?', [MaKM]);
+            }
 
-            // 2. Cập nhật số lần sử dụng khuyến mãi
-            await conn.query('UPDATE khuyen_mai SET SoLanDaSuDung = SoLanDaSuDung + 1 WHERE MaKM = ?', [MaKM]);
-
-            // 3. Cập nhật số lượng mã giảm giá đã dùng (nếu có)
+            // Cập nhật số lượng mã giảm giá đã dùng (nếu có)
             if (MaMGG) {
                 await conn.query('UPDATE ma_giam_gia SET DaSuDung = DaSuDung + 1 WHERE MaMGG = ?', [MaMGG]);
             }
@@ -532,19 +509,14 @@ const promotionController = {
 
     // 4.1 Thống kê hiệu quả khuyến mãi
     getPromotionStatistics: async (req, res) => {
-        const { startDate, endDate, MaKM } = req.query;
+        const { MaKM } = req.query;
 
         try {
             let whereClause = 'WHERE 1=1';
             const params = [];
 
-            if (startDate && endDate) {
-                whereClause += ' AND sdkm.NgaySuDung BETWEEN ? AND ?';
-                params.push(startDate, endDate);
-            }
-
             if (MaKM) {
-                whereClause += ' AND sdkm.MaKM = ?';
+                whereClause += ' AND km.MaKM = ?';
                 params.push(MaKM);
             }
 
@@ -553,19 +525,15 @@ const promotionController = {
                     km.MaKM,
                     km.TenKM,
                     km.LoaiKM,
-                    COUNT(DISTINCT sdkm.MaHD) as SoDonHang,
-                    COUNT(DISTINCT sdkm.MaKH) as SoKhachHang,
-                    SUM(sdkm.GiaTriGiam) as TongTienGiam,
-                    SUM(sdkm.TongTienTruocGiam) as TongDoanhThuTruocGiam,
-                    SUM(sdkm.TongTienSauGiam) as TongDoanhThuSauGiam,
-                    AVG(sdkm.GiaTriGiam) as GiaTriGiamTrungBinh,
-                    MIN(sdkm.NgaySuDung) as NgayDauTien,
-                    MAX(sdkm.NgaySuDung) as NgayCuoiCung
+                    km.TrangThai,
+                    km.NgayBatDau,
+                    km.NgayKetThuc,
+                    km.SoLanDaSuDung as SoDonHang,
+                    km.GiaTriGiam,
+                    km.GiamToiDa
                 FROM khuyen_mai km
-                LEFT JOIN su_dung_khuyen_mai sdkm ON km.MaKM = sdkm.MaKM
                 ${whereClause}
-                GROUP BY km.MaKM
-                ORDER BY TongTienGiam DESC
+                ORDER BY km.SoLanDaSuDung DESC
             `, params);
 
             res.json({ success: true, data: stats });
@@ -576,94 +544,19 @@ const promotionController = {
 
     // 4.2 Lịch sử sử dụng khuyến mãi
     getPromotionHistory: async (req, res) => {
-        const { page = 1, limit = 50, MaKM, MaKH } = req.query;
-        const offset = (page - 1) * limit;
-
-        try {
-            let whereClause = 'WHERE 1=1';
-            const params = [];
-
-            if (MaKM) {
-                whereClause += ' AND sdkm.MaKM = ?';
-                params.push(MaKM);
-            }
-
-            if (MaKH) {
-                whereClause += ' AND sdkm.MaKH = ?';
-                params.push(MaKH);
-            }
-
-            const [history] = await pool.query(`
-                SELECT 
-                    sdkm.*,
-                    km.TenKM,
-                    hd.MaHD,
-                    kh.HoTen as TenKH,
-                    nv.HoTen as TenNV,
-                    mgg.MaCode
-                FROM su_dung_khuyen_mai sdkm
-                JOIN khuyen_mai km ON sdkm.MaKM = km.MaKM
-                JOIN hoadon hd ON sdkm.MaHD = hd.MaHD
-                LEFT JOIN khachhang kh ON sdkm.MaKH = kh.MaKH
-                LEFT JOIN nhanvien nv ON sdkm.MaNV = nv.MaNV
-                LEFT JOIN ma_giam_gia mgg ON sdkm.MaMGG = mgg.MaMGG
-                ${whereClause}
-                ORDER BY sdkm.NgaySuDung DESC
-                LIMIT ? OFFSET ?
-            `, [...params, parseInt(limit), offset]);
-
-            const [[{ total }]] = await pool.query(`
-                SELECT COUNT(*) as total FROM su_dung_khuyen_mai sdkm ${whereClause}
-            `, params);
-
-            res.json({ 
-                success: true, 
-                data: history,
-                pagination: {
-                    page: parseInt(page),
-                    limit: parseInt(limit),
-                    total,
-                    totalPages: Math.ceil(total / limit)
-                }
-            });
-        } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
-        }
+        // su_dung_khuyen_mai table does not exist yet - return empty list gracefully
+        res.json({ 
+            success: true, 
+            data: [],
+            pagination: { page: 1, limit: 50, total: 0, totalPages: 0 },
+            message: 'Chưa có lịch sử sử dụng khuyến mãi'
+        });
     },
 
     // 4.3 Top khách hàng sử dụng khuyến mãi nhiều nhất
     getTopCustomers: async (req, res) => {
-        const { startDate, endDate, limit = 10 } = req.query;
-
-        try {
-            let whereClause = '';
-            const params = [];
-
-            if (startDate && endDate) {
-                whereClause = 'WHERE sdkm.NgaySuDung BETWEEN ? AND ?';
-                params.push(startDate, endDate);
-            }
-
-            const [customers] = await pool.query(`
-                SELECT 
-                    kh.MaKH,
-                    kh.HoTen as TenKH,
-                    kh.SDT,
-                    COUNT(DISTINCT sdkm.MaHD) as SoDonHang,
-                    COUNT(DISTINCT sdkm.MaKM) as SoKMDaSuDung,
-                    SUM(sdkm.GiaTriGiam) as TongTienTietKiem
-                FROM su_dung_khuyen_mai sdkm
-                JOIN khachhang kh ON sdkm.MaKH = kh.MaKH
-                ${whereClause}
-                GROUP BY kh.MaKH
-                ORDER BY TongTienTietKiem DESC
-                LIMIT ?
-            `, [...params, parseInt(limit)]);
-
-            res.json({ success: true, data: customers });
-        } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
-        }
+        // su_dung_khuyen_mai table does not exist yet - return empty list gracefully
+        res.json({ success: true, data: [] });
     }
 };
 

@@ -91,7 +91,7 @@ const NhapHang = () => {
 
   const fetchBranches = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/branches', config);
+      const res = await axios.get(`${API_BASE_URL}/stores`, config);
       if (res.data.success) {
         setBranches(res.data.data);
       }

@@ -15,6 +15,7 @@ import chatRoutes from './chat.js';
 import paymentRoutes from './paymentRoutes.js';
 import promotionRoutes from './promotionRoutes.js';
 import loyaltyRoutes from './loyaltyRoutes.js';
+import branchRoutes from './branchRoutes.js';
 
 export const initRoutes = (app) => {
   // Root path - Server status
@@ -35,7 +36,7 @@ export const initRoutes = (app) => {
   });
 
   // ======================= SYSTEM MANAGEMENT =======================
-  app.use('/api/login', LoginRoutes);
+  app.use('/api/login', LoginRoutes);  // POST /api/login (login) + POST /api/login/logout (logout)
   app.use('/api/accounts', accountRoutes);
   app.use('/api/roles', roleRoutes);
   app.use('/api/permissions', permissionRoutes);
@@ -75,6 +76,9 @@ export const initRoutes = (app) => {
 
   // ======================= LOYALTY & MEMBERSHIP =======================
   app.use('/api/loyalty', loyaltyRoutes);
+
+  // ======================= BRANCH MANAGEMENT =======================
+  app.use('/api/branches', branchRoutes);
 
   // ======================= FINANCE MANAGEMENT =======================
   // (Branch management removed - no longer used)

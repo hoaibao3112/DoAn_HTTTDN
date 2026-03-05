@@ -89,7 +89,7 @@ const Sidebar = () => {
   const handleLogout = async () => {
     try {
       await axios.post(
-        'http://localhost:5000/api/logout',
+        'http://localhost:5000/api/login/logout',
         {},
         {
           headers: {

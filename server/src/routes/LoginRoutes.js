@@ -103,6 +103,31 @@ router.post('/', async (req, res) => {
   }
 });
 
+// API đăng xuất
+router.post('/logout', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (token) {
+      // Decode token to get user info for audit log (no verification needed)
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        await logActivity({
+          MaTK: decoded.MaTK,
+          HanhDong: 'Dang_xuat',
+          BangDuLieu: 'taikhoan',
+          MaBanGhi: decoded.MaTK,
+          DiaChi_IP: req.ip
+        });
+      } catch (_) {
+        // Token invalid/expired, still respond success
+      }
+    }
+    res.status(200).json({ success: true, message: 'Đăng xuất thành công' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 import { logActivity } from '../utils/auditLogger.js';
 
 export default router;

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Button, Input, message, Table, Modal, Space, Select, InputNumber, DatePicker } from 'antd';
 import dayjs from 'dayjs';
+import { handleApiError } from '../utils/errorHandler';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled, LockOutlined, UnlockOutlined } from '@ant-design/icons';
 
 const { confirm } = Modal;
@@ -126,7 +127,7 @@ const UserManagement = () => {
       }));
       message.success('Thêm người dùng thành công!');
     } catch (error) {
-      message.error(`Lỗi khi thêm người dùng: ${error.response?.data?.error || error.message}`);
+      handleApiError(error, 'Lỗi khi thêm người dùng');
     }
   };
 
@@ -148,7 +149,7 @@ const UserManagement = () => {
       }));
       message.success('Cập nhật người dùng thành công!');
     } catch (error) {
-      message.error(`Lỗi khi cập nhật người dùng: ${error.response?.data?.error || error.message}`);
+      handleApiError(error, 'Lỗi khi cập nhật người dùng');
     }
   };
 
@@ -166,7 +167,7 @@ const UserManagement = () => {
           await fetchUsers();
           message.success('Xóa người dùng thành công!');
         } catch (error) {
-          message.error(`Lỗi khi xóa người dùng: ${error.message}`);
+          handleApiError(error, 'Lỗi khi xóa người dùng');
         }
       },
     });
@@ -187,7 +188,7 @@ const UserManagement = () => {
           await fetchUsers();
           message.success('Đổi trạng thái thành công!');
         } catch (error) {
-          message.error(`Lỗi khi đổi trạng thái: ${error.message}`);
+          handleApiError(error, 'Lỗi khi đổi trạng thái');
         }
       },
     });

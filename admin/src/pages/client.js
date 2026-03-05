@@ -4,6 +4,7 @@ import {
   Button, Input, message, Table, Modal, Space, Tag, Select, Card, Row, Col, 
   Descriptions, Slider, Statistic, Tabs, Tooltip, Progress 
 } from 'antd';
+import { handleApiError } from '../utils/errorHandler';
 import { 
   UserOutlined, TrophyOutlined, HistoryOutlined, RiseOutlined, FallOutlined 
 } from '@ant-design/icons';
@@ -170,7 +171,7 @@ const CustomerManagement = () => {
       fetchStatistics();
     } catch (err) {
       console.error(err);
-      message.error(err.response?.data?.error || 'Lỗi khi đổi trạng thái');
+      handleApiError(err, 'Lỗi khi đổi trạng thái');
     }
   };
 

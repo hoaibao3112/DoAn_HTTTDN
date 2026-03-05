@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { message } from 'antd';
+import { handleApiError } from '../utils/errorHandler';
 import { PermissionContext } from '../components/PermissionContext';
 import { FEATURES } from '../constants/permissions';
 import dayjs from 'dayjs';
@@ -173,7 +174,7 @@ const SupplierDebts = () => {
             }
         } catch (error) {
             console.error('Error recording payment:', error);
-            message.error('Lỗi ghi nhận thanh toán: ' + (error.response?.data?.message || error.message));
+            handleApiError(error, 'Lỗi ghi nhận thanh toán');
         }
     };
 

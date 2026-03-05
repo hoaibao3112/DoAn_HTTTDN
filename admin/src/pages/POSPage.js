@@ -51,9 +51,8 @@ const POSPage = () => {
     const API_BASE_URL = 'http://localhost:5000';
 
     useEffect(() => {
-        fetchProducts();
+        checkOpenSession().then(sess => fetchProducts(sess?.MaCH));
         fetchCategories();
-        checkOpenSession();
     }, []);
 
     // Kiểm tra khuyến mãi tự động khi giỏ hàng thay đổi
@@ -74,22 +73,54 @@ const POSPage = () => {
     };
 
     const checkOpenSession = async () => {
-        // Check if there's an open session
         const savedSession = localStorage.getItem('posSession');
         if (savedSession) {
-            setSession(JSON.parse(savedSession));
+            const sess = JSON.parse(savedSession);
+            setSession(sess);
+            return sess;
         }
+        return null;
     };
 
-    const fetchProducts = async () => {
+    // Lấy tồn kho theo chi nhánh và gắn SoLuong vào products
+    const fetchStockByBranch = async (MaCH, productList) => {
         try {
             const token = localStorage.getItem('authToken');
-            const response = await axios.get('http://localhost:5000/api/warehouse/products?pageSize=100', {
+            const res = await axios.get(
+                `http://localhost:5000/api/warehouse/stock?MaCH=${MaCH}&pageSize=1000`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (res.data.success) {
+                const stockMap = {};
+                (res.data.data || []).forEach(s => { stockMap[s.MaSP] = s.SoLuongTon; });
+                return (productList || []).map(p => ({
+                    ...p,
+                    SoLuong: stockMap[p.MaSP] ?? 0
+                }));
+            }
+        } catch (e) {
+            console.error('Error fetching branch stock:', e);
+        }
+        return (productList || []).map(p => ({ ...p, SoLuong: p.TongTonKho || 0 }));
+    };
+
+    const fetchProducts = async (MaCH) => {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await axios.get('http://localhost:5000/api/warehouse/products?pageSize=500', {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             if (response.data.success && response.data.data) {
-                setProducts(response.data.data.items || response.data.data);
+                const raw = response.data.data.items || response.data.data;
+                const branchId = MaCH || session?.MaCH;
+                if (branchId) {
+                    const merged = await fetchStockByBranch(branchId, raw);
+                    setProducts(merged);
+                } else {
+                    // Fallback: dùng tổng tồn kho
+                    setProducts(raw.map(p => ({ ...p, SoLuong: p.TongTonKho || 0 })));
+                }
             }
         } catch (error) {
             console.error('Error fetching products:', error);
@@ -113,7 +144,7 @@ const POSPage = () => {
             const response = await axios.post(
                 'http://localhost:5000/api/promotions/check-available',
                 {
-                    MaCH: 1, // Mặc định chi nhánh 1
+                    MaCH: session?.MaCH || 1,
                     TongTien: calculateSubtotal(),
                     MaKH: customer?.MaKH || null,
                     ChiTiet: cart.map(item => ({
@@ -152,7 +183,7 @@ const POSPage = () => {
                 'http://localhost:5000/api/promotions/validate-voucher',
                 {
                     MaCode: voucherCode.toUpperCase(),
-                    MaCH: 1,
+                    MaCH: session?.MaCH || 1,
                     TongTien: calculateSubtotal(),
                     MaKH: customer?.MaKH || null,
                     ChiTiet: cart.map(item => ({
@@ -415,9 +446,17 @@ const POSPage = () => {
     };
 
     const addToCart = (product) => {
-        const existing = cart.find(item => item.MaSP === product.MaSP);
+        if (product.SoLuong <= 0) {
+            alert(`"${product.TenSP}" đã hết hàng tại chi nhánh này!`);
+            return;
+        }
 
+        const existing = cart.find(item => item.MaSP === product.MaSP);
         if (existing) {
+            if (existing.quantity >= product.SoLuong) {
+                alert(`Chỉ còn ${product.SoLuong} cuốn "${product.TenSP}" trong kho!`);
+                return;
+            }
             setCart(cart.map(item =>
                 item.MaSP === product.MaSP
                     ? { ...item, quantity: item.quantity + 1 }
@@ -434,9 +473,17 @@ const POSPage = () => {
             return;
         }
 
+        const product = products.find(p => p.MaSP === productId);
+        const maxQty = product?.SoLuong || 9999;
+        const qty = Math.min(parseInt(newQuantity) || 1, maxQty);
+
+        if (parseInt(newQuantity) > maxQty) {
+            alert(`Chỉ còn ${maxQty} cuốn "${product?.TenSP}" trong kho!`);
+        }
+
         setCart(cart.map(item =>
             item.MaSP === productId
-                ? { ...item, quantity: parseInt(newQuantity) || 1 }
+                ? { ...item, quantity: qty }
                 : item
         ));
     };
@@ -925,7 +972,7 @@ const POSPage = () => {
                         {filteredProducts.map(product => (
                             <div
                                 key={product.MaSP}
-                                className="product-item-card"
+                                className={`product-item-card${product.SoLuong <= 0 ? ' sold-out' : ''}`}
                                 onClick={() => addToCart(product)}
                             >
                                 <div className="product-item-image">
@@ -936,7 +983,7 @@ const POSPage = () => {
                                     <h4 title={product.TenSP}>{product.TenSP}</h4>
                                     <div className="product-item-footer">
                                         <span className="price">{product.DonGia?.toLocaleString()}đ</span>
-                                        <span className="stock">Kho: {product.SoLuong}</span>
+                                        <span className={`stock ${product.SoLuong <= 0 ? 'stock-empty' : product.SoLuong <= 5 ? 'stock-low' : ''}`}>Kho: {product.SoLuong}</span>
                                     </div>
                                 </div>
                             </div>

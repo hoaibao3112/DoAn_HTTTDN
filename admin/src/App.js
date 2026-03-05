@@ -1,4 +1,6 @@
 import React from 'react';
+import axios from 'axios';
+import { message } from 'antd';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import Sidebar from './components/Sidebar';
@@ -31,6 +33,24 @@ import BranchManagement from './pages/BranchManagement';
 import BarcodeGeneratorPage from './pages/BarcodeGeneratorPage';
 import SubWarehouseManagement from './pages/SubWarehouseManagement';
 import { FEATURES } from './constants/permissions';
+
+// ===================== Global 403 interceptor =====================
+// Intercepts ALL axios calls across the entire app.
+// Shows a clear permission-denied notification instead of a raw error.
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 403) {
+      message.error({
+        content: 'Bạn không có quyền thực hiện chức năng này!',
+        key: 'permission-denied',
+        duration: 3,
+      });
+    }
+    return Promise.reject(error);
+  }
+);
+// ==================================================================
 
 const PrivateRoute = ({ component: Component }) => {
   const isAuthenticated = !!localStorage.getItem('authToken');

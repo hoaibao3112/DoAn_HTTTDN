@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Button, Input, message, Table, Modal, Space, Select, AutoComplete } from 'antd';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
+import { handleApiError } from '../utils/errorHandler';
 import '../styles/ProductManagement.css';
 
 const TRONG_LUONG_OPTIONS = [50,100,150,200,250,300,350,400,450,500,600,700,800,1000,1200,1500].map(v => ({ value: String(v), label: `${v} g` }));
@@ -300,21 +301,13 @@ const ProductManagement = () => {
       message.success(response.data.message || 'Thêm sản phẩm thành công!');
     } catch (error) {
       console.error('❌ Lỗi khi thêm sản phẩm:', error.response || error);
-
       if (error.response?.status === 401) {
         message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
         localStorage.removeItem('authToken');
         window.location.href = '/admin/login';
         return;
       }
-
-      if (error.response?.status === 403) {
-        message.error(`Không có quyền! ${error.response.data?.error || 'Cần tài khoản admin/staff/NV004/NV007'}`);
-        return;
-      }
-
-      const errorMessage = error.response?.data?.error || error.message || 'Lỗi khi thêm sản phẩm!';
-      message.error(errorMessage);
+      handleApiError(error, 'Lỗi khi thêm sản phẩm!');
     }
   };
 
@@ -370,21 +363,13 @@ const ProductManagement = () => {
       message.success(response.data.message || 'Cập nhật sản phẩm thành công!');
     } catch (error) {
       console.error('❌ Lỗi khi cập nhật sản phẩm:', error.response || error);
-
       if (error.response?.status === 401) {
         message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
         localStorage.removeItem('authToken');
         window.location.href = '/admin/login';
         return;
       }
-
-      if (error.response?.status === 403) {
-        message.error('Bạn không có quyền thực hiện thao tác này!');
-        return;
-      }
-
-      const errorMessage = error.response?.data?.error || error.message || 'Lỗi khi cập nhật sản phẩm!';
-      message.error(errorMessage);
+      handleApiError(error, 'Lỗi khi cập nhật sản phẩm!');
     }
   };
 
@@ -409,11 +394,9 @@ const ProductManagement = () => {
             message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
             localStorage.removeItem('authToken');
             window.location.href = '/admin/login';
-          } else if (error.response?.status === 403) {
-            message.error('Bạn không có quyền thực hiện thao tác này!');
-          } else {
-            message.error(error.response?.data?.error || 'Lỗi khi xóa sản phẩm!');
+            return;
           }
+          handleApiError(error, 'Lỗi khi xóa sản phẩm!');
         }
       },
     });
@@ -437,7 +420,7 @@ const ProductManagement = () => {
       fetchProducts();
     } catch (error) {
       console.error('Lỗi khi cập nhật MinSoLuong:', error.response || error);
-      message.error(error.response?.data?.error || 'Lỗi khi cập nhật ngưỡng tồn');
+      handleApiError(error, 'Lỗi khi cập nhật ngưỡng tồn');
     }
   };
 

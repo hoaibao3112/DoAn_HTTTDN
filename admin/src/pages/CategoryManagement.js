@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Button, Input, message, Table, Modal, Space, Select } from 'antd';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled, LockOutlined, UnlockOutlined } from '@ant-design/icons';
+import { handleApiError } from '../utils/errorHandler';
 const { confirm } = Modal;
 const { Option } = Select;
 
@@ -88,7 +89,7 @@ const CategoryManagement = () => {
       }));
       message.success('Thêm thể loại thành công!');
     } catch (error) {
-      message.error(`Lỗi khi thêm thể loại: ${error.response?.data?.error || error.message}`);
+      handleApiError(error, 'Lỗi khi thêm thể loại');
     }
   };
 
@@ -108,7 +109,7 @@ const CategoryManagement = () => {
       }));
       message.success('Cập nhật thể loại thành công!');
     } catch (error) {
-      message.error(`Lỗi khi cập nhật thể loại: ${error.response?.data?.error || error.message}`);
+      handleApiError(error, 'Lỗi khi cập nhật thể loại');
     }
   };
 
@@ -126,7 +127,7 @@ const CategoryManagement = () => {
           await fetchCategories();
           message.success('Xóa thể loại thành công!');
         } catch (error) {
-          message.error(`Lỗi khi xóa thể loại: ${error.message}`);
+          handleApiError(error, 'Lỗi khi xóa thể loại');
         }
       },
     });
@@ -148,7 +149,7 @@ const CategoryManagement = () => {
           await fetchCategories();
           message.success('Đổi trạng thái thành công!');
         } catch (error) {
-          message.error(`Lỗi khi đổi trạng thái: ${error.message}`);
+          handleApiError(error, 'Lỗi khi đổi trạng thái');
         }
       },
     });

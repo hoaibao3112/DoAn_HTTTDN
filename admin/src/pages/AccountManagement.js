@@ -11,6 +11,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import { PermissionContext } from '../components/PermissionContext';
+import { handleApiError } from '../utils/errorHandler';
 
 // `Search` unused; removed to avoid eslint no-unused-vars warning
 const { Option } = Select;
@@ -166,7 +167,7 @@ const AccountManagement = () => {
       }));
       message.success('Thêm tài khoản thành công!');
     } catch (error) {
-      message.error(`Lỗi khi thêm tài khoản: ${error.response?.data?.error || error.message}`);
+      handleApiError(error, 'Lỗi khi thêm tài khoản');
     }
   };
 
@@ -196,7 +197,7 @@ const AccountManagement = () => {
       }));
       message.success('Cập nhật tài khoản thành công!');
     } catch (error) {
-      message.error(`Lỗi khi cập nhật tài khoản: ${error.response?.data?.error || error.message}`);
+      handleApiError(error, 'Lỗi khi cập nhật tài khoản');
     }
   };
 
@@ -221,7 +222,7 @@ const AccountManagement = () => {
           await fetchData();
           message.success('Xóa tài khoản thành công!');
         } catch (error) {
-          message.error(`Lỗi khi xóa tài khoản: ${error.response?.data?.error || error.message}`);
+          handleApiError(error, 'Lỗi khi xóa tài khoản');
         }
       },
     });
@@ -247,7 +248,7 @@ const AccountManagement = () => {
           await fetchData();
           message.success(`Đã ${newStatus === 1 ? 'kích hoạt' : 'tạm ẩn'} tài khoản!`);
         } catch (error) {
-          message.error(`Lỗi khi đổi trạng thái: ${error.response?.data?.error || error.message}`);
+          handleApiError(error, 'Lỗi khi đổi trạng thái');
         }
       },
     });
@@ -283,7 +284,7 @@ const AccountManagement = () => {
       setState(prev => ({ ...prev, newPermission: { MaCN: undefined, HanhDong: [], TinhTrang: '1' } }));
       message.success('Thêm quyền thành công!');
     } catch (error) {
-      message.error(`Lỗi khi thêm quyền: ${error.response?.data?.error || error.message}`);
+      handleApiError(error, 'Lỗi khi thêm quyền');
     }
   };
 
@@ -306,7 +307,7 @@ const AccountManagement = () => {
           await fetchPermissions(editingAccount.MaNQ);
           message.success('Xóa quyền thành công!');
         } catch (error) {
-          message.error(`Lỗi khi xóa quyền: ${error.response?.data?.error || error.message}`);
+          handleApiError(error, 'Lỗi khi xóa quyền');
         }
       },
     });
@@ -342,7 +343,7 @@ const AccountManagement = () => {
       setEditingPermission(null);
       message.success('Cập nhật quyền thành công!');
     } catch (error) {
-      message.error(`Lỗi khi cập nhật quyền: ${error.response?.data?.error || error.message}`);
+      handleApiError(error, 'Lỗi khi cập nhật quyền');
     }
   };
 

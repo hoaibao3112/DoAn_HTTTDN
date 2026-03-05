@@ -174,9 +174,11 @@ const CompanyManagement = () => {
       }));
       message.success('Thêm nhà cung cấp thành công!');
     } catch (error) {
-      console.error('Add error:', error); // Log để debug
-      const errorMsg = error.response?.data?.error || error.message;
-      message.error(`Lỗi khi thêm nhà cung cấp: ${errorMsg}`);
+      console.error('Add error:', error);
+      if (error.response?.status !== 403) {
+        const errorMsg = error.response?.data?.error || error.message;
+        message.error(`Lỗi khi thêm nhà cung cấp: ${errorMsg}`);
+      }
     }
   };
 
@@ -198,9 +200,11 @@ const CompanyManagement = () => {
       }));
       message.success('Cập nhật nhà cung cấp thành công!');
     } catch (error) {
-      console.error('Update error:', error); // Log để debug
-      const errorMsg = error.response?.data?.error || error.message;
-      message.error(`Lỗi khi cập nhật nhà cung cấp: ${errorMsg}`);
+      console.error('Update error:', error);
+      if (error.response?.status !== 403) {
+        const errorMsg = error.response?.data?.error || error.message;
+        message.error(`Lỗi khi cập nhật nhà cung cấp: ${errorMsg}`);
+      }
     }
   };
 
@@ -218,9 +222,11 @@ const CompanyManagement = () => {
           await fetchCompanies(searchTerm); // Giữ nguyên search term sau khi xóa
           message.success('Xóa nhà cung cấp thành công!');
         } catch (error) {
-          console.error('Delete error:', error); // Log để debug
-          const errorMsg = error.response?.data?.error || error.message;
-          message.error(`Lỗi khi xóa nhà cung cấp: ${errorMsg}`);
+          console.error('Delete error:', error);
+          if (error.response?.status !== 403) {
+            const errorMsg = error.response?.data?.error || error.message;
+            message.error(`Lỗi khi xóa nhà cung cấp: ${errorMsg}`);
+          }
         }
       },
     });
@@ -242,9 +248,11 @@ const CompanyManagement = () => {
           await fetchCompanies(searchTerm); // Giữ nguyên search term sau khi toggle
           message.success(`Đã ${newStatus === '1' ? 'kích hoạt' : 'ngừng'} nhà cung cấp!`);
         } catch (error) {
-          console.error('Toggle error:', error); // Log để debug
-          const errorMsg = error.response?.data?.error || error.message;
-          message.error(`Lỗi khi đổi trạng thái: ${errorMsg}`);
+          console.error('Toggle error:', error);
+          if (error.response?.status !== 403) {
+            const errorMsg = error.response?.data?.error || error.message;
+            message.error(`Lỗi khi đổi trạng thái: ${errorMsg}`);
+          }
         }
       },
     });

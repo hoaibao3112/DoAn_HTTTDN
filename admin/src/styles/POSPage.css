@@ -487,6 +487,16 @@
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 }
 
+.product-item-card.sold-out {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.product-item-card.sold-out:hover {
+    transform: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
 .product-item-image {
     width: 100%;
     height: 180px;
@@ -557,6 +567,16 @@
 .stock {
     font-size: 11px;
     color: #888;
+}
+
+.stock.stock-empty {
+    color: #e53935;
+    font-weight: 700;
+}
+
+.stock.stock-low {
+    color: #f57c00;
+    font-weight: 600;
 }
 
 /* Responsive */
