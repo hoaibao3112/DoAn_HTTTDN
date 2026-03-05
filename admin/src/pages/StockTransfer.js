@@ -223,7 +223,7 @@ const StockTransfer = () => {
             <div className="st-page-header">
                 <div>
                     <h1>Quản lý Chuyển Kho</h1>
-                    <p>Tạo và theo dõi yêu cầu điều chuyển sách giữa các cửa hàng</p>
+                    <p>Tạo và theo dõi yêu cầu điều chuyển sách giữa các kho</p>
                 </div>
                 {view === 'list' ? (
                     hasPermissionById(FEATURES.STOCK, 'them') && (
@@ -250,18 +250,18 @@ const StockTransfer = () => {
                             <h3><span className="material-icons">info</span> Thông tin điều chuyển</h3>
 
                             <div className="st-form-group">
-                                <label>Cửa hàng nguồn *</label>
+                                <label>Kho nguồn *</label>
                                 <select value={form.MaCHNguon} onChange={e => handleSourceChange(e.target.value)}>
-                                    <option value="">-- Chọn cửa hàng chuyển đi --</option>
+                                    <option value="">-- Chọn kho chuyển đi --</option>
                                     {stores.map(s => <option key={s.MaCH} value={s.MaCH}>{s.TenCH}</option>)}
                                 </select>
                             </div>
 
                             <div className="st-form-group">
-                                <label>Cửa hàng đích *</label>
+                                <label>Kho đích *</label>
                                 <select value={form.MaCHDich}
                                     onChange={e => setForm(f => ({ ...f, MaCHDich: e.target.value }))}>
-                                    <option value="">-- Chọn cửa hàng nhận --</option>
+                                    <option value="">-- Chọn kho nhận --</option>
                                     {stores
                                         .filter(s => String(s.MaCH) !== String(form.MaCHNguon))
                                         .map(s => <option key={s.MaCH} value={s.MaCH}>{s.TenCH}</option>)}
@@ -323,7 +323,7 @@ const StockTransfer = () => {
                             {!form.MaCHNguon && (
                                 <div className="st-hint">
                                     <span className="material-icons">info</span>
-                                    Hãy chọn cửa hàng nguồn để xem sản phẩm có thể chuyển
+                                    Hãy chọn kho nguồn để xem sản phẩm có thể chuyển
                                 </div>
                             )}
                         </div>

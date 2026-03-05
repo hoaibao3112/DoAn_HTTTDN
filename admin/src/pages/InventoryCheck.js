@@ -71,7 +71,7 @@ const InventoryCheck = () => {
     useEffect(() => { fetchStores(); }, [fetchStores]);
     useEffect(() => { fetchChecks(1); }, [fetchChecks]);
 
-    // ── create: load stock khi chọn cửa hàng ─────────────────
+    // ── create: load stock khi chọn kho ──────────────────────
     const loadStockForStore = async (MaCH) => {
         setCreateStore(MaCH);
         setCreateItems([]);
@@ -88,7 +88,7 @@ const InventoryCheck = () => {
                     LyDo: '',
                 }));
                 setCreateItems(items);
-                if (items.length === 0) alert('Cửa hàng này chưa có sản phẩm nào trong kho!');
+                if (items.length === 0) alert('Kho này chưa có sản phẩm nào!');
             }
         } catch (e) { console.error(e); alert('Lỗi tải tồn kho'); }
         finally { setStockLoading(false); }
@@ -108,7 +108,7 @@ const InventoryCheck = () => {
     };
 
     const handleCreateSubmit = async () => {
-        if (!createStore) { alert('Vui lòng chọn cửa hàng'); return; }
+        if (!createStore) { alert('Vui lòng chọn kho'); return; }
         if (!createItems.length) { alert('Không có sản phẩm để kiểm kê'); return; }
 
         setCreateLoading(true);
@@ -208,7 +208,7 @@ const InventoryCheck = () => {
                         {view === 'detail' && `Phiếu Kiểm Kê ${detailData ? `#${detailData.MaKiemKe}` : ''}`}
                     </h1>
                     <p>
-                        {view === 'list'   && 'Quản lý các phiếu kiểm kê tồn kho theo cửa hàng'}
+                        {view === 'list'   && 'Quản lý các phiếu kiểm kê tồn kho theo từng kho'}
                         {view === 'create' && 'Nhập số lượng thực tế để đối chiếu với hệ thống'}
                         {view === 'detail' && 'Chi tiết kết quả kiểm kê'}
                     </p>
@@ -248,7 +248,7 @@ const InventoryCheck = () => {
                         </div>
                         <div className="ic-filter-right">
                             <select value={filterStore} onChange={e => setFilterStore(e.target.value)}>
-                                <option value="">Tất cả cửa hàng</option>
+                                <option value="">Tất cả kho</option>
                                 {stores.map(s => <option key={s.MaCH} value={s.MaCH}>{s.TenCH}</option>)}
                             </select>
                             <button className="ic-btn-icon" onClick={() => fetchChecks(1)} title="Làm mới">
@@ -265,7 +265,7 @@ const InventoryCheck = () => {
                                 <thead>
                                     <tr>
                                         <th>#</th>
-                                        <th>Cửa hàng</th>
+                                        <th>Kho</th>
                                         <th>Ngày kiểm kê</th>
                                         <th>Người kiểm</th>
                                         <th>Số SP</th>
@@ -328,9 +328,9 @@ const InventoryCheck = () => {
                     <div className="ic-create-setup">
                         <div className="ic-form-row">
                             <div className="ic-form-group">
-                                <label>Cửa hàng kiểm kê *</label>
+                                <label>Kho kiểm kê *</label>
                                 <select value={createStore} onChange={e => loadStockForStore(e.target.value)}>
-                                    <option value="">-- Chọn cửa hàng --</option>
+                                    <option value="">-- Chọn kho --</option>
                                     {stores.map(s => <option key={s.MaCH} value={s.MaCH}>{s.TenCH}</option>)}
                                 </select>
                             </div>
@@ -425,12 +425,12 @@ const InventoryCheck = () => {
                     ) : createStore ? (
                         <div className="ic-empty-create">
                             <span className="material-icons">inventory_2</span>
-                            <p>Cửa hàng này chưa có sản phẩm nào trong kho</p>
+                            <p>Kho này chưa có sản phẩm nào</p>
                         </div>
                     ) : (
                         <div className="ic-hint-create">
                             <span className="material-icons">touch_app</span>
-                            <p>Hãy chọn cửa hàng để bắt đầu kiểm kê</p>
+                            <p>Hãy chọn kho để bắt đầu kiểm kê</p>
                         </div>
                     )}
 
@@ -462,7 +462,7 @@ const InventoryCheck = () => {
                             <div className="ic-detail-header">
                                 <div className="ic-detail-info-grid">
                                     <div className="ic-detail-item">
-                                        <label>Cửa hàng</label>
+                                        <label>Kho</label>
                                         <span>{detailData.TenCH}</span>
                                     </div>
                                     <div className="ic-detail-item">

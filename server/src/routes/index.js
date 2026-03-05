@@ -64,6 +64,8 @@ export const initRoutes = (app) => {
   // ======================= CATALOG / REFERENCE DATA =======================
   // Authors, Categories, Publishers - public reference data
   app.use('/api/catalog', catalogRoutes);
+  // Legacy alias cho frontend gọi /api/category
+  app.use('/api/category', catalogRoutes);
 
   // ======================= SALES & POS =======================
   app.use('/api/sales', salesRoutes);

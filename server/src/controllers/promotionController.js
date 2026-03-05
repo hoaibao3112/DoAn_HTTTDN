@@ -10,9 +10,9 @@ const promotionController = {
             const [promotions] = await pool.query(`
                 SELECT 
                     km.*,
-                    ch.TenCH
+                    kc.TenKho AS TenCH
                 FROM khuyen_mai km
-                LEFT JOIN cua_hang ch ON km.MaCH = ch.MaCH
+                LEFT JOIN kho_con kc ON km.MaCH = kc.MaKho
                 ORDER BY km.TrangThai DESC, km.NgayBatDau DESC
             `);
 
@@ -27,9 +27,9 @@ const promotionController = {
         const { id } = req.params;
         try {
             const [promotion] = await pool.query(`
-                SELECT km.*, ch.TenCH
+                SELECT km.*, kc.TenKho AS TenCH
                 FROM khuyen_mai km
-                LEFT JOIN cua_hang ch ON km.MaCH = ch.MaCH
+                LEFT JOIN kho_con kc ON km.MaCH = kc.MaKho
                 WHERE km.MaKM = ?
             `, [id]);
 

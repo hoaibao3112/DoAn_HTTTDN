@@ -239,7 +239,7 @@ const NhapHang = () => {
       render: (val) => <span style={{ color: '#64748b' }}>{new Date(val).toLocaleString('vi-VN')}</span>
     },
     { title: 'Nhà cung cấp', dataIndex: 'TenNCC', key: 'TenNCC', minWidth: 200 },
-    { title: 'Kho/Chi nhánh', dataIndex: 'TenCH', key: 'TenCH', width: 180 },
+    { title: 'Kho nhập', dataIndex: 'TenCH', key: 'TenCH', width: 180 },
     { title: 'Người lập', dataIndex: 'NguoiLap', key: 'NguoiLap', width: 140 },
     {
       title: 'Tổng tiền', dataIndex: 'TongTien', key: 'TongTien', align: 'right', width: 150,
@@ -288,8 +288,8 @@ const NhapHang = () => {
             ))}
           </Select>
 
-          <Select
-            placeholder="Kho/Chi nhánh"
+            <Select
+            placeholder="Kho"
             value={searchParams.MaCH || undefined}
             onChange={(val) => setSearchParams({ ...searchParams, MaCH: val || '' })}
             style={{ width: 160 }}
@@ -414,7 +414,7 @@ const NhapHang = () => {
               </Select>
             </Form.Item>
 
-            <Form.Item name="MaCH" label="Nhập vào kho/chi nhánh" rules={[{ required: true }]}>
+            <Form.Item name="MaCH" label="Nhập vào kho" rules={[{ required: true }]}>
               <Select placeholder="Chọn kho" showSearch optionFilterProp="children">
                 {branches.map(b => (
                   <Option key={b.MaCH} value={b.MaCH}>{b.TenCH}</Option>

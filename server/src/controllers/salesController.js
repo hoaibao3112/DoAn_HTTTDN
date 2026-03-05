@@ -162,11 +162,11 @@ const salesController = {
         try {
             const { search, MaCH, fromDate, toDate } = req.query;
             let sql = `
-                SELECT hd.*, kh.HoTen as TenKH, kh.SDT as SDTKH, nv.HoTen as TenNV, ch.TenCH
+                SELECT hd.*, kh.HoTen as TenKH, kh.SDT as SDTKH, nv.HoTen as TenNV, kc.TenKho AS TenCH
                 FROM hoadon hd
                 LEFT JOIN khachhang kh ON hd.MaKH = kh.MaKH
                 LEFT JOIN nhanvien nv ON hd.MaNV = nv.MaNV
-                LEFT JOIN cua_hang ch ON hd.MaCH = ch.MaCH
+                LEFT JOIN kho_con kc ON hd.MaCH = kc.MaKho
                 WHERE 1=1
             `;
             const params = [];
@@ -202,11 +202,11 @@ const salesController = {
         try {
             // Get invoice header
             const [hd] = await pool.query(`
-                SELECT hd.*, kh.HoTen as TenKH, kh.SDT as SDTKH, kh.Email as EmailKH, nv.HoTen as TenNV, ch.TenCH, ch.DiaChi as DiaChiCH, ch.SDT as SDTCH
+                SELECT hd.*, kh.HoTen as TenKH, kh.SDT as SDTKH, kh.Email as EmailKH, nv.HoTen as TenNV, kc.TenKho AS TenCH, kc.ViTri as DiaChiCH, NULL as SDTCH
                 FROM hoadon hd
                 LEFT JOIN khachhang kh ON hd.MaKH = kh.MaKH
                 LEFT JOIN nhanvien nv ON hd.MaNV = nv.MaNV
-                LEFT JOIN cua_hang ch ON hd.MaCH = ch.MaCH
+                LEFT JOIN kho_con kc ON hd.MaCH = kc.MaKho
                 WHERE hd.MaHD = ?
             `, [id]);
 

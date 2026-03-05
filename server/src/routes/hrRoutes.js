@@ -226,14 +226,14 @@ router.get('/reports/employees/stats',
                 GROUP BY ChucVu
             `);
 
-            // Get by branch
+            // Get by warehouse (kho độc lập)
             const [byBranch] = await pool.query(`
                 SELECT 
-                    ch.TenCH,
+                    kc.TenKho AS TenCH,
                     COUNT(nv.MaTK) as SoNhanVien
-                FROM cua_hang ch
-                LEFT JOIN nhanvien nv ON ch.MaCH = nv.MaCH AND nv.TinhTrang = 'Dang_lam'
-                GROUP BY ch.MaCH
+                FROM kho_con kc
+                LEFT JOIN nhanvien nv ON kc.MaKho = nv.MaCH AND nv.TinhTrang = 'Dang_lam'
+                GROUP BY kc.MaKho
             `);
 
             res.json({

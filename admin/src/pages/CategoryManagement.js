@@ -26,8 +26,10 @@ const CategoryManagement = () => {
       setState(prev => ({ ...prev, loading: true, error: null }));
       const response = await axios.get(API_URL);
       
-      if (Array.isArray(response.data)) {
-        const processedCategories = response.data.map(item => ({
+      // Backend trả { success: true, data: [...] } hoặc array trực tiếp
+      const rawData = response.data?.data ?? response.data;
+      if (Array.isArray(rawData)) {
+        const processedCategories = rawData.map(item => ({
           ...item,
           TinhTrang: item.TinhTrang === 1 ? 'Hoạt động' : 'Không hoạt động',
           TinhTrangValue: item.TinhTrang,

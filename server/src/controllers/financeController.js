@@ -34,10 +34,10 @@ const financeController = {
             }
 
             const [rows] = await pool.query(
-                `SELECT cp.*, lcp.TenLoai, ch.TenCH, nv.HoTen as NguoiLapTen
+                `SELECT cp.*, lcp.TenLoai, kc.TenKho AS TenCH, nv.HoTen as NguoiLapTen
                  FROM chi_phi cp
                  LEFT JOIN loai_chi_phi lcp ON cp.MaLoai = lcp.MaLoai
-                 LEFT JOIN cua_hang ch ON cp.MaCH = ch.MaCH
+                 LEFT JOIN kho_con kc ON cp.MaCH = kc.MaKho
                  LEFT JOIN nhanvien nv ON cp.NguoiLap = nv.MaNV
                  ${whereClause}
                  ORDER BY cp.NgayPhatSinh DESC
@@ -68,10 +68,10 @@ const financeController = {
         const { id } = req.params;
         try {
             const [rows] = await pool.query(
-                `SELECT cp.*, lcp.TenLoai, ch.TenCH, nv.HoTen as NguoiLapTen
+                `SELECT cp.*, lcp.TenLoai, kc.TenKho AS TenCH, nv.HoTen as NguoiLapTen
                  FROM chi_phi cp
                  LEFT JOIN loai_chi_phi lcp ON cp.MaLoai = lcp.MaLoai
-                 LEFT JOIN cua_hang ch ON cp.MaCH = ch.MaCH
+                 LEFT JOIN kho_con kc ON cp.MaCH = kc.MaKho
                  LEFT JOIN nhanvien nv ON cp.NguoiLap = nv.MaNV
                  WHERE cp.MaCP = ?`,
                 [id]

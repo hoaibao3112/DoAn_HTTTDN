@@ -6,11 +6,11 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
-// GET /api/branches - Lấy danh sách chi nhánh
+// GET /api/branches - Lấy danh sách kho (thay thế chi nhánh)
 router.get('/', async (req, res) => {
     try {
         const [rows] = await pool.query(
-            'SELECT MaCH, TenCH, DiaChi, SDT, Email, TrangThai, NgayMo FROM cua_hang ORDER BY TenCH'
+            'SELECT MaKho AS MaCH, TenKho AS TenCH, ViTri AS DiaChi, NULL AS SDT, NULL AS Email, TinhTrang AS TrangThai, NgayTao AS NgayMo FROM kho_con ORDER BY Priority ASC, TenKho'
         );
         res.json({ success: true, data: rows });
     } catch (error) {
@@ -18,23 +18,23 @@ router.get('/', async (req, res) => {
     }
 });
 
-// PUT /api/branches/:id - Cập nhật thông tin chi nhánh
+// PUT /api/branches/:id - Cập nhật kho (redirect to kho_con)
 router.put('/:id', async (req, res) => {
     const { id } = req.params;
-    const { TenCH, DiaChi, SDT, Email, TrangThai, NgayMo } = req.body;
+    const { TenCH, DiaChi, TrangThai } = req.body;
 
     if (!TenCH) {
-        return res.status(400).json({ success: false, message: 'Tên cửa hàng là bắt buộc' });
+        return res.status(400).json({ success: false, message: 'Tên kho là bắt buộc' });
     }
 
     try {
         const [result] = await pool.query(
-            'UPDATE cua_hang SET TenCH = ?, DiaChi = ?, SDT = ?, Email = ?, TrangThai = ?, NgayMo = ? WHERE MaCH = ?',
-            [TenCH, DiaChi || null, SDT || null, Email || null, TrangThai ?? 1, NgayMo || null, id]
+            'UPDATE kho_con SET TenKho = ?, ViTri = ?, TinhTrang = ? WHERE MaKho = ?',
+            [TenCH, DiaChi || null, TrangThai ?? 1, id]
         );
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy chi nhánh' });
+            return res.status(404).json({ success: false, message: 'Không tìm thấy kho' });
         }
 
         res.json({ success: true, message: 'Cập nhật thành công' });

@@ -1,52 +1,43 @@
 import pool from '../config/connectDatabase.js';
 import { logActivity } from '../utils/auditLogger.js';
 
-// ========================= HELPER: Phân bổ vào kho con =========================
+// ========================= HELPER: Nhập thẳng vào kho (mỗi kho độc lập) =========================
 /**
- * Phân bổ số lượng sản phẩm vào các kho con theo priority.
- * Mỗi kho con có Capacity giới hạn; ưu tiên kho Priority nhỏ trước.
+ * Phân bổ số lượng sản phẩm vào một kho cụ thể (MaKho).
  * @returns {Array} [{MaKho, TenKho, SoLuong}]
  */
-async function allocateToSubWarehouses(conn, MaCH, MaSP, soLuong) {
+async function allocateToWarehouse(conn, MaKho, MaSP, soLuong) {
     const [warehouses] = await conn.query(`
         SELECT kc.MaKho, kc.TenKho, kc.Capacity,
                COALESCE(tkct.SoLuongTon, 0) AS TonHienTai
         FROM kho_con kc
         LEFT JOIN ton_kho_chi_tiet tkct ON tkct.MaKho = kc.MaKho AND tkct.MaSP = ?
-        WHERE kc.MaCH = ? AND kc.TinhTrang = 1
-        ORDER BY kc.Priority ASC
+        WHERE kc.MaKho = ? AND kc.TinhTrang = 1
         FOR UPDATE
-    `, [MaSP, MaCH]);
+    `, [MaSP, MaKho]);
 
-    if (warehouses.length === 0) return []; // Không có kho con → bỏ qua phân bổ chi tiết
+    if (warehouses.length === 0) return []; // Kho không tồn tại → bỏ qua
 
-    let remaining = soLuong;
-    const result = [];
+    const wh = warehouses[0];
+    const space = wh.Capacity - wh.TonHienTai;
+    const qty = Math.min(soLuong, Math.max(space, 0));
 
-    for (const wh of warehouses) {
-        if (remaining <= 0) break;
-        const space = wh.Capacity - wh.TonHienTai;
-        if (space <= 0) continue;
-        const qty = Math.min(remaining, space);
-
+    if (qty > 0) {
         await conn.query(`
             INSERT INTO ton_kho_chi_tiet (MaKho, MaSP, SoLuongTon)
             VALUES (?, ?, ?)
             ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?
         `, [wh.MaKho, MaSP, qty, qty]);
-
-        result.push({ MaKho: wh.MaKho, TenKho: wh.TenKho, SoLuong: qty });
-        remaining -= qty;
     }
 
-    if (remaining > 0) {
+    if (qty < soLuong) {
         throw Object.assign(
-            new Error(`Tất cả kho đều đầy. Còn ${remaining}/${soLuong} chưa phân bổ được.`),
-            { code: 'WAREHOUSE_FULL', unallocated: remaining }
+            new Error(`Kho "${wh.TenKho}" đầy. Còn ${soLuong - qty}/${soLuong} chưa phân bổ được.`),
+            { code: 'WAREHOUSE_FULL', unallocated: soLuong - qty }
         );
     }
 
-    return result;
+    return [{ MaKho: wh.MaKho, TenKho: wh.TenKho, SoLuong: qty }];
 }
 
 const warehouseController = {
@@ -136,9 +127,9 @@ const warehouseController = {
             if (!rows.length) return res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' });
 
             const [stock] = await pool.query(`
-                SELECT tk.MaCH, tk.SoLuongTon, tk.SoLuongToiThieu, tk.ViTri, ch.TenCH
+                SELECT tk.MaCH, tk.SoLuongTon, tk.SoLuongToiThieu, tk.ViTri, kc.TenKho AS TenCH
                 FROM ton_kho tk
-                JOIN cua_hang ch ON tk.MaCH = ch.MaCH
+                LEFT JOIN kho_con kc ON tk.MaCH = kc.MaKho
                 WHERE tk.MaSP = ?
             `, [id]);
 
@@ -288,11 +279,11 @@ const warehouseController = {
                 SELECT pn.MaPN, pn.NgayNhap, pn.TongTien, pn.DaThanhToan, pn.ConNo,
                        pn.TrangThai, pn.GhiChu,
                        ncc.MaNCC, ncc.TenNCC,
-                       ch.MaCH, ch.TenCH,
+                       pn.MaCH, kc.TenKho AS TenCH,
                        tk.TenTK AS NguoiLap
                 FROM phieunhap pn
                 JOIN nhacungcap ncc ON pn.MaNCC = ncc.MaNCC
-                JOIN cua_hang ch ON pn.MaCH = ch.MaCH
+                LEFT JOIN kho_con kc ON pn.MaCH = kc.MaKho
                 LEFT JOIN taikhoan tk ON pn.MaTK = tk.MaTK
                 ${where}
                 ORDER BY pn.NgayNhap DESC
@@ -321,11 +312,11 @@ const warehouseController = {
             const [header] = await pool.query(`
                 SELECT pn.*,
                        ncc.TenNCC, ncc.DiaChi AS DiaChiNCC, ncc.SDT AS SDTNCC, ncc.Email AS EmailNCC,
-                       ch.TenCH, ch.DiaChi AS DiaChiCH,
+                       kc.TenKho AS TenCH, kc.ViTri AS DiaChiCH,
                        tk.TenTK AS NguoiLap
                 FROM phieunhap pn
                 JOIN nhacungcap ncc ON pn.MaNCC = ncc.MaNCC
-                JOIN cua_hang ch ON pn.MaCH = ch.MaCH
+                LEFT JOIN kho_con kc ON pn.MaCH = kc.MaKho
                 LEFT JOIN taikhoan tk ON pn.MaTK = tk.MaTK
                 WHERE pn.MaPN = ?
             `, [id]);
@@ -369,8 +360,8 @@ const warehouseController = {
             const [ncc] = await conn.query('SELECT MaNCC FROM nhacungcap WHERE MaNCC = ? AND TinhTrang = 1', [MaNCC]);
             if (!ncc.length) throw new Error('Nhà cung cấp không tồn tại hoặc đã ngưng hoạt động');
 
-            const [ch] = await conn.query('SELECT MaCH FROM cua_hang WHERE MaCH = ?', [MaCH]);
-            if (!ch.length) throw new Error('Cửa hàng không tồn tại');
+            const [ch] = await conn.query('SELECT MaKho FROM kho_con WHERE MaKho = ? AND TinhTrang = 1', [MaCH]);
+            if (!ch.length) throw new Error('Kho không tồn tại hoặc đã ngưng hoạt động');
 
             const tongTien = ChiTiet.reduce((sum, item) => sum + Number(item.SoLuong) * Number(item.DonGiaNhap), 0);
             const conNo = Math.max(0, tongTien - Number(DaThanhToan));
@@ -400,7 +391,7 @@ const warehouseController = {
                 `, [maSP, MaCH, qty, qty]);
 
                 try {
-                    const allocation = await allocateToSubWarehouses(conn, MaCH, maSP, qty);
+                    const allocation = await allocateToWarehouse(conn, MaCH, maSP, qty);
                     allocationLogs.push({ MaSP: maSP, allocation });
                     for (const a of allocation) {
                         await conn.query(
@@ -477,7 +468,7 @@ const warehouseController = {
             const [rows] = await pool.query(`
                 SELECT tk.id, tk.MaSP, tk.MaCH, tk.SoLuongTon, tk.SoLuongToiThieu, tk.ViTri, tk.NgayCapNhat,
                        sp.TenSP, sp.DonGia, sp.GiaNhap, sp.HinhAnh, sp.ISBN,
-                       ch.TenCH,
+                       kc.TenKho AS TenCH,
                        (tk.SoLuongTon * sp.DonGia) AS GiaTriTonKho,
                        CASE
                            WHEN tk.SoLuongTon = 0             THEN 'Het_hang'
@@ -486,9 +477,9 @@ const warehouseController = {
                        END AS TrangThaiTon
                 FROM ton_kho tk
                 JOIN sanpham sp ON tk.MaSP = sp.MaSP
-                JOIN cua_hang ch ON tk.MaCH = ch.MaCH
+                LEFT JOIN kho_con kc ON tk.MaCH = kc.MaKho
                 ${where}
-                ORDER BY ch.TenCH, sp.TenSP
+                ORDER BY kc.TenKho, sp.TenSP
                 LIMIT ? OFFSET ?
             `, [...params, parseInt(pageSize), offset]);
 
@@ -496,7 +487,6 @@ const warehouseController = {
                 `SELECT COUNT(*) AS total
                  FROM ton_kho tk
                  JOIN sanpham sp ON tk.MaSP = sp.MaSP
-                 JOIN cua_hang ch ON tk.MaCH = ch.MaCH
                  ${where}`, params
             );
 
@@ -520,10 +510,10 @@ const warehouseController = {
                 SELECT tk.MaSP, tk.MaCH, tk.SoLuongTon, tk.SoLuongToiThieu,
                        (tk.SoLuongToiThieu - tk.SoLuongTon) AS SoLuongCanNhap,
                        sp.TenSP, sp.DonGia, sp.HinhAnh,
-                       ch.TenCH
+                       kc.TenKho AS TenCH
                 FROM ton_kho tk
                 JOIN sanpham sp ON tk.MaSP = sp.MaSP
-                JOIN cua_hang ch ON tk.MaCH = ch.MaCH
+                LEFT JOIN kho_con kc ON tk.MaCH = kc.MaKho
                 ${where}
                 ORDER BY (tk.SoLuongToiThieu - tk.SoLuongTon) DESC
             `, params);
@@ -545,16 +535,14 @@ const warehouseController = {
 
             const [rows] = await pool.query(`
                 SELECT kc.*,
-                       ch.TenCH,
                        COALESCE((SELECT SUM(SoLuongTon) FROM ton_kho_chi_tiet WHERE MaKho = kc.MaKho), 0) AS SoLuongHienTai,
                        ROUND(
                            COALESCE((SELECT SUM(SoLuongTon) FROM ton_kho_chi_tiet WHERE MaKho = kc.MaKho), 0)
                            * 100.0 / NULLIF(kc.Capacity, 0), 1
                        ) AS PhanTramLapDay
                 FROM kho_con kc
-                JOIN cua_hang ch ON kc.MaCH = ch.MaCH
                 ${where}
-                ORDER BY kc.MaCH, kc.Priority ASC
+                ORDER BY kc.Priority ASC
             `, params);
 
             res.json({ success: true, data: rows });
@@ -564,26 +552,26 @@ const warehouseController = {
     },
 
     createSubWarehouse: async (req, res) => {
-        const { MaCH, TenKho, Capacity, Priority, ViTri, GhiChu } = req.body;
-        if (!MaCH || !TenKho || !Capacity || !Priority) {
-            return res.status(400).json({ success: false, message: 'Thiếu: MaCH, TenKho, Capacity, Priority' });
+        const { TenKho, Capacity, Priority, ViTri, GhiChu } = req.body;
+        if (!TenKho || !Capacity || !Priority) {
+            return res.status(400).json({ success: false, message: 'Thiếu: TenKho, Capacity, Priority' });
         }
         try {
-            const [dup] = await pool.query(
-                'SELECT MaKho FROM kho_con WHERE MaCH = ? AND Priority = ? AND TinhTrang = 1',
-                [MaCH, Priority]
+            const [dupName] = await pool.query(
+                'SELECT MaKho FROM kho_con WHERE TenKho = ?',
+                [TenKho]
             );
-            if (dup.length) return res.status(400).json({ success: false, message: `Priority ${Priority} đã tồn tại trong cửa hàng này` });
+            if (dupName.length) return res.status(400).json({ success: false, message: `Tên kho "${TenKho}" đã tồn tại trong hệ thống` });
 
             const [result] = await pool.query(
-                'INSERT INTO kho_con (MaCH, TenKho, Capacity, Priority, ViTri, GhiChu) VALUES (?, ?, ?, ?, ?, ?)',
-                [MaCH, TenKho, Number(Capacity), Number(Priority), ViTri || null, GhiChu || null]
+                'INSERT INTO kho_con (TenKho, Capacity, Priority, ViTri, GhiChu) VALUES (?, ?, ?, ?, ?)',
+                [TenKho, Number(Capacity), Number(Priority), ViTri || null, GhiChu || null]
             );
 
             await logActivity({
                 MaTK: req.user.MaTK, HanhDong: 'Them',
                 BangDuLieu: 'kho_con', MaBanGhi: result.insertId,
-                DuLieuMoi: JSON.stringify({ MaCH, TenKho, Capacity, Priority }),
+                DuLieuMoi: JSON.stringify({ TenKho, Capacity, Priority }),
                 DiaChi_IP: req.ip
             });
 
@@ -600,13 +588,15 @@ const warehouseController = {
             const [existing] = await pool.query('SELECT * FROM kho_con WHERE MaKho = ?', [id]);
             if (!existing.length) return res.status(404).json({ success: false, message: 'Kho con không tồn tại' });
 
-            if (Priority && Number(Priority) !== existing[0].Priority) {
-                const [dup] = await pool.query(
-                    'SELECT MaKho FROM kho_con WHERE MaCH = ? AND Priority = ? AND MaKho != ? AND TinhTrang = 1',
-                    [existing[0].MaCH, Priority, id]
+            if (TenKho && TenKho !== existing[0].TenKho) {
+                const [dupName] = await pool.query(
+                    'SELECT MaKho FROM kho_con WHERE TenKho = ? AND MaKho != ?',
+                    [TenKho, id]
                 );
-                if (dup.length) return res.status(400).json({ success: false, message: `Priority ${Priority} đã tồn tại` });
+                if (dupName.length) return res.status(400).json({ success: false, message: `Tên kho "${TenKho}" đã tồn tại trong hệ thống` });
             }
+
+            // Priority uniqueness check removed (warehouses are now independent)
 
             if (Number(TinhTrang) === 0) {
                 const [[{ total }]] = await pool.query(
@@ -681,7 +671,7 @@ const warehouseController = {
         try {
             const params = [];
             let where = 'WHERE 1=1';
-            if (MaCH)   { where += ' AND kc.MaCH = ?';    params.push(MaCH); }
+            if (MaCH)   { where += ' AND tkct.MaKho = ?'; params.push(MaCH); } // MaCH now treated as MaKho
             if (MaKho)  { where += ' AND tkct.MaKho = ?'; params.push(MaKho); }
             if (search) { where += ' AND sp.TenSP LIKE ?'; params.push(`%${search}%`); }
 
@@ -689,12 +679,10 @@ const warehouseController = {
                 SELECT tkct.MaKho, tkct.MaSP, tkct.SoLuongTon, tkct.CapNhatLuc,
                        kc.TenKho, kc.Capacity, kc.Priority,
                        sp.TenSP, sp.DonGia, sp.HinhAnh, sp.ISBN,
-                       ch.MaCH, ch.TenCH,
                        ROUND(tkct.SoLuongTon * 100.0 / NULLIF(kc.Capacity, 0), 1) AS PhanTramSuDung
                 FROM ton_kho_chi_tiet tkct
                 JOIN kho_con kc ON tkct.MaKho = kc.MaKho
                 JOIN sanpham sp ON tkct.MaSP = sp.MaSP
-                JOIN cua_hang ch ON kc.MaCH = ch.MaCH
                 ${where}
                 ORDER BY kc.Priority ASC, sp.TenSP ASC
                 LIMIT ? OFFSET ?
@@ -732,14 +720,14 @@ const warehouseController = {
             const [rows] = await pool.query(`
                 SELECT ck.*,
                        sp.TenSP, sp.HinhAnh,
-                       ch1.TenCH AS TenCHNguon,
-                       ch2.TenCH AS TenCHDich,
+                       kc1.TenKho AS TenCHNguon,
+                       kc2.TenKho AS TenCHDich,
                        nv1.HoTen AS TenNguoiChuyen,
                        nv2.HoTen AS TenNguoiNhan
                 FROM chuyen_kho ck
                 JOIN sanpham sp ON ck.MaSP = sp.MaSP
-                JOIN cua_hang ch1 ON ck.MaCHNguon = ch1.MaCH
-                JOIN cua_hang ch2 ON ck.MaCHDich = ch2.MaCH
+                LEFT JOIN kho_con kc1 ON ck.MaCHNguon = kc1.MaKho
+                LEFT JOIN kho_con kc2 ON ck.MaCHDich = kc2.MaKho
                 LEFT JOIN nhanvien nv1 ON ck.NguoiChuyen = nv1.MaNV
                 LEFT JOIN nhanvien nv2 ON ck.NguoiNhan = nv2.MaNV
                 ${where}
@@ -766,14 +754,14 @@ const warehouseController = {
             const [rows] = await pool.query(`
                 SELECT ck.*,
                        sp.TenSP, sp.HinhAnh, sp.ISBN,
-                       ch1.TenCH AS TenCHNguon,
-                       ch2.TenCH AS TenCHDich,
+                       kc1.TenKho AS TenCHNguon,
+                       kc2.TenKho AS TenCHDich,
                        nv1.HoTen AS TenNguoiChuyen,
                        nv2.HoTen AS TenNguoiNhan
                 FROM chuyen_kho ck
                 JOIN sanpham sp ON ck.MaSP = sp.MaSP
-                JOIN cua_hang ch1 ON ck.MaCHNguon = ch1.MaCH
-                JOIN cua_hang ch2 ON ck.MaCHDich = ch2.MaCH
+                LEFT JOIN kho_con kc1 ON ck.MaCHNguon = kc1.MaKho
+                LEFT JOIN kho_con kc2 ON ck.MaCHDich = kc2.MaKho
                 LEFT JOIN nhanvien nv1 ON ck.NguoiChuyen = nv1.MaNV
                 LEFT JOIN nhanvien nv2 ON ck.NguoiNhan = nv2.MaNV
                 WHERE ck.MaCK = ?
@@ -921,12 +909,12 @@ const warehouseController = {
 
             const [rows] = await pool.query(`
                 SELECT kk.*,
-                       ch.TenCH,
+                       kc.TenKho AS TenCH,
                        nv.HoTen AS TenNguoiKiemKe,
                        (SELECT COUNT(*) FROM chi_tiet_kiem_ke ctk WHERE ctk.MaKiemKe = kk.MaKiemKe) AS SoSanPham,
                        (SELECT COUNT(*) FROM chi_tiet_kiem_ke ctk WHERE ctk.MaKiemKe = kk.MaKiemKe AND ctk.ChenhLech != 0) AS SoChenhLech
                 FROM kiem_ke_kho kk
-                JOIN cua_hang ch ON kk.MaCH = ch.MaCH
+                LEFT JOIN kho_con kc ON kk.MaCH = kc.MaKho
                 JOIN nhanvien nv ON kk.NguoiKiemKe = nv.MaNV
                 ${where}
                 ORDER BY kk.NgayKiemKe DESC
@@ -950,9 +938,9 @@ const warehouseController = {
         const { id } = req.params;
         try {
             const [header] = await pool.query(`
-                SELECT kk.*, ch.TenCH, nv.HoTen AS TenNguoiKiemKe
+                SELECT kk.*, kc.TenKho AS TenCH, nv.HoTen AS TenNguoiKiemKe
                 FROM kiem_ke_kho kk
-                JOIN cua_hang ch ON kk.MaCH = ch.MaCH
+                LEFT JOIN kho_con kc ON kk.MaCH = kc.MaKho
                 JOIN nhanvien nv ON kk.NguoiKiemKe = nv.MaNV
                 WHERE kk.MaKiemKe = ?
             `, [id]);
@@ -1169,7 +1157,7 @@ const warehouseController = {
     getCategories: async (req, res) => {
         try {
             const [rows] = await pool.query(
-                'SELECT MaTL, TenTL, MoTa FROM theloai WHERE TinhTrang = 1 ORDER BY TenTL'
+                'SELECT MaTL, TenTL, MoTa, TinhTrang FROM theloai ORDER BY TenTL'
             );
             res.json({ success: true, data: rows });
         } catch (error) {
@@ -1177,10 +1165,59 @@ const warehouseController = {
         }
     },
 
+    createCategory: async (req, res) => {
+        const { TenTL, MoTa } = req.body;
+        if (!TenTL?.trim()) return res.status(400).json({ success: false, message: 'Tên thể loại là bắt buộc' });
+        try {
+            const [dup] = await pool.query('SELECT MaTL FROM theloai WHERE TenTL = ?', [TenTL.trim()]);
+            if (dup.length > 0) return res.status(400).json({ success: false, message: 'Thể loại này đã tồn tại' });
+            const [result] = await pool.query(
+                'INSERT INTO theloai (TenTL, MoTa, TinhTrang) VALUES (?, ?, 1)',
+                [TenTL.trim(), MoTa || null]
+            );
+            res.status(201).json({ success: true, message: 'Thêm thể loại thành công', MaTL: result.insertId });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    updateCategory: async (req, res) => {
+        const { id } = req.params;
+        const { TenTL, MoTa, TinhTrang } = req.body;
+        if (!TenTL?.trim()) return res.status(400).json({ success: false, message: 'Tên thể loại là bắt buộc' });
+        try {
+            const [dup] = await pool.query('SELECT MaTL FROM theloai WHERE TenTL = ? AND MaTL != ?', [TenTL.trim(), id]);
+            if (dup.length > 0) return res.status(400).json({ success: false, message: 'Tên thể loại đã tồn tại' });
+            const [result] = await pool.query(
+                'UPDATE theloai SET TenTL = ?, MoTa = ?, TinhTrang = ? WHERE MaTL = ?',
+                [TenTL.trim(), MoTa || null, TinhTrang ?? 1, id]
+            );
+            if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy thể loại' });
+            res.json({ success: true, message: 'Cập nhật thành công' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    deleteCategory: async (req, res) => {
+        const { id } = req.params;
+        try {
+            const [used] = await pool.query('SELECT COUNT(*) AS cnt FROM sanpham WHERE MaTL = ?', [id]);
+            if (used[0].cnt > 0) return res.status(400).json({ success: false, message: `Không thể xóa: có ${used[0].cnt} sản phẩm thuộc thể loại này` });
+            const [result] = await pool.query('DELETE FROM theloai WHERE MaTL = ?', [id]);
+            if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy thể loại' });
+            res.json({ success: true, message: 'Xóa thể loại thành công' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
     getStores: async (req, res) => {
         try {
+            // Trả về danh sách kho (mỗi kho là độc lập, thay thế chi nhánh)
+            // Dùng alias MaCH/TenCH để tương thích với frontend cũ
             const [rows] = await pool.query(
-                'SELECT MaCH, TenCH, DiaChi, SDT, Email, TrangThai FROM cua_hang ORDER BY TenCH'
+                'SELECT MaKho AS MaCH, TenKho AS TenCH, ViTri AS DiaChi, TinhTrang FROM kho_con WHERE TinhTrang = 1 ORDER BY Priority ASC, TenKho'
             );
             res.json({ success: true, data: rows });
         } catch (error) {

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS `kho_con` (
   `NgayTao`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`MaKho`),
   UNIQUE KEY `uq_priority_per_store` (`MaCH`, `Priority`),
+  UNIQUE KEY `uq_name_global` (`TenKho`),
   KEY `idx_mach` (`MaCH`),
   KEY `idx_tinhtrang` (`TinhTrang`),
   CONSTRAINT `fk_khoco_cuahang` FOREIGN KEY (`MaCH`) REFERENCES `cua_hang` (`MaCH`)

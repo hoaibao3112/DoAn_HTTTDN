@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { PermissionContext } from '../components/PermissionContext';
-import { FEATURES, PERMISSIONS } from '../constants/permissions';
+import { FEATURES } from '../constants/permissions';
 import '../styles/SubWarehouseManagement.css';
 
 const API_BASE = 'http://localhost:5000/api/warehouse';
@@ -9,16 +9,14 @@ const API_BASE = 'http://localhost:5000/api/warehouse';
 const SubWarehouseManagement = () => {
     const { hasPermissionById } = useContext(PermissionContext);
     const [warehouses, setWarehouses] = useState([]);
-    const [stores, setStores] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filterBranch] = useState('all');
     const [showModal, setShowModal] = useState(false);
     const [editItem, setEditItem] = useState(null);
     const [stockView, setStockView] = useState(null); // kho đang xem tồn kho chi tiết
     const [stockData, setStockData] = useState([]);
     const [stockLoading, setStockLoading] = useState(false);
     const [form, setForm] = useState({
-        MaCH: '', TenKho: '', Capacity: '', Priority: '', ViTri: '', GhiChu: ''
+        TenKho: '', Capacity: '', Priority: '', ViTri: '', GhiChu: ''
     });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -27,23 +25,13 @@ const SubWarehouseManagement = () => {
     const headers = { Authorization: `Bearer ${token}` };
 
     useEffect(() => {
-        fetchStores();
         fetchWarehouses();
     }, []);
-
-    const fetchStores = async () => {
-        try {
-            const res = await axios.get(`${API_BASE}/stores`, { headers });
-            if (res.data.success) setStores(res.data.data || []);
-        } catch (e) { console.error(e); }
-    };
 
     const fetchWarehouses = async () => {
         setLoading(true);
         try {
-            const params = {};
-            if (filterBranch !== 'all') params.MaCH = filterBranch;
-            const res = await axios.get(`${API_BASE}/sub-warehouses`, { headers, params });
+            const res = await axios.get(`${API_BASE}/sub-warehouses`, { headers });
             if (res.data.success) setWarehouses(res.data.data || []);
         } catch (e) {
             console.error(e);
@@ -52,10 +40,26 @@ const SubWarehouseManagement = () => {
         }
     };
 
+    const getNextPriority = () => {
+        const active = warehouses.filter(w => w.TinhTrang === 1);
+        if (active.length === 0) return 1;
+        return Math.max(...active.map(w => w.Priority)) + 1;
+    };
+
+    const getNextSuggestedName = () => {
+        const usedNumbers = warehouses
+            .map(w => {
+                const match = w.TenKho.match(/^Kho (\d+)$/i);
+                return match ? parseInt(match[1]) : null;
+            })
+            .filter(n => n !== null);
+        if (usedNumbers.length === 0) return 'Kho 1';
+        return `Kho ${Math.max(...usedNumbers) + 1}`;
+    };
 
     const openCreate = () => {
         setEditItem(null);
-        setForm({ MaCH: '', TenKho: '', Capacity: '', Priority: '', ViTri: '', GhiChu: '' });
+        setForm({ TenKho: getNextSuggestedName(), Capacity: '', Priority: getNextPriority(), ViTri: '', GhiChu: '' });
         setError('');
         setShowModal(true);
     };
@@ -63,7 +67,7 @@ const SubWarehouseManagement = () => {
     const openEdit = (wh) => {
         setEditItem(wh);
         setForm({
-            MaCH: wh.MaCH, TenKho: wh.TenKho, Capacity: wh.Capacity,
+            TenKho: wh.TenKho, Capacity: wh.Capacity,
             Priority: wh.Priority, ViTri: wh.ViTri || '', GhiChu: wh.GhiChu || ''
         });
         setError('');
@@ -134,14 +138,9 @@ const SubWarehouseManagement = () => {
         );
     }
 
-    // Lọc kho theo branch
-    const filtered = warehouses.filter(w =>
-        filterBranch === 'all' || String(w.MaCH) === String(filterBranch)
-    );
-
     // Tổng quan
-    const totalCapacity = filtered.reduce((s, w) => s + (w.Capacity || 0), 0);
-    const totalUsed = filtered.reduce((s, w) => s + (w.SoLuongHienTai || 0), 0);
+    const totalCapacity = warehouses.reduce((s, w) => s + (w.Capacity || 0), 0);
+    const totalUsed = warehouses.reduce((s, w) => s + (w.SoLuongHienTai || 0), 0);
     const overallPct = totalCapacity > 0 ? Math.round(totalUsed * 100 / totalCapacity) : 0;
 
     return (
@@ -174,7 +173,7 @@ const SubWarehouseManagement = () => {
                 <div className="stat-card blue">
                     <span className="material-icons">warehouse</span>
                     <div>
-                        <div className="stat-num">{filtered.length}</div>
+                        <div className="stat-num">{warehouses.length}</div>
                         <div className="stat-label">Kho đang quản lý</div>
                     </div>
                 </div>
@@ -207,15 +206,15 @@ const SubWarehouseManagement = () => {
                     <div className="spinner"></div>
                     <p>Đang tải dữ liệu kho...</p>
                 </div>
-            ) : filtered.length === 0 ? (
+            ) : warehouses.length === 0 ? (
                 <div className="empty-state-box">
                     <span className="material-icons">inventory</span>
-                    <h3>Chưa có kho con nào</h3>
-                    <p>Bấm "Thêm Kho Mới" để tạo kho đầu tiên cho chi nhánh này.</p>
+                    <h3>Chưa có kho nào</h3>
+                    <p>Bấm "Thêm Kho Mới" để tạo kho đầu tiên.</p>
                 </div>
             ) : (
                 <div className="warehouse-grid">
-                    {filtered.map(wh => {
+                    {warehouses.map(wh => {
                         const pct = wh.PhanTramLapDay || 0;
                         const colorClass = getCapacityColor(pct);
                         return (
@@ -226,7 +225,6 @@ const SubWarehouseManagement = () => {
                                     </div>
                                     <div className="wh-title-wrap">
                                         <h3 className="wh-name">{wh.TenKho}</h3>
-                                        <span className="wh-branch">{wh.TenCH}</span>
                                     </div>
                                     <span className={`wh-status-badge ${wh.TinhTrang === 1 ? 'active' : 'inactive'}`}>
                                         {wh.TinhTrang === 1 ? 'Hoạt động' : 'Ngưng'}
@@ -309,28 +307,17 @@ const SubWarehouseManagement = () => {
 
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>Cửa hàng <span className="required">*</span></label>
-                                    <select
-                                        value={form.MaCH}
-                                        onChange={e => setForm({ ...form, MaCH: e.target.value })}
-                                        required
-                                        disabled={!!editItem}
-                                    >
-                                        <option value="">-- Chọn cửa hàng --</option>
-                                        {stores.map(b => (
-                                            <option key={b.MaCH} value={b.MaCH}>{b.TenCH}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="form-group">
                                     <label>Tên kho <span className="required">*</span></label>
                                     <input
                                         type="text"
-                                        placeholder="VD: Kho 1, Kho Lạnh..."
+                                        placeholder="VD: Kho 7, Kho Lạnh..."
                                         value={form.TenKho}
                                         onChange={e => setForm({ ...form, TenKho: e.target.value })}
                                         required
                                     />
+                                    <span className="field-hint">
+                                        Đã dùng: {warehouses.map(w => w.TenKho).join(', ')}
+                                    </span>
                                 </div>
                             </div>
 
@@ -404,7 +391,7 @@ const SubWarehouseManagement = () => {
                         <div className="drawer-header">
                             <div>
                                 <h2>Tồn kho: {stockView.TenKho}</h2>
-                                <p className="drawer-sub">{stockView.TenCH} — Capacity: {stockView.Capacity.toLocaleString()} | Đang dùng: {(stockView.SoLuongHienTai || 0).toLocaleString()}</p>
+                                <p className="drawer-sub">Capacity: {stockView.Capacity.toLocaleString()} cuốn | Đang dùng: {(stockView.SoLuongHienTai || 0).toLocaleString()} cuốn</p>
                             </div>
                             <button className="btn-close" onClick={() => setStockView(null)}>
                                 <span className="material-icons">close</span>
