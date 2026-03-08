@@ -30,17 +30,25 @@ const hrController = {
         try {
             await connection.beginTransaction();
 
-            // Update nhanvien
-            await connection.query(
-                'UPDATE nhanvien SET SDT = ?, Email = ?, DiaChi = ? WHERE MaTK = ?',
-                [SDT, Email, DiaChi, req.user.MaTK]
-            );
+            if (req.file) {
+                // Only update avatar
+                await connection.query(
+                    'UPDATE nhanvien SET Anh = ? WHERE MaTK = ?',
+                    [req.file.filename, req.user.MaTK]
+                );
+            } else {
+                // Update profile info
+                await connection.query(
+                    'UPDATE nhanvien SET SDT = ?, Email = ?, DiaChi = ? WHERE MaTK = ?',
+                    [SDT, Email, DiaChi, req.user.MaTK]
+                );
 
-            // Optionally update taikhoan email if they should be in sync
-            await connection.query(
-                'UPDATE taikhoan SET Email = ? WHERE MaTK = ?',
-                [Email, req.user.MaTK]
-            );
+                // Keep taikhoan email in sync
+                await connection.query(
+                    'UPDATE taikhoan SET Email = ? WHERE MaTK = ?',
+                    [Email, req.user.MaTK]
+                );
+            }
 
             await connection.commit();
             res.json({ success: true, message: 'Cập nhật hồ sơ thành công' });
@@ -284,7 +292,9 @@ const hrController = {
     },
 
     calculateMonthlySalary: async (req, res) => {
-        const { month, year } = req.body;
+        // Đọc từ req.body (khi gọi từ form) HOẶC req.params (khi gọi từ /compute/:year/:month)
+        const month = req.body?.month ?? req.params?.month;
+        const year  = req.body?.year  ?? req.params?.year;
         if (!month || !year) {
             return res.status(400).json({ success: false, message: 'Vui lòng cung cấp tháng và năm' });
         }

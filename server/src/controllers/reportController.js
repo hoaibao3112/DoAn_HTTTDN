@@ -88,6 +88,100 @@ const reportController = {
         }
     },
 
+    // Helper: build WHERE clause theo timePeriod
+    _buildTimeWhere(timePeriod, tuNgay, denNgay, col = 'hd.NgayBan') {
+        switch (timePeriod) {
+            case 'today':  return `DATE(${col}) = CURDATE()`;
+            case 'week':   return `DATE(${col}) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`;
+            case 'month':  return `YEAR(${col}) = YEAR(CURDATE()) AND MONTH(${col}) = MONTH(CURDATE())`;
+            case 'year':   return `YEAR(${col}) = YEAR(CURDATE())`;
+            case 'custom': return `DATE(${col}) BETWEEN '${tuNgay}' AND '${denNgay}'`;
+            default:       return `YEAR(${col}) = YEAR(CURDATE()) AND MONTH(${col}) = MONTH(CURDATE())`;
+        }
+    },
+
+    // Bán hàng theo sản phẩm
+    getSalesByProduct: async (req, res) => {
+        try {
+            const { timePeriod = 'month', tuNgay, denNgay } = req.body;
+            const timeWhere = reportController._buildTimeWhere(timePeriod, tuNgay, denNgay);
+            const [results] = await pool.query(`
+                SELECT 
+                    sp.MaSP,
+                    sp.TenSP,
+                    sp.HinhAnh,
+                    SUM(ct.SoLuong) AS SoLuongBan,
+                    SUM(ct.SoLuong * ct.DonGia - IFNULL(ct.GiamGia,0)) AS DoanhThu,
+                    COUNT(DISTINCT hd.MaHD) AS SoHoaDon
+                FROM chitiethoadon ct
+                JOIN hoadon hd ON ct.MaHD = hd.MaHD
+                JOIN sanpham sp ON ct.MaSP = sp.MaSP
+                WHERE hd.TrangThai = 'Hoan_thanh' AND ${timeWhere}
+                GROUP BY sp.MaSP, sp.TenSP, sp.HinhAnh
+                ORDER BY SoLuongBan DESC
+                LIMIT 50
+            `);
+            res.json({ success: true, data: results });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // Bán hàng theo thể loại
+    getSalesByCategory: async (req, res) => {
+        try {
+            const { timePeriod = 'month', tuNgay, denNgay } = req.body;
+            const timeWhere = reportController._buildTimeWhere(timePeriod, tuNgay, denNgay);
+            const [results] = await pool.query(`
+                SELECT 
+                    tl.MaTL,
+                    tl.TenTL,
+                    SUM(ct.SoLuong) AS SoLuongBan,
+                    SUM(ct.SoLuong * ct.DonGia - IFNULL(ct.GiamGia,0)) AS DoanhThu,
+                    COUNT(DISTINCT sp.MaSP) AS SoSanPham
+                FROM chitiethoadon ct
+                JOIN hoadon hd ON ct.MaHD = hd.MaHD
+                JOIN sanpham sp ON ct.MaSP = sp.MaSP
+                JOIN theloai tl ON sp.MaTL = tl.MaTL
+                WHERE hd.TrangThai = 'Hoan_thanh' AND ${timeWhere}
+                GROUP BY tl.MaTL, tl.TenTL
+                ORDER BY SoLuongBan DESC
+            `);
+            res.json({ success: true, data: results });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // Thống kê khách hàng
+    getCustomerReport: async (req, res) => {
+        try {
+            const { timePeriod = 'month', tuNgay, denNgay } = req.body;
+            const timeWhere = reportController._buildTimeWhere(timePeriod, tuNgay, denNgay);
+            const [results] = await pool.query(`
+                SELECT 
+                    kh.MaKH,
+                    kh.HoTen,
+                    kh.SDT,
+                    kh.Email,
+                    kh.DiemTichLuy,
+                    kh.TongChiTieu,
+                    COUNT(hd.MaHD) AS SoHoaDon,
+                    SUM(hd.ThanhToan) AS TongMua,
+                    MAX(hd.NgayBan) AS LanMuaGanNhat
+                FROM khachhang kh
+                JOIN hoadon hd ON kh.MaKH = hd.MaKH
+                WHERE hd.TrangThai = 'Hoan_thanh' AND ${timeWhere}
+                GROUP BY kh.MaKH, kh.HoTen, kh.SDT, kh.Email, kh.DiemTichLuy, kh.TongChiTieu
+                ORDER BY TongMua DESC
+                LIMIT 100
+            `);
+            res.json({ success: true, data: results });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
     // Lấy nhật ký hoạt động (Audit Logs)
     getAuditLogs: async (req, res) => {
         try {

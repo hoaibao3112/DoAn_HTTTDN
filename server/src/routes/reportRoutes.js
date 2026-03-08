@@ -30,6 +30,23 @@ router.post('/doanhthu/khoangtg',
     reportController.getRevenueByDateRange
 );
 
+// Báo cáo bán hàng theo sản phẩm / thể loại
+router.post('/banhang/sanpham',
+    checkPermission(FEATURES.REVENUE_REPORT, PERMISSIONS.VIEW),
+    reportController.getSalesByProduct
+);
+
+router.post('/banhang/theloai',
+    checkPermission(FEATURES.REVENUE_REPORT, PERMISSIONS.VIEW),
+    reportController.getSalesByCategory
+);
+
+// Báo cáo khách hàng
+router.post('/khachhang/khoangtg',
+    checkPermission(FEATURES.REVENUE_REPORT, PERMISSIONS.VIEW),
+    reportController.getCustomerReport
+);
+
 // Nhật ký hoạt động (Audit Logs)
 router.get('/audit-logs',
     checkPermission(FEATURES.AUDIT_LOGS, PERMISSIONS.VIEW),

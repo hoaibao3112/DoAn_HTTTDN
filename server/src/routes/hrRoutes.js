@@ -36,6 +36,30 @@ const uploadLeave = multer({
     }
 });
 
+// Multer config for employee avatar
+const avatarStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = 'uploads/nhanvien';
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const uploadAvatar = multer({
+    storage: avatarStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    fileFilter: (req, file, cb) => {
+        const filetypes = /jpeg|jpg|png|webp/;
+        if (filetypes.test(file.mimetype) && filetypes.test(path.extname(file.originalname).toLowerCase()))
+            return cb(null, true);
+        cb(new Error('Chỉ hỗ trợ ảnh jpg, png, webp'));
+    }
+});
+
 const router = express.Router();
 
 // All HR routes require authentication
@@ -45,7 +69,16 @@ router.use(authenticateToken);
 
 // Profile - Không cần check permission vì mỗi user chỉ xem/sửa profile của mình
 router.get('/profile', hrController.getProfile);
-router.put('/profile', hrController.updateProfile);
+router.put('/profile', (req, res, next) => {
+    uploadAvatar.single('Anh')(req, res, (err) => {
+        if (err instanceof multer.MulterError) {
+            return res.status(400).json({ success: false, message: 'Lỗi upload: ' + err.message });
+        } else if (err) {
+            return res.status(400).json({ success: false, message: err.message });
+        }
+        next();
+    });
+}, hrController.updateProfile);
 
 // Leave Requests (Self) - Nhân viên tự nộp đơn xin nghỉ
 router.post('/xin-nghi-phep', (req, res, next) => {
@@ -457,12 +490,13 @@ router.get('/monthly/:year',
         try {
             const [rows] = await pool.query(`
                 SELECT 
-                    MONTH(NgayTinh) as month,
-                    SUM(TongLuong) as total
-                FROM luong
-                WHERE YEAR(NgayTinh) = ?
-                GROUP BY month
-                ORDER BY month
+                    l.Thang AS month,
+                    SUM(l.TongLuong) AS total,
+                    COUNT(DISTINCT l.MaNV) AS so_nv
+                FROM luong l
+                WHERE l.Nam = ?
+                GROUP BY l.Thang
+                ORDER BY l.Thang
             `, [year]);
             res.json({ success: true, data: rows });
         } catch (error) {
@@ -477,13 +511,27 @@ router.get('/per-month/:year/:month',
         const { year, month } = req.params;
         try {
             const [rows] = await pool.query(`
-                SELECT 
-                    l.*, 
-                    nv.HoTen as TenNV, nv.MaNV
+                SELECT
+                    l.id,
+                    nv.MaNV,
+                    nv.HoTen AS TenNV,
+                    nv.ChucVu,
+                    l.LuongCoBan AS luong_co_ban,
+                    l.PhuCap AS phu_cap,
+                    l.SoGioTangCa AS tang_ca,
+                    l.Thuong AS thuong,
+                    l.Phat AS phat,
+                    l.TongLuong AS tong_luong,
+                    l.TrangThai AS trang_thai,
+                    l.SoNgayLam,
+                    l.Thang,
+                    l.Nam,
+                    l.NgayTinh
                 FROM luong l
                 JOIN nhanvien nv ON l.MaNV = nv.MaNV
-                WHERE YEAR(l.NgayTinh) = ? AND MONTH(l.NgayTinh) = ?
-            `, [year, month]);
+                WHERE l.Thang = ? AND l.Nam = ?
+                ORDER BY nv.HoTen
+            `, [month, year]);
             res.json({ success: true, data: rows });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Lỗi khi lấy chi tiết lương theo tháng', error: error.message });

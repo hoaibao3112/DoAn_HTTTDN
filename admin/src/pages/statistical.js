@@ -104,46 +104,35 @@ const [salaryYear, setSalaryYear] = useState(new Date().getFullYear());
 
 // ...existing code...
 
-// Cập nhật fetchSalaryDetails (giữ nguyên, chỉ thêm log nếu cần)
 const fetchSalaryDetails = useCallback(async (month) => {
   if (!month) return;
   setLoading(true);
   try {
-    console.log('🔍 Fetching salary for year:', salaryYear, 'month:', month);
     const res = await axios.get(`http://localhost:5000/api/salary/per-month/${salaryYear}/${month}`);
-    let payload = res.data && res.data.data ? res.data.data : (res.data || []);
-    console.log('📥 Raw API response:', payload);
-
-    // Fallback compute nếu empty
-    if (!payload || (Array.isArray(payload) && payload.length === 0)) {
-      console.log('⚠️ Per-month empty, trying compute...');
-      const comp = await axios.post(`http://localhost:5000/api/salary/compute/${salaryYear}/${month}`);
-      payload = comp.data && comp.data.data ? comp.data.data : comp.data || [];
-      console.log('📥 Compute fallback response:', payload);
-    }
-
-    // Normalize: Force array và map fields
-    let records = Array.isArray(payload) ? payload : [payload];
-    const normalized = records.map(r => ({
-      id: r.id || r.Id || 0,
-      MaNV: r.MaNV ?? r.MaNhanVien ?? r.ma_nv ?? '',
-      TenNV: r.TenNV ?? r.ten ?? r.name ?? 'N/A',
-      month: Number(r.thang ?? r.month ?? month),
-      year: Number(r.nam ?? r.year ?? salaryYear),
-      luong_co_ban: Number(r.luong_co_ban ?? r.luong_cb ?? 0),
-      phu_cap: Number(r.phu_cap ?? 0),
-      tang_ca: Number(r.tang_ca ?? 0), // Nếu API có field tăng ca
-      thuong: Number(r.thuong ?? 0),
-      phat: Number(r.phat ?? r.khau_tru ?? 0),
-  tong_luong: Number((r.tong_luong ?? r.tong_nhan) ?? 0),
-      trang_thai: r.trang_thai ?? r.trangthai ?? 'Chưa tra'
-    })).filter(item => item.MaNV && item.TenNV); // Filter valid rows
-
-    console.log('🔄 Normalized salaryDetails (length:', normalized.length, '):', normalized);
+    const payload = res.data?.data ?? [];
+    const records = Array.isArray(payload) ? payload : [payload];
+    const normalized = records
+      .filter(r => r && r.MaNV)
+      .map(r => ({
+        id: r.id || 0,
+        MaNV: r.MaNV ?? '',
+        TenNV: r.TenNV ?? 'N/A',
+        ChucVu: r.ChucVu ?? '',
+        month: Number(r.Thang ?? month),
+        year: Number(r.Nam ?? salaryYear),
+        luong_co_ban: Number(r.luong_co_ban ?? 0),
+        phu_cap: Number(r.phu_cap ?? 0),
+        tang_ca: Number(r.tang_ca ?? 0),
+        thuong: Number(r.thuong ?? 0),
+        phat: Number(r.phat ?? 0),
+        tong_luong: Number(r.tong_luong ?? 0),
+        so_ngay_lam: Number(r.SoNgayLam ?? 0),
+        trang_thai: r.trang_thai ?? 'Chưa trả',
+      }));
     setSalaryDetails(normalized);
     setSelectedSalaryMonth(month);
   } catch (error) {
-    console.error('❌ Lỗi fetch chi tiết lương:', error.response?.data || error.message);
+    console.error('Lỗi fetch chi tiết lương:', error.response?.data || error.message);
     message.error('Không thể tải chi tiết lương');
     setSalaryDetails([]);
   } finally {
@@ -297,71 +286,63 @@ useEffect(() => {
 
 
 
-const getLuongChartData = () => {
-  if (!salaryData) return null;
-
-  // If salaryData is a simple array of 12 numbers
-  if (Array.isArray(salaryData) && salaryData.length === 12 && salaryData.every(v => typeof v === 'number')) {
-    return {
-      labels: Array.from({ length: 12 }, (_, i) => `Tháng ${i + 1}`),
-      datasets: [{ label: 'Tổng lương (VND)', data: salaryData, backgroundColor: 'rgba(54,162,235,0.7)', borderColor: 'rgb(54,162,235)', borderWidth: 1 }]
-    };
-  }
-
-  // Aggregate totals by month (1..12)
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+// Biểu đồ thanh: tổng lương 12 tháng trong năm
+const getLuongYearChartData = () => {
   const totals = Array(12).fill(0);
-
-  if (Array.isArray(salaryData)) {
-    salaryData.forEach(row => {
-      if (row == null) return;
-
-      // If row is number, skip (no month info)
-      if (typeof row === 'number') return;
-
-      // If row contains nested entries (per-employee), sum their tong_nhan
-      if (Array.isArray(row.entries) && (row.month || row.Thang)) {
-        const m = Number(row.month ?? row.Thang);
-        if (isFinite(m) && m >= 1 && m <= 12) {
-          const sumEntries = row.entries.reduce((s, e) => s + Number(e.tong_nhan ?? e.tongLuong ?? e.tong_luong ?? 0), 0);
-          totals[m - 1] += isFinite(sumEntries) ? sumEntries : 0;
-          return;
-        }
+  const nvCounts = Array(12).fill(0);
+  if (Array.isArray(salaryMonthly)) {
+    salaryMonthly.forEach(row => {
+      const m = Number(row.month ?? row.Thang);
+      if (m >= 1 && m <= 12) {
+        totals[m - 1] = Number(row.total ?? row.TongLuong ?? 0);
+        nvCounts[m - 1] = Number(row.so_nv ?? 0);
       }
-
-      // Determine month
-      const m = Number(row.month ?? row.Thang ?? row.monthNumber ?? row.m);
-      const monthIndex = (isFinite(m) && m >= 1 && m <= 12) ? (m - 1) : null;
-
-      // Determine value
-      let value = 0;
-      if (row.total !== undefined) value = Number(row.total);
-      else if (row.TongLuong !== undefined) value = Number(row.TongLuong);
-      else if (row.tong_luong !== undefined) value = Number(row.tong_luong);
-      else if (row.tong !== undefined) value = Number(row.tong);
-      else if (row.totalAmount !== undefined) value = Number(row.totalAmount);
-      else if (row.value !== undefined) value = Number(row.value);
-      else if (row.tong_nhan !== undefined) value = Number(row.tong_nhan);
-
-      if (monthIndex !== null) {
-        totals[monthIndex] += isFinite(value) ? value : 0;
-      } else {
-        // if no month, try to infer by position (not reliable) - ignore
-      }
-    });
-  } else if (typeof salaryData === 'object') {
-    // object keyed by month
-    months.forEach((m, i) => {
-      const v = salaryData[m] ?? salaryData[String(m)];
-      if (v == null) { totals[i] += 0; return; }
-      if (typeof v === 'number') totals[i] += v;
-      else if (typeof v === 'object') totals[i] += Number(v.total ?? v.TongLuong ?? v.tong_luong ?? v.tong ?? 0);
     });
   }
-
   return {
-    labels: months.map(m => `Tháng ${m}`),
-    datasets: [{ label: 'Tổng lương (VND)', data: totals, backgroundColor: 'rgba(54,162,235,0.7)', borderColor: 'rgb(54,162,235)', borderWidth: 1 }]
+    labels: Array.from({ length: 12 }, (_, i) => `T${i + 1}`),
+    datasets: [
+      {
+        label: 'Tổng lương (VNĐ)',
+        data: totals,
+        backgroundColor: 'rgba(54,162,235,0.75)',
+        borderColor: 'rgb(54,162,235)',
+        borderWidth: 1,
+        borderRadius: 4,
+        yAxisID: 'y',
+      },
+      {
+        label: 'Số nhân viên',
+        data: nvCounts,
+        type: 'line',
+        borderColor: 'rgb(255,159,64)',
+        backgroundColor: 'rgba(255,159,64,0.2)',
+        borderWidth: 2,
+        pointRadius: 4,
+        tension: 0.4,
+        yAxisID: 'y1',
+      },
+    ],
+  };
+};
+
+// Biểu đồ thanh: tổng lương theo từng nhân viên trong tháng đang chọn
+const getLuongMonthChartData = () => {
+  if (!salaryDetails || salaryDetails.length === 0) return null;
+  const sorted = [...salaryDetails].sort((a, b) => b.tong_luong - a.tong_luong).slice(0, 15);
+  const colors = sorted.map((_, i) => `hsla(${(i * 25) % 360}, 70%, 55%, 0.8)`);
+  return {
+    labels: sorted.map(e => e.TenNV),
+    datasets: [
+      {
+        label: 'Tổng nhận (VNĐ)',
+        data: sorted.map(e => e.tong_luong),
+        backgroundColor: colors,
+        borderColor: colors.map(c => c.replace('0.8', '1')),
+        borderWidth: 1,
+        borderRadius: 4,
+      },
+    ],
   };
 };
 
@@ -1137,13 +1118,7 @@ const renderChart = () => {
     chartData = getKhachHangChartData();
     ChartComponent = Bar;
   } else if (activeTab === 'luong') {
-    // đảm bảo salaryData đã load
-    if (!salaryData || (Array.isArray(salaryData) && salaryData.length === 0)) {
-      console.debug('Luong: salaryData empty', salaryData);
-      return null;
-    }
-    chartData = getLuongChartData();
-    ChartComponent = Bar;
+    return null; // Charts trong luong tab tự render riêng
   }
 
   if (!chartData || !ChartComponent) {
@@ -1277,91 +1252,268 @@ const renderChart = () => {
       </div>
     </div>
   );
-  // ...existing code inside renderLuongTab ...
 const renderLuongTab = () => {
-  console.log('🎨 Rendering Luong Tab - salaryDetails length:', salaryDetails.length); // Debug render
+  // ---- Tổng hợp số liệu ----
+  const yearTotal = Array.isArray(salaryMonthly)
+    ? salaryMonthly.reduce((s, r) => s + Number(r.total ?? r.TongLuong ?? 0), 0)
+    : 0;
+  const monthTotal = salaryDetails.reduce((s, r) => s + Number(r.tong_luong ?? 0), 0);
+  const monthNV = salaryDetails.length;
+  const monthPaid = salaryDetails.filter(r => r.trang_thai === 'Da_tra' || r.trang_thai === 'Da_chi_tra').length;
+
+  const yearChartData = getLuongYearChartData();
+  const monthChartData = getLuongMonthChartData();
+
+  const yearChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { position: 'top' },
+      title: { display: true, text: `Tổng lương theo tháng - Năm ${salaryYear}` },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            if (ctx.datasetIndex === 0) return ` ${formatCurrency(ctx.raw)}`;
+            return ` ${ctx.raw} người`;
+          },
+        },
+      },
+    },
+    scales: {
+      y: { type: 'linear', position: 'left', ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(0)+'M' : v) } },
+      y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { stepSize: 1 } },
+    },
+  };
+
+  const monthChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    indexAxis: 'y',
+    plugins: {
+      legend: { display: false },
+      title: { display: true, text: `Chi tiết lương nhân viên - Tháng ${selectedSalaryMonth}/${salaryYear}` },
+      tooltip: { callbacks: { label: (ctx) => ` ${formatCurrency(ctx.raw)}` } },
+    },
+    scales: {
+      x: { ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(0)+'M' : v) } },
+    },
+  };
+
   return (
     <div id="luong-export-area" className="thongke-content">
+      {/* ---- BỘ LỌC ---- */}
       <div className="thongke-filters">
         <div className="filter-group">
           <label>Năm:</label>
-          <select value={salaryYear} onChange={(e) => setSalaryYear(Number(e.target.value))}>
-            {[2023, 2024, 2025].map(y => <option key={y} value={y}>{y}</option>)}
+          <select value={salaryYear} onChange={(e) => { setSalaryYear(Number(e.target.value)); setSelectedSalaryMonth(null); setSalaryDetails([]); }}>
+            {Array.from({length: new Date().getFullYear() - 2022}, (_, i) => 2023 + i).map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
         <div className="filter-group">
           <label>Tháng:</label>
-          <select value={selectedSalaryMonth || ''} onChange={(e) => setSelectedSalaryMonth(Number(e.target.value))}>
-            <option value="">Chọn tháng</option>
+          <select value={selectedSalaryMonth || ''} onChange={(e) => setSelectedSalaryMonth(e.target.value ? Number(e.target.value) : null)}>
+            <option value="">-- Tổng năm --</option>
             {Array.from({length: 12}, (_, i) => i+1).map(m => <option key={m} value={m}>Tháng {m}</option>)}
           </select>
         </div>
         <div className="filter-actions">
-          <button className="btn-refresh" onClick={() => selectedSalaryMonth && fetchSalaryDetails(selectedSalaryMonth)}>
+          <button className="btn-refresh" onClick={() => { fetchLuongData(); selectedSalaryMonth && fetchSalaryDetails(selectedSalaryMonth); }}>
             <i className="fas fa-sync-alt"></i> Tải lại
           </button>
           <button className="btn-pdf" onClick={handleExportPDF}>
             <i className="fas fa-file-pdf"></i> Xuất PDF
           </button>
-
           <button className="btn-excel" onClick={handleExportExcel}>
             <i className="fas fa-file-excel"></i> Xuất Excel
           </button>
         </div>
       </div>
 
-      <div className="thongke-table">
-        <table>
-          <thead>
-            <tr>
-              <th>STT</th>
-              <th>MÃ NV</th>
-              <th>TÊN NV</th>
-              <th>LƯƠNG CƠ BẢN</th>
-              <th>PHỤ CẤP</th>
-              <th>TĂNG CA</th>
-              <th>THƯỞNG</th>
-              <th>PHẠT</th>
-              <th>TỔNG NHẬN</th>
-              <th>TRẠNG THÁI</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan="10" style={{ textAlign: 'center', padding: '30px' }}>
-                  <i className="fas fa-spinner fa-spin"></i> Đang tải dữ liệu lương...
-                </td>
+      {/* ---- SUMMARY CARDS ---- */}
+      <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 200, background: 'linear-gradient(135deg,#1890ff,#096dd9)', color: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 2px 8px rgba(24,144,255,0.3)' }}>
+          <div style={{ fontSize: 13, opacity: 0.85 }}>Tổng lương năm {salaryYear}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>{formatCurrency(yearTotal)}</div>
+          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>{salaryMonthly.length} tháng có dữ liệu</div>
+        </div>
+        <div style={{ flex: 1, minWidth: 200, background: 'linear-gradient(135deg,#52c41a,#389e0d)', color: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 2px 8px rgba(82,196,26,0.3)' }}>
+          <div style={{ fontSize: 13, opacity: 0.85 }}>
+            {selectedSalaryMonth ? `Tổng lương T${selectedSalaryMonth}/${salaryYear}` : 'Tổng lương tháng'}
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
+            {selectedSalaryMonth ? formatCurrency(monthTotal) : <span style={{fontSize:14}}>Chọn tháng để xem</span>}
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>{monthNV > 0 ? `${monthNV} nhân viên` : ''}</div>
+        </div>
+        <div style={{ flex: 1, minWidth: 200, background: 'linear-gradient(135deg,#faad14,#d48806)', color: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 2px 8px rgba(250,173,20,0.3)' }}>
+          <div style={{ fontSize: 13, opacity: 0.85 }}>Đã chi trả {selectedSalaryMonth ? `T${selectedSalaryMonth}` : ''}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
+            {selectedSalaryMonth ? formatCurrency(salaryDetails.filter(r => r.trang_thai === 'Da_tra' || r.trang_thai === 'Da_chi_tra').reduce((s,r) => s + r.tong_luong, 0)) : '—'}
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
+            {selectedSalaryMonth && monthNV > 0 ? `${monthPaid}/${monthNV} người đã nhận` : ''}
+          </div>
+        </div>
+        <div style={{ flex: 1, minWidth: 200, background: 'linear-gradient(135deg,#ff4d4f,#cf1322)', color: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 2px 8px rgba(255,77,79,0.3)' }}>
+          <div style={{ fontSize: 13, opacity: 0.85 }}>Chưa chi trả {selectedSalaryMonth ? `T${selectedSalaryMonth}` : ''}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
+            {selectedSalaryMonth ? formatCurrency(salaryDetails.filter(r => r.trang_thai !== 'Da_tra' && r.trang_thai !== 'Da_chi_tra').reduce((s,r) => s + r.tong_luong, 0)) : '—'}
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
+            {selectedSalaryMonth && monthNV > 0 ? `${monthNV - monthPaid}/${monthNV} người chưa nhận` : ''}
+          </div>
+        </div>
+      </div>
+
+      {/* ---- BIỂU ĐỒ NĂM ---- */}
+      {salaryMonthly.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+          <div style={{ height: 280 }}>
+            <Bar data={yearChartData} options={yearChartOptions} />
+          </div>
+        </div>
+      )}
+
+      {/* ---- BẢNG TỔNG HỢP 12 THÁNG ---- */}
+      <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+        <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>Tổng hợp lương theo tháng - Năm {salaryYear}</h3>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 20 }}><i className="fas fa-spinner fa-spin"></i> Đang tải...</div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+            <thead>
+              <tr style={{ background: '#f0f5ff' }}>
+                {['Tháng','Tổng quỹ lương','Số nhân viên','Trung bình/NV'].map(h => (
+                  <th key={h} style={{ padding: '10px 12px', textAlign: h === 'Tháng' ? 'center' : 'right', borderBottom: '2px solid #d6e4ff', fontWeight: 600 }}>{h}</th>
+                ))}
               </tr>
-            ) : salaryDetails.length > 0 ? (
-              salaryDetails.map((item, index) => {
-                console.log('📊 Mapping row:', index + 1, item); // Debug từng row
+            </thead>
+            <tbody>
+              {Array.from({length: 12}, (_, i) => i+1).map(m => {
+                const row = salaryMonthly.find(r => Number(r.month ?? r.Thang) === m);
+                const total = row ? Number(row.total ?? row.TongLuong ?? 0) : 0;
+                const nv = row ? Number(row.so_nv ?? 0) : 0;
+                const isSelected = selectedSalaryMonth === m;
                 return (
-                  <tr key={item.id || index}>
-                    <td>{index + 1}</td>
-                    <td>{item.MaNV}</td>
-                    <td>{item.TenNV}</td>
-                    <td>{formatCurrency(item.luong_co_ban)}</td>
-                    <td>{formatCurrency(item.phu_cap)}</td>
-                    <td>{formatCurrency(item.tang_ca)}</td>
-                    <td style={{ color: 'green' }}>{formatCurrency(item.thuong)}</td>
-                    <td style={{ color: 'red' }}>{formatCurrency(item.phat)}</td>
-                    <td style={{ color: '#1890ff', fontWeight: 'bold' }}>{formatCurrency(item.tong_luong)}</td>
-                    <td>{item.trang_thai}</td>
+                  <tr
+                    key={m}
+                    onClick={() => setSelectedSalaryMonth(m)}
+                    style={{ cursor: 'pointer', background: isSelected ? '#e6f7ff' : (m % 2 === 0 ? '#fafafa' : '#fff'), transition: 'background 0.15s' }}
+                  >
+                    <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: isSelected ? 700 : 400, color: isSelected ? '#1890ff' : undefined }}>
+                      Tháng {m}
+                    </td>
+                    <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: total > 0 ? 600 : 400, color: total > 0 ? '#1890ff' : '#bbb' }}>
+                      {total > 0 ? formatCurrency(total) : '—'}
+                    </td>
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: nv > 0 ? '#333' : '#bbb' }}>
+                      {nv > 0 ? `${nv} người` : '—'}
+                    </td>
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#555' }}>
+                      {nv > 0 && total > 0 ? formatCurrency(Math.round(total / nv)) : '—'}
+                    </td>
                   </tr>
                 );
-              })
-            ) : (
-              <tr>
-                <td colSpan="10" style={{ textAlign: 'center', padding: '30px' }}>
-                  Không có dữ liệu lương cho tháng {selectedSalaryMonth}/{salaryYear}.<br />
-                  <button onClick={() => fetchSalaryDetails(selectedSalaryMonth)}>Thử tải lại</button>
+              })}
+              {/* Tổng năm */}
+              <tr style={{ background: '#1890ff', color: '#fff', fontWeight: 700 }}>
+                <td style={{ padding: '10px 12px', textAlign: 'center' }}>Cả năm {salaryYear}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right' }}>{formatCurrency(yearTotal)}</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                  {salaryMonthly.reduce((s, r) => { const nv = Number(r.so_nv ?? 0); return s + nv; }, 0)} lượt NV
+                </td>
+                <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                  {salaryMonthly.length > 0 ? formatCurrency(Math.round(yearTotal / salaryMonthly.length)) : '—'}
                 </td>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        )}
       </div>
+
+      {/* ---- CHI TIẾT THÁNG ---- */}
+      {selectedSalaryMonth && (
+        <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+          <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>Chi tiết lương - Tháng {selectedSalaryMonth}/{salaryYear}</h3>
+
+          {/* Biểu đồ theo nhân viên */}
+          {monthChartData && salaryDetails.length > 0 && (
+            <div style={{ height: Math.max(200, salaryDetails.length * 32), marginBottom: 20 }}>
+              <Bar data={monthChartData} options={monthChartOptions} />
+            </div>
+          )}
+
+          {/* Bảng chi tiết */}
+          <div className="thongke-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>STT</th>
+                  <th>Mã NV</th>
+                  <th>Tên nhân viên</th>
+                  <th>Chức vụ</th>
+                  <th>Lương CB</th>
+                  <th>Phụ cấp</th>
+                  <th>Tăng ca (h)</th>
+                  <th>Thưởng</th>
+                  <th>Phạt</th>
+                  <th>Tổng nhận</th>
+                  <th>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan="11" style={{ textAlign: 'center', padding: 30 }}>
+                    <i className="fas fa-spinner fa-spin"></i> Đang tải...
+                  </td></tr>
+                ) : salaryDetails.length > 0 ? (
+                  salaryDetails.map((item, idx) => (
+                    <tr key={item.id || idx}>
+                      <td>{idx + 1}</td>
+                      <td>{item.MaNV}</td>
+                      <td>{item.TenNV}</td>
+                      <td>{item.ChucVu}</td>
+                      <td>{formatCurrency(item.luong_co_ban)}</td>
+                      <td>{formatCurrency(item.phu_cap)}</td>
+                      <td style={{ textAlign: 'center' }}>{item.tang_ca}</td>
+                      <td style={{ color: '#52c41a' }}>{formatCurrency(item.thuong)}</td>
+                      <td style={{ color: '#ff4d4f' }}>{formatCurrency(item.phat)}</td>
+                      <td style={{ color: '#1890ff', fontWeight: 700 }}>{formatCurrency(item.tong_luong)}</td>
+                      <td>
+                        <span style={{
+                          display: 'inline-block', padding: '2px 10px', borderRadius: 12, fontSize: 12,
+                          background: (item.trang_thai === 'Da_tra' || item.trang_thai === 'Da_chi_tra') ? '#f6ffed' : '#fff7e6',
+                          color: (item.trang_thai === 'Da_tra' || item.trang_thai === 'Da_chi_tra') ? '#52c41a' : '#fa8c16',
+                          border: `1px solid ${(item.trang_thai === 'Da_tra' || item.trang_thai === 'Da_chi_tra') ? '#b7eb8f' : '#ffd591'}`,
+                        }}>
+                          {(item.trang_thai === 'Da_tra' || item.trang_thai === 'Da_chi_tra') ? '✓ Đã trả' : '⏳ Chưa trả'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr><td colSpan="11" style={{ textAlign: 'center', padding: 30, color: '#888' }}>
+                    Chưa có dữ liệu lương tháng {selectedSalaryMonth}/{salaryYear}. Vui lòng tính lương trước.
+                  </td></tr>
+                )}
+                {salaryDetails.length > 0 && (
+                  <tr style={{ background: '#e6f7ff', fontWeight: 700 }}>
+                    <td colSpan="4" style={{ textAlign: 'right', padding: '10px 12px' }}>TỔNG CỘNG:</td>
+                    <td>{formatCurrency(salaryDetails.reduce((s,r)=>s+r.luong_co_ban,0))}</td>
+                    <td>{formatCurrency(salaryDetails.reduce((s,r)=>s+r.phu_cap,0))}</td>
+                    <td style={{ textAlign: 'center' }}>{salaryDetails.reduce((s,r)=>s+r.tang_ca,0)}</td>
+                    <td style={{ color:'#52c41a' }}>{formatCurrency(salaryDetails.reduce((s,r)=>s+r.thuong,0))}</td>
+                    <td style={{ color:'#ff4d4f' }}>{formatCurrency(salaryDetails.reduce((s,r)=>s+r.phat,0))}</td>
+                    <td style={{ color:'#1890ff' }}>{formatCurrency(monthTotal)}</td>
+                    <td></td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1578,10 +1730,22 @@ const renderLuongTab = () => {
       </div>
 
       <div className="thongke-tabs">
-  <button className={activeTab === 'doanhthu' ? 'active' : ''} onClick={() => setActiveTab('doanhthu')}>Doanh thu</button>
-  <button className={activeTab === 'banhang' ? 'active' : ''} onClick={() => setActiveTab('banhang')}>Bán hàng</button>
-  <button className={activeTab === 'khachhang' ? 'active' : ''} onClick={() => setActiveTab('khachhang')}>Khách mua hàng theo thời gian</button>
-  <button className={activeTab === 'luong' ? 'active' : ''} onClick={() => setActiveTab('luong')}>Lương nhân viên</button>
+  <button data-tab="doanhthu" className={activeTab === 'doanhthu' ? 'active' : ''} onClick={() => setActiveTab('doanhthu')}>
+    <i className="fas fa-chart-line"></i>
+    <span>Doanh thu</span>
+  </button>
+  <button data-tab="banhang" className={activeTab === 'banhang' ? 'active' : ''} onClick={() => setActiveTab('banhang')}>
+    <i className="fas fa-shopping-cart"></i>
+    <span>Bán hàng</span>
+  </button>
+  <button data-tab="khachhang" className={activeTab === 'khachhang' ? 'active' : ''} onClick={() => setActiveTab('khachhang')}>
+    <i className="fas fa-users"></i>
+    <span>Khách hàng</span>
+  </button>
+  <button data-tab="luong" className={activeTab === 'luong' ? 'active' : ''} onClick={() => setActiveTab('luong')}>
+    <i className="fas fa-money-bill-wave"></i>
+    <span>Lương nhân viên</span>
+  </button>
 </div>
 {activeTab === 'doanhthu' && renderDoanhThuTab()}
 {activeTab === 'banhang' && renderBanHangTab()}

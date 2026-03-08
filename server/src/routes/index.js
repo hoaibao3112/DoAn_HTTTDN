@@ -1,6 +1,7 @@
 import warehouseRoutes from './warehouseRoutes.js';
 import accountRoutes from './account.js';
 import LoginRoutes from './LoginRoutes.js';
+import forgotPasswordRoutes from './forgotPasswordRoutes.js';
 import roleRoutes from './roleRoutes.js';
 import reportRoutes from './reportRoutes.js';
 import permissionRoutes from './permissionRoutes.js';
@@ -37,6 +38,7 @@ export const initRoutes = (app) => {
 
   // ======================= SYSTEM MANAGEMENT =======================
   app.use('/api/login', LoginRoutes);  // POST /api/login (login) + POST /api/login/logout (logout)
+  app.use('/api/forgot-password', forgotPasswordRoutes);
   app.use('/api/accounts', accountRoutes);
   app.use('/api/roles', roleRoutes);
   app.use('/api/permissions', permissionRoutes);
