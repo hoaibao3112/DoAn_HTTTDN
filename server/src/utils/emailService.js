@@ -18,114 +18,114 @@ export async function sendOTPEmail(email, otp) {
             }
         });
 
-        // Mẫu HTML cải tiến cho email
-        const htmlContent = `
-            <!DOCTYPE html>
-            <html lang="vi">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                    body {
-                        font-family: 'Arial', sans-serif;
-                        background-color: #f0f2f5;
-                        margin: 0;
-                        padding: 0;
-                        color: #333;
-                    }
-                    .container {
-                        max-width: 600px;
-                        margin: 40px auto;
-                        background-color: #ffffff;
-                        border-radius: 10px;
-                        overflow: hidden;
-                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-                    }
-                    .header {
-                        background-color: #007bff;
-                        color: white;
-                        text-align: center;
-                        padding: 20px;
-                        border-bottom: 2px solid #0056b3;
-                    }
-                    .header img {
-                        max-width: 150px;
-                        margin-bottom: 10px;
-                    }
-                    .content {
-                        padding: 30px;
-                        text-align: center;
-                    }
-                    .otp-box {
-                        background-color: #e9ecef;
-                        padding: 20px;
-                        border-radius: 8px;
-                        display: inline-block;
-                        font-size: 28px;
-                        font-weight: bold;
-                        color: #dc3545;
-                        margin: 20px 0;
-                        letter-spacing: 2px;
-                        border: 2px dashed #dc3545;
-                    }
-                    .copy-btn {
-                        display: inline-block;
-                        margin-top: 10px;
-                        padding: 10px 20px;
-                        background-color: #007bff;
-                        color: white;
-                        text-decoration: none;
-                        border-radius: 5px;
-                        font-size: 14px;
-                    }
-                    .copy-btn:hover {
-                        background-color: #0056b3;
-                    }
-                    .footer {
-                        text-align: center;
-                        padding: 15px;
-                        background-color: #f8f9fa;
-                        color: #6c757d;
-                        font-size: 12px;
-                        border-top: 1px solid #dee2e6;
-                    }
-                    .footer a {
-                        color: #007bff;
-                        text-decoration: none;
-                    }
-                    @media (max-width: 480px) {
-                        .container { margin: 20px auto; }
-                        .content { padding: 15px; }
-                        .otp-box { font-size: 22px; padding: 15px; }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <div class="header">
-                        <img src="https://cdn1.fahasa.com/skin/frontend/ma_vanese/fahasa/images/fahasa-logo.png" alt="Company Logo" />
-                        <h2>Xác Nhận Mã OTP</h2>
+        const now = new Date();
+        const timeStr = now.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+        const digits = otp.split('');
+
+        const htmlContent = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mã OTP đặt lại mật khẩu</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.10);">
+
+          <!-- HEADER -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#1565C0 0%,#42A5F5 100%);padding:36px 40px 28px;text-align:center;">
+              <img src="https://cdn1.fahasa.com/skin/frontend/ma_vanese/fahasa/images/fahasa-logo.png"
+                   alt="Logo" style="height:44px;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;" />
+              <div style="display:inline-block;background:rgba(255,255,255,0.18);border-radius:50%;padding:14px;margin-bottom:12px;">
+                <img src="https://cdn-icons-png.flaticon.com/512/6195/6195699.png" alt="lock" width="36" height="36"
+                     style="display:block;filter:brightness(0) invert(1);" />
+              </div>
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">Đặt lại mật khẩu</h1>
+              <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Hệ thống quản lý nội bộ</p>
+            </td>
+          </tr>
+
+          <!-- BODY -->
+          <tr>
+            <td style="padding:40px 48px 32px;">
+              <p style="margin:0 0 8px;color:#374151;font-size:15px;">Xin chào,</p>
+              <p style="margin:0 0 28px;color:#6b7280;font-size:14px;line-height:1.7;">
+                Chúng tôi nhận được yêu cầu <strong style="color:#1565C0;">đặt lại mật khẩu</strong> cho tài khoản gắn với địa chỉ email này.
+                Vui lòng sử dụng mã OTP dưới đây để tiếp tục:
+              </p>
+
+              <!-- OTP DIGITS -->
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
+                <tr>
+                  ${digits.map(d => `
+                  <td style="padding:0 5px;">
+                    <div style="width:46px;height:58px;background:linear-gradient(180deg,#EFF6FF 0%,#DBEAFE 100%);
+                                border:2px solid #93C5FD;border-radius:10px;
+                                font-size:28px;font-weight:800;color:#1565C0;
+                                text-align:center;line-height:58px;
+                                box-shadow:0 2px 8px rgba(21,101,192,0.12);">
+                      ${d}
                     </div>
-                    <div class="content">
-                        <p>Xin chào, <strong>Bạn</strong>,</p>
-                        <p>Cảm ơn bạn đã sử dụng hệ thống của chúng tôi! Dưới đây là mã OTP để đặt lại mật khẩu:</p>
-                        <div class="otp-box">${otp}</div>
-                        <a href="#" class="copy-btn" onclick="navigator.clipboard.writeText('${otp}');alert('Đã sao chép OTP!');return false;">Sao chép mã</a>
-                        <p>Mã này có hiệu lực trong <strong>5 phút</strong>. Vui lòng không chia sẻ mã này với bất kỳ ai.</p>
-                        <p>Nếu bạn không yêu cầu mã này, hãy liên hệ với bộ phận hỗ trợ qua <a href="mailto:${process.env.EMAIL_USER}">email hỗ trợ</a>.</p>
-                    </div>
-                    <div class="footer">
-                        <p>&copy; ${new Date().getFullYear()} Công Ty Bao Store VipPro. Đã đăng ký bản quyền.</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-        `;
+                  </td>`).join('')}
+                </tr>
+              </table>
+
+              <!-- TIMER BADGE -->
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
+                <tr>
+                  <td style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:20px;padding:8px 20px;">
+                    <span style="color:#EA580C;font-size:13px;font-weight:600;">⏱ Mã có hiệu lực trong 5 phút</span>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- DIVIDER -->
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
+
+              <!-- WARNING -->
+              <table cellpadding="0" cellspacing="0" width="100%"
+                     style="background:#FEF2F2;border-left:4px solid #EF4444;border-radius:0 8px 8px 0;padding:0;margin-bottom:24px;">
+                <tr>
+                  <td style="padding:14px 16px;">
+                    <p style="margin:0;color:#991B1B;font-size:13px;line-height:1.6;">
+                      <strong>⚠ Lưu ý bảo mật:</strong> Không chia sẻ mã này với bất kỳ ai. Đội ngũ hỗ trợ của chúng tôi sẽ <strong>không bao giờ</strong> yêu cầu bạn cung cấp mã OTP.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6;">
+                Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email này hoặc liên hệ
+                <a href="mailto:${process.env.EMAIL_USER}" style="color:#1565C0;text-decoration:none;">bộ phận hỗ trợ</a> ngay.
+              </p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="background:#F9FAFB;border-top:1px solid #e5e7eb;padding:20px 48px;text-align:center;">
+              <p style="margin:0 0 4px;color:#6b7280;font-size:12px;">Email được gửi lúc ${timeStr}</p>
+              <p style="margin:0;color:#9ca3af;font-size:11px;">
+                &copy; ${now.getFullYear()} Hệ thống quản lý nội bộ &mdash; Tất cả quyền được bảo lưu.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 
         const mailOptions = {
-            from: process.env.EMAIL_USER,
+            from: `"Hệ thống Quản lý" <${process.env.EMAIL_USER}>`,
             to: email,
-            subject: 'Mã OTP để đặt lại mật khẩu',
+            subject: '🔐 Mã OTP đặt lại mật khẩu của bạn',
             html: htmlContent
         };
 
