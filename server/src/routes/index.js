@@ -9,7 +9,6 @@ import hrRoutes from './hrRoutes.js';
 import salesRoutes from './salesRoutes.js';
 import supplierRoutes from './supplierRoutes.js';
 import financeRoutes from './financeRoutes.js';
-import returnRoutes from './returnRoutes.js';
 import customerRoutes from './customerRoutes.js';
 import catalogRoutes from './catalogRoutes.js';
 import chatRoutes from './chat.js';
@@ -30,7 +29,7 @@ export const initRoutes = (app) => {
         hr: ['/api/hr (includes attendance, leave, salary)'],
         warehouse: ['/api/warehouse (includes products, stock, transfers)', '/api/suppliers'],
         catalog: ['/api/catalog (authors, categories)'],
-        sales: ['/api/sales', '/api/returns', '/api/customers'],
+        sales: ['/api/sales', '/api/customers'],
         finance: ['/api/finance']
       }
     });
@@ -72,7 +71,6 @@ export const initRoutes = (app) => {
   // ======================= SALES & POS =======================
   app.use('/api/sales', salesRoutes);
   app.use('/api/orders', salesRoutes);
-  app.use('/api/returns', returnRoutes);
   app.use('/api/customers', customerRoutes);
 
   // ======================= PROMOTIONS & VOUCHERS =======================

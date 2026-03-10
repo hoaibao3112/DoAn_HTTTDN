@@ -42,7 +42,6 @@ export const FEATURES = {
     POS: 19,                      // Bán hàng (POS)
     INVOICES: 20,                 // Quản lý hóa đơn
     CUSTOMERS: 21,                // Quản lý khách hàng
-    RETURNS: 22,                  // Trả hàng
 
     // ============ BÁO CÁO (Reports) ============
     REPORTS: 23,                  // Báo cáo thống kê
@@ -101,7 +100,6 @@ export const FEATURE_NAMES = {
     19: 'Bán hàng (POS)',
     20: 'Quản lý hóa đơn',
     21: 'Quản lý khách hàng',
-    22: 'Trả hàng',
     23: 'Báo cáo thống kê',
     24: 'Báo cáo doanh thu',
     25: 'Báo cáo lợi nhuận',

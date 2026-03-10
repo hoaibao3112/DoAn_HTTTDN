@@ -51,7 +51,6 @@ const Sidebar = () => {
     { to: '/admin/salary', icon: 'payments', text: 'Tính lương', permissionId: FEATURES.SALARY },
     { to: '/admin/leave', icon: 'event_busy', text: 'Xin nghỉ phép', permissionId: FEATURES.LEAVE },
     { to: '/admin/attendance', icon: 'check_circle', text: 'Chấm công', permissionId: FEATURES.ATTENDANCE },
-    { to: '/admin/returns', icon: 'assignment_return', text: 'Quản lý trả hàng', permissionId: FEATURES.RETURNS },
     { to: '/admin/audit-logs', icon: 'history', text: 'Nhật ký hoạt động', permissionId: FEATURES.AUDIT_LOGS }
   ];
 

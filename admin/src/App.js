@@ -17,7 +17,6 @@ import RoleManagement from './pages/RoleManagement';
 import Receipt from './pages/receipt.js';
 import Statistical from './pages/statistical.js';
 import KhuyenMai from './pages/khuyenmai.js';
-import ReturnManagement from './pages/ReturnManagement.js';
 import Profile from './pages/Profile';
 import SalaryPage from './pages/SalaryPage';
 import LeavePage from './pages/LeavePage';
@@ -241,16 +240,6 @@ const App = () => {
         }
       />
 
-      <Route
-        path="/admin/returns"
-        element={
-          <PrivateRoute
-            component={() => (
-              <RestrictedRoute component={ReturnManagement} permissionId={FEATURES.RETURNS} />
-            )}
-          />
-        }
-      />
 
       <Route
         path="/admin/pos"
