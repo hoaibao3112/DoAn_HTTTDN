@@ -240,7 +240,6 @@ const App = () => {
         }
       />
 
-
       <Route
         path="/admin/pos"
         element={

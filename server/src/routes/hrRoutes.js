@@ -1,6 +1,7 @@
 import express from 'express';
 import hrController from '../controllers/hrController.js';
 import attendanceController from '../controllers/attendanceController.js';
+import bonusPenaltyController from '../controllers/bonusPenaltyController.js';
 import pool from '../config/connectDatabase.js';
 import { authenticateToken } from '../utils/generateToken.js';
 import { checkPermission } from '../middlewares/rbacMiddleware.js';
@@ -617,6 +618,31 @@ router.put('/salary-pay-all',
     }
 );
 
-export default router;
+// ======================= THƯỞNG/PHẠT THỦ CÔNG =======================
+router.get('/bonus-penalty',
+    checkPermission(FEATURES.BONUS_PENALTY, PERMISSIONS.VIEW),
+    bonusPenaltyController.getAll
+);
 
+router.get('/bonus-penalty/summary',
+    checkPermission(FEATURES.BONUS_PENALTY, PERMISSIONS.VIEW),
+    bonusPenaltyController.getSummary
+);
+
+router.post('/bonus-penalty',
+    checkPermission(FEATURES.BONUS_PENALTY, PERMISSIONS.CREATE),
+    bonusPenaltyController.create
+);
+
+router.put('/bonus-penalty/:id',
+    checkPermission(FEATURES.BONUS_PENALTY, PERMISSIONS.UPDATE),
+    bonusPenaltyController.update
+);
+
+router.delete('/bonus-penalty/:id',
+    checkPermission(FEATURES.BONUS_PENALTY, PERMISSIONS.DELETE),
+    bonusPenaltyController.delete
+);
+
+export default router;
 

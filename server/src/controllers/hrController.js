@@ -294,7 +294,7 @@ const hrController = {
     calculateMonthlySalary: async (req, res) => {
         // Đọc từ req.body (khi gọi từ form) HOẶC req.params (khi gọi từ /compute/:year/:month)
         const month = req.body?.month ?? req.params?.month;
-        const year  = req.body?.year  ?? req.params?.year;
+        const year = req.body?.year ?? req.params?.year;
         if (!month || !year) {
             return res.status(400).json({ success: false, message: 'Vui lòng cung cấp tháng và năm' });
         }
@@ -324,6 +324,18 @@ const hrController = {
                      WHERE MaNV = ? AND MONTH(Ngay) = ? AND YEAR(Ngay) = ?`,
                     [emp.MaNV, month, year]
                 );
+
+                // Lấy tổng thưởng/phạt thủ công từ bảng mới
+                const [manualStats] = await pool.query(
+                    `SELECT 
+                        SUM(CASE WHEN Loai = 'Thuong' THEN SoTien ELSE 0 END) as ManualBonus,
+                        SUM(CASE WHEN Loai = 'Phat' THEN SoTien ELSE 0 END) as ManualPenalty
+                     FROM thuong_phat
+                     WHERE MaNV = ? AND Thang = ? AND Nam = ?`,
+                    [emp.MaNV, month, year]
+                );
+                const manualBonus = parseFloat(manualStats[0].ManualBonus || 0);
+                const manualPenalty = parseFloat(manualStats[0].ManualPenalty || 0);
 
                 const {
                     PayableDays = 0, LateEarlyCount = 0, OT_Hours = 0,
@@ -367,13 +379,14 @@ const hrController = {
                 // 2. OT Pay (standard 1.5x)
                 const otPay = OT_Hours * hourlyRate * 1.5;
 
-                // 3. Fines (Late/Early: 20,000 VND per instance)
-                const lateFine = LateEarlyCount * 20000;
+                // 3. Fines (Late/Early: 20,000 VND per instance + Manual Penalty)
+                const totalPenalty = (LateEarlyCount * 20000) + manualPenalty;
 
-                // 4. Bonus: If they work all 26 days without any late/absence, maybe a 200k bonus?
+                // 4. Bonus: Diligence (200k) + Manual Bonus
                 const diligenceBonus = (PayableDays >= 26 && LateEarlyCount === 0 && UnpaidAbsenceCount === 0) ? 200000 : 0;
+                const totalBonus = diligenceBonus + manualBonus;
 
-                const tongLuong = basePay + parseFloat(emp.PhuCap || 0) + otPay + diligenceBonus - lateFine;
+                const tongLuong = basePay + parseFloat(emp.PhuCap || 0) + otPay + totalBonus - totalPenalty;
 
                 await pool.query(
                     `INSERT INTO luong (MaNV, Thang, Nam, LuongCoBan, PhuCap, SoNgayLam, SoGioTangCa, Thuong, Phat, TongLuong, TrangThai)
@@ -386,7 +399,7 @@ const hrController = {
                         Phat = VALUES(Phat)`,
                     [
                         emp.MaNV, month, year, base, emp.PhuCap || 0,
-                        PayableDays + holidayNotWorkedDays, OT_Hours, diligenceBonus, lateFine,
+                        PayableDays + holidayNotWorkedDays, OT_Hours, totalBonus, totalPenalty,
                         Math.round(tongLuong)
                     ]
                 );
