@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DFD Mức 0 - Hệ Thống Quản Lý Nhà Sách</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 18px;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .legend-symbol {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .legend-text {
+            font-size: 14px;
+            color: #2c3e50;
+        }
+
+        svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Styles for DFD elements */
+        .external-entity {
+            fill: #3498db;
+            stroke: #2980b9;
+            stroke-width: 3;
+        }
+
+        .external-entity-text {
+            fill: white;
+            font-size: 16px;
+            font-weight: bold;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .process {
+            fill: #e74c3c;
+            stroke: #c0392b;
+            stroke-width: 4;
+        }
+
+        .process-text {
+            fill: white;
+            font-size: 20px;
+            font-weight: bold;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .process-number {
+            fill: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-anchor: middle;
+        }
+
+        .data-flow {
+            stroke: #34495e;
+            stroke-width: 2.5;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+
+        .data-flow-label {
+            fill: #2c3e50;
+            font-size: 13px;
+            font-weight: 600;
+            text-anchor: middle;
+            background: white;
+        }
+
+        .data-flow-label-bg {
+            fill: white;
+            opacity: 0.95;
+        }
+
+        /* Animation */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .data-flow {
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            h1 { font-size: 24px; }
+            .subtitle { font-size: 14px; }
+            svg { height: auto; }
+        }
+
+        .note {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 5px;
+        }
+
+        .note h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .note ul {
+            margin-left: 20px;
+            color: #856404;
+        }
+
+        .note li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 SƠ ĐỒ DFD MỨC 0 (CONTEXT DIAGRAM)</h1>
+        <div class="subtitle">Hệ Thống Quản Lý Nhà Sách</div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-symbol" style="background: #3498db; color: white; border-radius: 5px;">□</div>
+                <div class="legend-text">External Entity<br>(Thực thể bên ngoài)</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-symbol" style="background: #e74c3c; color: white; border-radius: 50%;">⊙</div>
+                <div class="legend-text">Process<br>(Hệ thống)</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-symbol" style="border-bottom: 3px solid #34495e;">→</div>
+                <div class="legend-text">Data Flow<br>(Luồng dữ liệu)</div>
+            </div>
+        </div>
+
+        <svg viewBox="0 0 1400 1100" xmlns="http://www.w3.org/2000/svg">
+            <!-- Define arrow marker -->
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                    <polygon points="0 0, 10 3, 0 6" fill="#34495e" />
+                </marker>
+            </defs>
+
+            <!-- Central Process (Circle) - Hệ thống -->
+            <circle cx="700" cy="550" r="140" class="process" />
+            <text x="700" y="530" class="process-number">0</text>
+            <text x="700" y="560" class="process-text">HỆ THỐNG</text>
+            <text x="700" y="585" class="process-text">QUẢN LÝ</text>
+            <text x="700" y="610" class="process-text">NHÀ SÁCH</text>
+
+            <!-- External Entity 1: Admin/Quản lý (Top Left) -->
+            <rect x="50" y="50" width="200" height="100" class="external-entity" rx="10" />
+            <text x="150" y="90" class="external-entity-text">ADMIN/</text>
+            <text x="150" y="115" class="external-entity-text">QUẢN LÝ</text>
+
+            <!-- External Entity 2: Nhân viên Kho (Top) -->
+            <rect x="350" y="30" width="200" height="100" class="external-entity" rx="10" />
+            <text x="450" y="70" class="external-entity-text">NHÂN VIÊN</text>
+            <text x="450" y="95" class="external-entity-text">KHO</text>
+
+            <!-- External Entity 3: Nhân viên Bán hàng (Top Right) -->
+            <rect x="650" y="50" width="200" height="100" class="external-entity" rx="10" />
+            <text x="750" y="90" class="external-entity-text">NHÂN VIÊN</text>
+            <text x="750" y="115" class="external-entity-text">BÁN HÀNG</text>
+
+            <!-- External Entity 4: Nhân viên Thường (Right Top) -->
+            <rect x="1150" y="50" width="200" height="100" class="external-entity" rx="10" />
+            <text x="1250" y="90" class="external-entity-text">NHÂN VIÊN</text>
+            <text x="1250" y="115" class="external-entity-text">THƯỜNG</text>
+
+            <!-- External Entity 5: Khách hàng (Right) -->
+            <rect x="1150" y="500" width="200" height="100" class="external-entity" rx="10" />
+            <text x="1250" y="540" class="external-entity-text">KHÁCH HÀNG</text>
+
+            <!-- External Entity 6: Nhà cung cấp (Bottom Right) -->
+            <rect x="1000" y="900" width="200" height="100" class="external-entity" rx="10" />
+            <text x="1100" y="940" class="external-entity-text">NHÀ CUNG CẤP</text>
+
+            <!-- External Entity 7: Cổng thanh toán (Bottom) -->
+            <rect x="550" y="950" width="220" height="100" class="external-entity" rx="10" />
+            <text x="660" y="985" class="external-entity-text">CỔNG THANH TOÁN</text>
+            <text x="660" y="1010" class="external-entity-text" style="font-size: 12px;">(VNPay, MoMo, ZaloPay)</text>
+
+            <!-- External Entity 8: Báo cáo/Thống kê (Left Bottom) -->
+            <rect x="50" y="900" width="200" height="100" class="external-entity" rx="10" />
+            <text x="150" y="940" class="external-entity-text">BÁO CÁO/</text>
+            <text x="150" y="965" class="external-entity-text">THỐNG KÊ</text>
+
+            <!-- Data Flows -->
+            
+            <!-- Admin to System -->
+            <path d="M 150 150 L 600 480" class="data-flow" />
+            <rect x="330" y="295" width="140" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="400" y="315" class="data-flow-label">Quản lý hệ thống</text>
+
+            <!-- System to Admin -->
+            <path d="M 600 500 L 200 150" class="data-flow" />
+            <rect x="340" y="300" width="140" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="410" y="320" class="data-flow-label">Thông tin, báo cáo</text>
+
+            <!-- Nhân viên Kho to System -->
+            <path d="M 450 130 L 620 480" class="data-flow" />
+            <rect x="485" y="285" width="130" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="550" y="305" class="data-flow-label">Nhập kho, kiểm kê</text>
+
+            <!-- System to Nhân viên Kho -->
+            <path d="M 630 470 L 500 130" class="data-flow" />
+            <rect x="510" y="280" width="100" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="560" y="300" class="data-flow-label">Thông tin kho</text>
+
+            <!-- Nhân viên Bán hàng to System -->
+            <path d="M 750 150 L 730 410" class="data-flow" />
+            <rect x="695" y="260" width="110" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="750" y="280" class="data-flow-label">Tạo hóa đơn</text>
+
+            <!-- System to Nhân viên Bán hàng -->
+            <path d="M 740 410 L 780 150" class="data-flow" />
+            <rect x="715" y="260" width="90" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="760" y="280" class="data-flow-label">Hóa đơn, KM</text>
+
+            <!-- Nhân viên Thường to System -->
+            <path d="M 1150 100 L 840 500" class="data-flow" />
+            <rect x="950" y="280" width="120" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="1010" y="300" class="data-flow-label">Chấm công, nghỉ</text>
+
+            <!-- System to Nhân viên Thường -->
+            <path d="M 840 520 L 1150 130" class="data-flow" />
+            <rect x="945" y="310" width="110" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="1000" y="330" class="data-flow-label">Lương, ca làm</text>
+
+            <!-- Khách hàng to System -->
+            <path d="M 1150 550 L 840 550" class="data-flow" />
+            <rect x="930" y="530" width="170" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="1015" y="550" class="data-flow-label">Đơn hàng, tích điểm, trả hàng</text>
+
+            <!-- System to Khách hàng -->
+            <path d="M 840 570 L 1150 570" class="data-flow" />
+            <rect x="915" y="555" width="150" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="990" y="575" class="data-flow-label">Hóa đơn, loyalty, voucher</text>
+
+            <!-- Nhà cung cấp to System -->
+            <path d="M 1000 950 L 800 650" class="data-flow" />
+            <rect x="850" y="775" width="110" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="905" y="795" class="data-flow-label">Cung cấp hàng</text>
+
+            <!-- System to Nhà cung cấp -->
+            <path d="M 810 660 L 1000 920" class="data-flow" />
+            <rect x="850" y="765" width="130" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="915" y="785" class="data-flow-label">Thanh toán công nợ</text>
+
+            <!-- System to Cổng thanh toán -->
+            <path d="M 680 690 L 680 950" class="data-flow" />
+            <rect x="590" y="800" width="180" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="680" y="820" class="data-flow-label">Yêu cầu thanh toán online</text>
+
+            <!-- Cổng thanh toán to System -->
+            <path d="M 640 950 L 640 690" class="data-flow" />
+            <rect x="550" y="800" width="180" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="640" y="820" class="data-flow-label">Kết quả thanh toán</text>
+
+            <!-- System to Báo cáo -->
+            <path d="M 580 620 L 200 900" class="data-flow" />
+            <rect x="320" y="735" width="150" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="395" y="755" class="data-flow-label">Dữ liệu báo cáo</text>
+
+            <!-- Báo cáo to System -->
+            <path d="M 250 900 L 590 650" class="data-flow" />
+            <rect x="350" y="750" width="140" height="30" class="data-flow-label-bg" rx="5" />
+            <text x="420" y="770" class="data-flow-label">Yêu cầu báo cáo</text>
+
+        </svg>
+
+        <div class="note">
+            <h3>📝 Giải thích sơ đồ DFD Mức 0:</h3>
+            <ul>
+                <li><strong>Hệ thống trung tâm (Process 0):</strong> Hệ thống quản lý nhà sách tổng thể</li>
+                <li><strong>8 External Entities (Thực thể bên ngoài):</strong>
+                    <ul>
+                        <li>Admin/Quản lý: Quản trị toàn bộ hệ thống</li>
+                        <li>Nhân viên Kho: Quản lý sản phẩm, nhập hàng, kiểm kê</li>
+                        <li>Nhân viên Bán hàng: Tạo hóa đơn, bán hàng POS</li>
+                        <li>Nhân viên Thường: Chấm công, xin nghỉ, xem lương</li>
+                        <li>Khách hàng: Mua hàng, tích điểm, trả hàng</li>
+                        <li>Nhà cung cấp: Cung cấp hàng hóa, nhận thanh toán</li>
+                        <li>Cổng thanh toán: Xử lý thanh toán online</li>
+                        <li>Báo cáo/Thống kê: Module xuất báo cáo</li>
+                    </ul>
+                </li>
+                <li><strong>Data Flows (Luồng dữ liệu):</strong> Các mũi tên thể hiện luồng thông tin giữa các thực thể và hệ thống</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Add hover effect
+        document.querySelectorAll('.external-entity, .process').forEach(element => {
+            element.addEventListener('mouseenter', function() {
+                this.style.filter = 'brightness(1.2)';
+                this.style.transform = 'scale(1.05)';
+                this.style.transition = 'all 0.3s ease';
+            });
+            element.addEventListener('mouseleave', function() {
+                this.style.filter = 'brightness(1)';
+                this.style.transform = 'scale(1)';
+            });
+        });
+
+        console.log('DFD Level 0 - Hệ thống Quản lý Nhà sách');
+        console.log('Tạo bởi: GitHub Copilot');
+        console.log('Ngày: 09/03/2026');
+    </script>
+</body>
+</html>

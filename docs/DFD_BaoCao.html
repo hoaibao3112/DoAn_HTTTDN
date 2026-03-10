@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sơ đồ DFD - Hệ thống Quản trị Bán Sách (WebSach)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d2e;
+    --card: #21253a;
+    --border: #2e3250;
+    --accent: #6c63ff;
+    --accent2: #00d4aa;
+    --accent3: #ff6b6b;
+    --accent4: #ffd166;
+    --text: #e8eaf6;
+    --text-muted: #8b91b5;
+    --process-bg: #6c63ff;
+    --entity-bg: #00d4aa;
+    --store-bg: #ff6b6b;
+    --arrow: #ffd166;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: linear-gradient(135deg, #1a1d2e 0%, #12152a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 32px 40px;
+    text-align: center;
+  }
+  header .badge {
+    display: inline-block;
+    background: rgba(108,99,255,0.15);
+    border: 1px solid rgba(108,99,255,0.4);
+    color: var(--accent);
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  header p { color: var(--text-muted); font-size: 0.95rem; }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 8px;
+    padding: 24px 40px 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .tab-btn {
+    padding: 10px 24px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab-btn:hover { color: var(--text); }
+
+  /* CONTENT */
+  .tab-content { display: none; padding: 40px; }
+  .tab-content.active { display: block; }
+
+  /* LEGEND */
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+    padding: 16px 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    align-items: center;
+  }
+  .legend-title { color: var(--text-muted); font-size: 0.8rem; font-weight: 600; margin-right: 4px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
+  .leg-box {
+    width: 32px; height: 20px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* SVG CONTAINER */
+  .diagram-wrapper {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    overflow-x: auto;
+    margin-bottom: 32px;
+  }
+  .diagram-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .diagram-title .tag {
+    font-size: 0.75rem;
+    background: rgba(108,99,255,0.2);
+    color: var(--accent);
+    padding: 2px 10px;
+    border-radius: 10px;
+  }
+
+  svg text { font-family: 'Inter', sans-serif; }
+
+  /* DESC TABLE */
+  .desc-section { margin-top: 32px; }
+  .desc-section h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  th {
+    background: rgba(108,99,255,0.15);
+    color: var(--accent);
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+  }
+  tr:hover td { background: rgba(108,99,255,0.05); }
+  .tag-process { background: rgba(108,99,255,0.2); color: #a89fff; padding: 2px 8px; border-radius: 8px; font-size: 0.78rem; }
+  .tag-entity { background: rgba(0,212,170,0.2); color: #00d4aa; padding: 2px 8px; border-radius: 8px; font-size: 0.78rem; }
+  .tag-store { background: rgba(255,107,107,0.2); color: #ff6b6b; padding: 2px 8px; border-radius: 8px; font-size: 0.78rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="badge">Báo cáo CNPM</div>
+  <h1>Sơ đồ Luồng Dữ liệu (DFD)</h1>
+  <p>Hệ thống Quản trị Bán Sách — WebSach &nbsp;|&nbsp; Node.js / React / MySQL</p>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('dfd0')">DFD Mức 0 (Context)</button>
+  <button class="tab-btn" onclick="switchTab('dfd1')">DFD Mức 1 (Tổng quát)</button>
+  <button class="tab-btn" onclick="switchTab('desc')">Mô tả chi tiết</button>
+</div>
+
+<!-- ===== TAB DFD 0 ===== -->
+<div id="dfd0" class="tab-content active">
+  <div class="legend">
+    <span class="legend-title">Chú thích:</span>
+    <div class="legend-item"><div class="leg-box" style="background:#00d4aa;border-radius:3px;"></div> Thực thể ngoài</div>
+    <div class="legend-item"><div class="leg-box" style="background:#6c63ff;border-radius:50%;"></div> Tiến trình (Process)</div>
+    <div class="legend-item"><div class="leg-box" style="background:#ffd166;border-radius:2px;border:1px solid #ffd166;"></div> Luồng dữ liệu</div>
+  </div>
+
+  <div class="diagram-wrapper">
+    <div class="diagram-title">
+      Sơ đồ DFD Mức 0 — Ngữ cảnh hệ thống
+      <span class="tag">Context Diagram</span>
+    </div>
+    <svg viewBox="0 0 900 580" width="100%" style="max-width:900px;display:block;margin:auto;">
+      <defs>
+        <marker id="arr0" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0,10 3.5,0 7" fill="#ffd166"/>
+        </marker>
+        <filter id="glow0">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <radialGradient id="procGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#8b7fff"/>
+          <stop offset="100%" stop-color="#6c63ff"/>
+        </radialGradient>
+      </defs>
+
+      <!-- CENTER: Main Process -->
+      <circle cx="450" cy="290" r="100" fill="url(#procGrad)" opacity="0.95" filter="url(#glow0)"/>
+      <circle cx="450" cy="290" r="100" fill="none" stroke="#a89fff" stroke-width="1.5" opacity="0.6"/>
+      <text x="450" y="278" text-anchor="middle" fill="white" font-size="15" font-weight="700">HỆ THỐNG</text>
+      <text x="450" y="298" text-anchor="middle" fill="white" font-size="15" font-weight="700">QUẢN TRỊ</text>
+      <text x="450" y="318" text-anchor="middle" fill="#c8c4ff" font-size="12">BÁN SÁCH</text>
+
+      <!-- ENTITY: Quản trị viên (TOP) -->
+      <rect x="345" y="30" width="210" height="54" rx="8" fill="#00d4aa" opacity="0.9"/>
+      <text x="450" y="53" text-anchor="middle" fill="#003a31" font-size="13" font-weight="700">QUẢN TRỊ VIÊN</text>
+      <text x="450" y="72" text-anchor="middle" fill="#003a31" font-size="11">(Admin / Nhân viên)</text>
+
+      <!-- ENTITY: Khách hàng (LEFT) -->
+      <rect x="30" y="258" width="160" height="54" rx="8" fill="#00d4aa" opacity="0.9"/>
+      <text x="110" y="281" text-anchor="middle" fill="#003a31" font-size="13" font-weight="700">KHÁCH HÀNG</text>
+      <text x="110" y="300" text-anchor="middle" fill="#003a31" font-size="11">(Customer)</text>
+
+      <!-- ENTITY: Nhà cung cấp (RIGHT) -->
+      <rect x="710" y="258" width="165" height="54" rx="8" fill="#00d4aa" opacity="0.9"/>
+      <text x="792" y="281" text-anchor="middle" fill="#003a31" font-size="13" font-weight="700">NHÀ CUNG CẤP</text>
+      <text x="792" y="300" text-anchor="middle" fill="#003a31" font-size="11">(Supplier)</text>
+
+      <!-- ENTITY: Ngân hàng / Thanh toán (BOTTOM-RIGHT) -->
+      <rect x="590" y="490" width="185" height="54" rx="8" fill="#00d4aa" opacity="0.9"/>
+      <text x="682" y="513" text-anchor="middle" fill="#003a31" font-size="13" font-weight="700">CỔNG THANH TOÁN</text>
+      <text x="682" y="532" text-anchor="middle" fill="#003a31" font-size="11">(Payment Gateway)</text>
+
+      <!-- ENTITY: Bưu cục / Chi nhánh (BOTTOM-LEFT) -->
+      <rect x="125" y="490" width="175" height="54" rx="8" fill="#00d4aa" opacity="0.9"/>
+      <text x="212" y="513" text-anchor="middle" fill="#003a31" font-size="13" font-weight="700">CHI NHÁNH</text>
+      <text x="212" y="532" text-anchor="middle" fill="#003a31" font-size="11">(Branch)</text>
+
+      <!-- ARROWS: Admin → System -->
+      <line x1="450" y1="84" x2="450" y2="188" stroke="#ffd166" stroke-width="2" marker-end="url(#arr0)"/>
+      <rect x="462" y="118" width="130" height="20" rx="4" fill="rgba(255,209,102,0.1)"/>
+      <text x="527" y="132" text-anchor="middle" fill="#ffd166" font-size="11">Lệnh quản lý, thông tin</text>
+
+      <!-- ARROWS: System → Admin -->
+      <line x1="430" y1="190" x2="430" y2="86" stroke="#ffd166" stroke-width="2" marker-end="url(#arr0)"/>
+      <rect x="288" y="118" width="130" height="20" rx="4" fill="rgba(255,209,102,0.1)"/>
+      <text x="350" y="132" text-anchor="middle" fill="#ffd166" font-size="11">Báo cáo, kết quả</text>
+
+      <!-- ARROWS: Khách hàng ↔ System -->
+      <line x1="190" y1="278" x2="348" y2="278" stroke="#ffd166" stroke-width="2" marker-end="url(#arr0)"/>
+      <text x="268" y="268" text-anchor="middle" fill="#ffd166" font-size="11">Đặt hàng, yêu cầu</text>
+      <line x1="350" y1="298" x2="192" y2="298" stroke="#ffd166" stroke-width="2" marker-end="url(#arr0)"/>
+      <text x="270" y="316" text-anchor="middle" fill="#ffd166" font-size="11">Hóa đơn, điểm loyalty</text>
+
+      <!-- ARROWS: NCC ↔ System -->
+      <line x1="710" y1="278" x2="552" y2="278" stroke="#ffd166" stroke-width="2" marker-end="url(#arr0)"/>
+      <text x="632" y="268" text-anchor="middle" fill="#ffd166" font-size="11">Hàng hóa, giá</text>
+      <line x1="550" y1="298" x2="708" y2="298" stroke="#ffd166" stroke-width="2" marker-end="url(#arr0)"/>
+      <text x="630" y="316" text-anchor="middle" fill="#ffd166" font-size="11">Đơn đặt hàng</text>
+
+      <!-- ARROWS: System ↔ Thanh toán -->
+      <line x1="510" y1="380" x2="654" y2="490" stroke="#ffd166" stroke-width="2" marker-end="url(#arr0)"/>
+      <text x="598" y="432" text-anchor="middle" fill="#ffd166" font-size="11">Yêu cầu TT</text>
+      <line x1="640" y1="490" x2="498" y2="382" stroke="#ffd166" stroke-width="2" marker-end="url(#arr0)"/>
+      <text x="548" y="445" text-anchor="middle" fill="#ffd166" font-size="11">Kết quả TT</text>
+
+      <!-- ARROWS: System ↔ Chi nhánh -->
+      <line x1="392" y1="378" x2="248" y2="490" stroke="#ffd166" stroke-width="2" marker-end="url(#arr0)"/>
+      <text x="296" y="432" text-anchor="middle" fill="#ffd166" font-size="11">Chuyển kho</text>
+      <line x1="254" y1="490" x2="402" y2="380" stroke="#ffd166" stroke-width="2" marker-end="url(#arr0)"/>
+      <text x="310" y="450" text-anchor="middle" fill="#ffd166" font-size="11">Tồn kho</text>
+    </svg>
+  </div>
+
+  <div class="desc-section">
+    <h3>📋 Mô tả DFD Mức 0</h3>
+    <table>
+      <tr><th>Thực thể</th><th>Dữ liệu vào hệ thống</th><th>Dữ liệu ra từ hệ thống</th></tr>
+      <tr><td><span class="tag-entity">Quản trị viên</span></td><td>Lệnh quản lý, thông tin sản phẩm, phân quyền, cấu hình</td><td>Báo cáo doanh thu, tồn kho, nhân sự, kết quả xử lý</td></tr>
+      <tr><td><span class="tag-entity">Khách hàng</span></td><td>Đặt hàng, thông tin cá nhân, yêu cầu trả hàng</td><td>Hóa đơn, thông tin đơn hàng, điểm tích lũy, khuyến mãi</td></tr>
+      <tr><td><span class="tag-entity">Nhà cung cấp</span></td><td>Danh sách hàng hóa, báo giá, xác nhận đơn</td><td>Phiếu nhập hàng, đơn đặt hàng, thanh toán</td></tr>
+      <tr><td><span class="tag-entity">Cổng thanh toán</span></td><td>Kết quả xác nhận thanh toán</td><td>Yêu cầu thanh toán, mã giao dịch</td></tr>
+      <tr><td><span class="tag-entity">Chi nhánh</span></td><td>Thông tin tồn kho từng chi nhánh</td><td>Lệnh chuyển kho, thông tin điều phối</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ===== TAB DFD 1 ===== -->
+<div id="dfd1" class="tab-content">
+  <div class="legend">
+    <span class="legend-title">Chú thích:</span>
+    <div class="legend-item"><div class="leg-box" style="background:#00d4aa;border-radius:3px;"></div> Thực thể ngoài</div>
+    <div class="legend-item"><div class="leg-box" style="background:#6c63ff;border-radius:50%;"></div> Tiến trình</div>
+    <div class="legend-item"><div class="leg-box" style="background:transparent;border:2px solid #ff6b6b;"></div> Kho dữ liệu (Data Store)</div>
+    <div class="legend-item"><div class="leg-box" style="background:#ffd166;"></div> Luồng dữ liệu</div>
+  </div>
+
+  <div class="diagram-wrapper">
+    <div class="diagram-title">
+      Sơ đồ DFD Mức 1 — Phân rã các tiến trình chính
+      <span class="tag">Level 1</span>
+    </div>
+    <svg viewBox="0 0 1100 820" width="100%" style="max-width:1100px;display:block;margin:auto;">
+      <defs>
+        <marker id="arr1" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0,9 3,0 6" fill="#ffd166"/>
+        </marker>
+        <radialGradient id="pGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#8b7fff"/>
+          <stop offset="100%" stop-color="#5a52d5"/>
+        </radialGradient>
+      </defs>
+
+      <!-- ============ EXTERNAL ENTITIES (left & right columns) ============ -->
+      <!-- Admin -->
+      <rect x="10" y="30" width="140" height="44" rx="7" fill="#00d4aa" opacity="0.9"/>
+      <text x="80" y="50" text-anchor="middle" fill="#003a31" font-size="12" font-weight="700">QUẢN TRỊ VIÊN</text>
+      <text x="80" y="66" text-anchor="middle" fill="#003a31" font-size="10">Admin</text>
+
+      <!-- Khách hàng -->
+      <rect x="10" y="240" width="140" height="44" rx="7" fill="#00d4aa" opacity="0.9"/>
+      <text x="80" y="260" text-anchor="middle" fill="#003a31" font-size="12" font-weight="700">KHÁCH HÀNG</text>
+      <text x="80" y="276" text-anchor="middle" fill="#003a31" font-size="10">Customer</text>
+
+      <!-- NCC -->
+      <rect x="10" y="450" width="140" height="44" rx="7" fill="#00d4aa" opacity="0.9"/>
+      <text x="80" y="470" text-anchor="middle" fill="#003a31" font-size="12" font-weight="700">NHÀ CUNG CẤP</text>
+      <text x="80" y="486" text-anchor="middle" fill="#003a31" font-size="10">Supplier</text>
+
+      <!-- Chi nhánh -->
+      <rect x="950" y="450" width="140" height="44" rx="7" fill="#00d4aa" opacity="0.9"/>
+      <text x="1020" y="470" text-anchor="middle" fill="#003a31" font-size="12" font-weight="700">CHI NHÁNH</text>
+      <text x="1020" y="486" text-anchor="middle" fill="#003a31" font-size="10">Branch</text>
+
+      <!-- Thanh toán -->
+      <rect x="950" y="240" width="140" height="44" rx="7" fill="#00d4aa" opacity="0.9"/>
+      <text x="1020" y="260" text-anchor="middle" fill="#003a31" font-size="12" font-weight="700">CỔNG TT</text>
+      <text x="1020" y="276" text-anchor="middle" fill="#003a31" font-size="10">Payment Gateway</text>
+
+      <!-- ============ PROCESSES ============ -->
+      <!-- P1: Đăng nhập / Phân quyền (top-left area) -->
+      <circle cx="310" cy="80" r="60" fill="url(#pGrad)" opacity="0.95"/>
+      <text x="310" y="72" text-anchor="middle" fill="white" font-size="11" font-weight="700">P1</text>
+      <text x="310" y="87" text-anchor="middle" fill="white" font-size="10">Đăng nhập</text>
+      <text x="310" y="101" text-anchor="middle" fill="#c8c4ff" font-size="10">Phân quyền</text>
+
+      <!-- P2: Quản lý sản phẩm & kho (top-center) -->
+      <circle cx="560" cy="80" r="65" fill="url(#pGrad)" opacity="0.95"/>
+      <text x="560" y="68" text-anchor="middle" fill="white" font-size="11" font-weight="700">P2</text>
+      <text x="560" y="83" text-anchor="middle" fill="white" font-size="10">Quản lý Sản phẩm</text>
+      <text x="560" y="98" text-anchor="middle" fill="#c8c4ff" font-size="10">& Kho hàng</text>
+
+      <!-- P3: Nhập hàng (mid-left) -->
+      <circle cx="310" cy="310" r="60" fill="url(#pGrad)" opacity="0.95"/>
+      <text x="310" y="302" text-anchor="middle" fill="white" font-size="11" font-weight="700">P3</text>
+      <text x="310" y="317" text-anchor="middle" fill="white" font-size="10">Quản lý</text>
+      <text x="310" y="331" text-anchor="middle" fill="#c8c4ff" font-size="10">Nhập hàng</text>
+
+      <!-- P4: Bán hàng / POS (mid-center) -->
+      <circle cx="560" cy="310" r="65" fill="url(#pGrad)" opacity="0.95"/>
+      <text x="560" y="298" text-anchor="middle" fill="white" font-size="11" font-weight="700">P4</text>
+      <text x="560" y="313" text-anchor="middle" fill="white" font-size="10">Bán hàng / POS</text>
+      <text x="560" y="328" text-anchor="middle" fill="#c8c4ff" font-size="10">& Thanh toán</text>
+
+      <!-- P5: Trả hàng / Hoàn tiền (mid-right) -->
+      <circle cx="800" cy="310" r="60" fill="url(#pGrad)" opacity="0.95"/>
+      <text x="800" y="302" text-anchor="middle" fill="white" font-size="11" font-weight="700">P5</text>
+      <text x="800" y="317" text-anchor="middle" fill="white" font-size="10">Trả hàng</text>
+      <text x="800" y="331" text-anchor="middle" fill="#c8c4ff" font-size="10">Hoàn tiền</text>
+
+      <!-- P6: Quản lý nhân sự (bottom-left) -->
+      <circle cx="310" cy="540" r="60" fill="url(#pGrad)" opacity="0.95"/>
+      <text x="310" y="532" text-anchor="middle" fill="white" font-size="11" font-weight="700">P6</text>
+      <text x="310" y="547" text-anchor="middle" fill="white" font-size="10">Quản lý</text>
+      <text x="310" y="561" text-anchor="middle" fill="#c8c4ff" font-size="10">Nhân sự</text>
+
+      <!-- P7: Tài chính & Báo cáo (bottom-center) -->
+      <circle cx="560" cy="540" r="65" fill="url(#pGrad)" opacity="0.95"/>
+      <text x="560" y="528" text-anchor="middle" fill="white" font-size="11" font-weight="700">P7</text>
+      <text x="560" y="543" text-anchor="middle" fill="white" font-size="10">Tài chính</text>
+      <text x="560" y="558" text-anchor="middle" fill="#c8c4ff" font-size="10">& Báo cáo</text>
+
+      <!-- P8: Khuyến mãi / Loyalty (bottom-right) -->
+      <circle cx="800" cy="540" r="60" fill="url(#pGrad)" opacity="0.95"/>
+      <text x="800" y="532" text-anchor="middle" fill="white" font-size="11" font-weight="700">P8</text>
+      <text x="800" y="547" text-anchor="middle" fill="white" font-size="10">Khuyến mãi</text>
+      <text x="800" y="561" text-anchor="middle" fill="#c8c4ff" font-size="10">Loyalty</text>
+
+      <!-- ============ DATA STORES ============ -->
+      <!-- DS1: Tài khoản / Phân quyền -->
+      <rect x="390" y="14" width="170" height="30" rx="0" fill="none" stroke="#ff6b6b" stroke-width="2"/>
+      <line x1="390" y1="14" x2="390" y2="44" stroke="#ff6b6b" stroke-width="2"/>
+      <text x="476" y="34" text-anchor="middle" fill="#ff6b6b" font-size="11" font-weight="600">DS1: Tài khoản / Role</text>
+
+      <!-- DS2: Sản phẩm / Kho -->
+      <rect x="640" y="14" width="170" height="30" rx="0" fill="none" stroke="#ff6b6b" stroke-width="2"/>
+      <line x1="640" y1="14" x2="640" y2="44" stroke="#ff6b6b" stroke-width="2"/>
+      <text x="726" y="34" text-anchor="middle" fill="#ff6b6b" font-size="11" font-weight="600">DS2: Sản phẩm / Kho</text>
+
+      <!-- DS3: Đơn nhập / NCC -->
+      <rect x="150" y="390" width="170" height="30" rx="0" fill="none" stroke="#ff6b6b" stroke-width="2"/>
+      <line x1="150" y1="390" x2="150" y2="420" stroke="#ff6b6b" stroke-width="2"/>
+      <text x="236" y="410" text-anchor="middle" fill="#ff6b6b" font-size="11" font-weight="600">DS3: Đơn nhập / NCC</text>
+
+      <!-- DS4: Hóa đơn -->
+      <rect x="470" y="420" width="170" height="30" rx="0" fill="none" stroke="#ff6b6b" stroke-width="2"/>
+      <line x1="470" y1="420" x2="470" y2="450" stroke="#ff6b6b" stroke-width="2"/>
+      <text x="556" y="440" text-anchor="middle" fill="#ff6b6b" font-size="11" font-weight="600">DS4: Hóa đơn / Orders</text>
+
+      <!-- DS5: Nhân viên -->
+      <rect x="150" y="640" width="170" height="30" rx="0" fill="none" stroke="#ff6b6b" stroke-width="2"/>
+      <line x1="150" y1="640" x2="150" y2="670" stroke="#ff6b6b" stroke-width="2"/>
+      <text x="236" y="660" text-anchor="middle" fill="#ff6b6b" font-size="11" font-weight="600">DS5: Nhân viên</text>
+
+      <!-- DS6: Tài chính -->
+      <rect x="470" y="640" width="170" height="30" rx="0" fill="none" stroke="#ff6b6b" stroke-width="2"/>
+      <line x1="470" y1="640" x2="470" y2="670" stroke="#ff6b6b" stroke-width="2"/>
+      <text x="556" y="660" text-anchor="middle" fill="#ff6b6b" font-size="11" font-weight="600">DS6: Tài chính</text>
+
+      <!-- DS7: Khách hàng / Loyalty -->
+      <rect x="700" y="640" width="175" height="30" rx="0" fill="none" stroke="#ff6b6b" stroke-width="2"/>
+      <line x1="700" y1="640" x2="700" y2="670" stroke="#ff6b6b" stroke-width="2"/>
+      <text x="787" y="660" text-anchor="middle" fill="#ff6b6b" font-size="11" font-weight="600">DS7: Khách hàng / KM</text>
+
+      <!-- DS8: Trả hàng -->
+      <rect x="820" y="420" width="140" height="30" rx="0" fill="none" stroke="#ff6b6b" stroke-width="2"/>
+      <line x1="820" y1="420" x2="820" y2="450" stroke="#ff6b6b" stroke-width="2"/>
+      <text x="891" y="440" text-anchor="middle" fill="#ff6b6b" font-size="11" font-weight="600">DS8: Trả hàng</text>
+
+      <!-- ============ KEY ARROWS ============ -->
+
+      <!-- Admin → P1 -->
+      <line x1="150" y1="60" x2="248" y2="72" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+      <text x="194" y="58" text-anchor="middle" fill="#ffd166" font-size="10">Thông tin login</text>
+
+      <!-- P1 → DS1 -->
+      <line x1="370" y1="60" x2="390" y2="36" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+
+      <!-- Admin → P2 -->
+      <line x1="150" y1="50" x2="493" y2="60" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+      <text x="325" y="44" text-anchor="middle" fill="#ffd166" font-size="10">Thêm/sửa SP</text>
+
+      <!-- P2 → DS2 -->
+      <line x1="625" y1="65" x2="642" y2="40" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+
+      <!-- NCC → P3 -->
+      <line x1="150" y1="468" x2="249" y2="330" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+      <text x="178" y="400" text-anchor="middle" fill="#ffd166" font-size="10">Hàng hóa</text>
+
+      <!-- P3 → DS3 -->
+      <line x1="292" y1="370" x2="260" y2="420" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+
+      <!-- P3 → DS2 (cập nhật kho) -->
+      <line x1="350" y1="268" x2="490" y2="44" stroke="#ffd166" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr1)"/>
+      <text x="420" y="148" text-anchor="middle" fill="#ffd166" font-size="10">Cập nhật tồn kho</text>
+
+      <!-- Khách hàng → P4 -->
+      <line x1="150" y1="270" x2="493" y2="300" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+      <text x="310" y="276" text-anchor="middle" fill="#ffd166" font-size="10">Đặt hàng</text>
+
+      <!-- P4 → DS4 -->
+      <line x1="540" y1="375" x2="530" y2="420" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+
+      <!-- P4 ↔ Thanh toán -->
+      <line x1="864" y1="296" x2="950" y2="264" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+      <text x="920" y="278" text-anchor="middle" fill="#ffd166" font-size="10">Yêu cầu TT</text>
+
+      <!-- P4 → Khách hàng (hóa đơn) -->
+      <line x1="495" y1="330" x2="152" y2="286" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+      <text x="310" y="318" text-anchor="middle" fill="#ffd166" font-size="10">Hóa đơn</text>
+
+      <!-- P5: Trả hàng ← DS4 -->
+      <line x1="640" y1="440" x2="740" y2="360" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+
+      <!-- P5 → DS8 -->
+      <line x1="840" y1="370" x2="868" y2="420" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+
+      <!-- Admin → P6 -->
+      <line x1="150" y1="68" x2="250" y2="504" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+      <text x="172" y="290" text-anchor="middle" fill="#ffd166" font-size="10">Quản lý NS</text>
+
+      <!-- P6 → DS5 -->
+      <line x1="300" y1="600" x2="268" y2="640" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+
+      <!-- P7 → Admin (báo cáo) -->
+      <line x1="496" y1="540" x2="152" y2="74" stroke="#ffd166" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr1)"/>
+      <text x="295" y="296" text-anchor="middle" fill="#ffd166" font-size="10">Báo cáo</text>
+
+      <!-- P7 → DS6 -->
+      <line x1="540" y1="607" x2="530" y2="640" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+
+      <!-- P8 → DS7 -->
+      <line x1="782" y1="600" x2="760" y2="640" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+
+      <!-- P8 → Khách hàng (thông báo KM) -->
+      <line x1="740" y1="540" x2="152" y2="282" stroke="#ffd166" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr1)"/>
+      <text x="430" y="430" text-anchor="middle" fill="#ffd166" font-size="10">KM / Điểm loyal</text>
+
+      <!-- P2 ↔ Chi nhánh -->
+      <line x1="815" y1="100" x2="950" y2="460" stroke="#ffd166" stroke-width="1.5" marker-end="url(#arr1)"/>
+      <text x="906" y="274" text-anchor="middle" fill="#ffd166" font-size="10">Chuyển kho</text>
+
+    </svg>
+  </div>
+
+  <div class="desc-section">
+    <h3>📋 Mô tả các tiến trình DFD Mức 1</h3>
+    <table>
+      <tr><th>#</th><th>Tiến trình</th><th>Mô tả</th><th>Kho dữ liệu</th></tr>
+      <tr>
+        <td><span class="tag-process">P1</span></td>
+        <td>Đăng nhập / Phân quyền</td>
+        <td>Xác thực người dùng, quản lý phiên đăng nhập, kiểm tra quyền truy cập theo role</td>
+        <td>DS1: Tài khoản / Role</td>
+      </tr>
+      <tr>
+        <td><span class="tag-process">P2</span></td>
+        <td>Quản lý Sản phẩm & Kho</td>
+        <td>Thêm/sửa/xóa sản phẩm, quản lý danh mục, tác giả, tồn kho, chuyển kho giữa chi nhánh</td>
+        <td>DS2: Sản phẩm / Kho</td>
+      </tr>
+      <tr>
+        <td><span class="tag-process">P3</span></td>
+        <td>Quản lý Nhập hàng</td>
+        <td>Tạo phiếu nhập, xác nhận đơn từ nhà cung cấp, cập nhật tồn kho sau nhập</td>
+        <td>DS3: Đơn nhập / NCC</td>
+      </tr>
+      <tr>
+        <td><span class="tag-process">P4</span></td>
+        <td>Bán hàng / POS & Thanh toán</td>
+        <td>Tạo hóa đơn bán hàng, xử lý thanh toán, tích điểm khách hàng, áp dụng khuyến mãi</td>
+        <td>DS4: Hóa đơn / Orders</td>
+      </tr>
+      <tr>
+        <td><span class="tag-process">P5</span></td>
+        <td>Trả hàng / Hoàn tiền</td>
+        <td>Xử lý yêu cầu trả hàng, hoàn tiền, cập nhật lại tồn kho</td>
+        <td>DS8: Trả hàng, DS4</td>
+      </tr>
+      <tr>
+        <td><span class="tag-process">P6</span></td>
+        <td>Quản lý Nhân sự</td>
+        <td>Quản lý nhân viên, chấm công, nghỉ phép, tính lương, báo cáo nhân sự</td>
+        <td>DS5: Nhân viên</td>
+      </tr>
+      <tr>
+        <td><span class="tag-process">P7</span></td>
+        <td>Tài chính & Báo cáo</td>
+        <td>Thống kê doanh thu, lợi nhuận, xuất báo cáo doanh thu theo kỳ, báo cáo tồn kho</td>
+        <td>DS6: Tài chính</td>
+      </tr>
+      <tr>
+        <td><span class="tag-process">P8</span></td>
+        <td>Khuyến mãi & Loyalty</td>
+        <td>Quản lý chương trình khuyến mãi, voucher, tích lũy điểm và đổi thưởng cho khách hàng</td>
+        <td>DS7: Khách hàng / KM</td>
+      </tr>
+    </table>
+
+    <br>
+    <h3>📦 Mô tả các kho dữ liệu</h3>
+    <table>
+      <tr><th>Kho dữ liệu</th><th>Nội dung</th><th>Tiến trình sử dụng</th></tr>
+      <tr><td><span class="tag-store">DS1</span> Tài khoản / Role</td><td>Thông tin tài khoản, vai trò, quyền truy cập</td><td>P1</td></tr>
+      <tr><td><span class="tag-store">DS2</span> Sản phẩm / Kho</td><td>Danh sách sách, tồn kho, danh mục, tác giả, NXB</td><td>P2, P3, P4, P7</td></tr>
+      <tr><td><span class="tag-store">DS3</span> Đơn nhập / NCC</td><td>Phiếu nhập hàng, thông tin nhà cung cấp</td><td>P3</td></tr>
+      <tr><td><span class="tag-store">DS4</span> Hóa đơn / Orders</td><td>Hóa đơn bán hàng, chi tiết đơn hàng</td><td>P4, P5, P7</td></tr>
+      <tr><td><span class="tag-store">DS5</span> Nhân viên</td><td>Hồ sơ nhân viên, bảng công, phiếu lương</td><td>P6, P7</td></tr>
+      <tr><td><span class="tag-store">DS6</span> Tài chính</td><td>Thu chi, doanh thu, công nợ</td><td>P7</td></tr>
+      <tr><td><span class="tag-store">DS7</span> Khách hàng / KM</td><td>Thông tin khách hàng, điểm tích lũy, khuyến mãi</td><td>P4, P8</td></tr>
+      <tr><td><span class="tag-store">DS8</span> Trả hàng</td><td>Phiếu trả hàng, lý do, trạng thái hoàn tiền</td><td>P5</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ===== TAB MÔ TẢ ===== -->
+<div id="desc" class="tab-content">
+  <div class="diagram-wrapper" style="padding:28px 32px;">
+    <div class="diagram-title">📄 Tổng quan hệ thống WebSach</div>
+    <p style="color:var(--text-muted);font-size:0.9rem;line-height:1.8;margin-bottom:20px;">
+      <strong style="color:var(--text)">WebSach</strong> là hệ thống quản trị cửa hàng sách offline tích hợp đầy đủ các nghiệp vụ: từ nhập hàng, bán hàng, quản lý nhân sự đến tài chính và báo cáo. Hệ thống được xây dựng trên nền Node.js/Express (backend) và React (frontend), sử dụng MySQL làm cơ sở dữ liệu.
+    </p>
+    <table>
+      <tr><th>Luồng nghiệp vụ</th><th>Mô tả chi tiết</th></tr>
+      <tr>
+        <td style="white-space:nowrap;font-weight:600;">🔐 Xác thực & Phân quyền</td>
+        <td>Nhân viên/Admin đăng nhập qua hệ thống. Mỗi tài khoản được gán vai trò (role) với các quyền cụ thể (RBAC). Hỗ trợ quên mật khẩu qua email.</td>
+      </tr>
+      <tr>
+        <td style="white-space:nowrap;font-weight:600;">📦 Quản lý Kho & Sản phẩm</td>
+        <td>Thêm, sửa, xóa sản phẩm (sách) với đầy đủ thông tin: tác giả, danh mục, nhà xuất bản, giá, ảnh. Quản lý tồn kho theo chi nhánh, kiểm kê, chuyển kho.</td>
+      </tr>
+      <tr>
+        <td style="white-space:nowrap;font-weight:600;">🛒 Nhập hàng</td>
+        <td>Tạo phiếu đặt hàng nhà cung cấp, nhập hàng hóa, cập nhật số lượng tồn kho tự động sau khi xác nhận phiếu nhập.</td>
+      </tr>
+      <tr>
+        <td style="white-space:nowrap;font-weight:600;">💰 Bán hàng & Thanh toán</td>
+        <td>Giao diện POS bán hàng trực tiếp, tạo hóa đơn, tích hợp thanh toán, áp dụng voucher/khuyến mãi, in biên lai.</td>
+      </tr>
+      <tr>
+        <td style="white-space:nowrap;font-weight:600;">↩️ Trả hàng & Hoàn tiền</td>
+        <td>Xử lý yêu cầu trả/đổi hàng từ khách, hoàn tiền, cập nhật lại kho và hóa đơn liên quan.</td>
+      </tr>
+      <tr>
+        <td style="white-space:nowrap;font-weight:600;">👥 Quản lý Nhân sự</td>
+        <td>Hồ sơ nhân viên, chấm công (vào/ra), quản lý nghỉ phép, tính lương, thưởng phạt, báo cáo nhân sự.</td>
+      </tr>
+      <tr>
+        <td style="white-space:nowrap;font-weight:600;">📊 Tài chính & Báo cáo</td>
+        <td>Thống kê doanh thu, lợi nhuận theo ngày/tuần/tháng. Quản lý thu chi. Xuất báo cáo tồn kho, doanh số theo chi nhánh/nhân viên.</td>
+      </tr>
+      <tr>
+        <td style="white-space:nowrap;font-weight:600;">🎁 Khuyến mãi & Loyalty</td>
+        <td>Tạo chương trình khuyến mãi, phát voucher, quản lý điểm tích lũy và hạng thành viên của khách hàng.</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="diagram-wrapper" style="padding:28px 32px;margin-top:0;">
+    <div class="diagram-title">🗂️ Danh sách luồng dữ liệu chính</div>
+    <table>
+      <tr><th>Tên luồng</th><th>Từ</th><th>Đến</th><th>Nội dung</th></tr>
+      <tr><td>Thông tin đăng nhập</td><td>Quản trị viên</td><td>P1</td><td>Username, password, OTP</td></tr>
+      <tr><td>Token xác thực</td><td>P1</td><td>DS1</td><td>Session token, quyền hạn</td></tr>
+      <tr><td>Thông tin sản phẩm</td><td>Quản trị viên</td><td>P2</td><td>Tên, giá, số lượng, ảnh sản phẩm</td></tr>
+      <tr><td>Dữ liệu kho</td><td>P2 ↔ DS2</td><td>Cả hai chiều</td><td>Tồn kho hiện tại, lịch sử nhập/xuất</td></tr>
+      <tr><td>Đơn đặt hàng NCC</td><td>P3</td><td>Nhà cung cấp</td><td>Danh sách hàng cần nhập, số lượng</td></tr>
+      <tr><td>Xác nhận nhập hàng</td><td>Nhà cung cấp</td><td>P3</td><td>Hàng hóa thực tế nhận được</td></tr>
+      <tr><td>Thông tin đặt hàng</td><td>Khách hàng</td><td>P4</td><td>Sản phẩm, số lượng, hình thức thanh toán</td></tr>
+      <tr><td>Hóa đơn bán hàng</td><td>P4</td><td>DS4 + Khách hàng</td><td>Chi tiết đơn, tổng tiền, mã hóa đơn</td></tr>
+      <tr><td>Yêu cầu thanh toán</td><td>P4</td><td>Cổng TT</td><td>Số tiền, mã đơn, phương thức</td></tr>
+      <tr><td>Kết quả thanh toán</td><td>Cổng TT</td><td>P4</td><td>Trạng thái giao dịch, mã xác nhận</td></tr>
+      <tr><td>Yêu cầu trả hàng</td><td>Khách hàng</td><td>P5</td><td>Mã hóa đơn, lý do trả, sản phẩm</td></tr>
+      <tr><td>Báo cáo doanh thu</td><td>P7</td><td>Quản trị viên</td><td>Biểu đồ, bảng thống kê theo kỳ</td></tr>
+      <tr><td>Lệnh chuyển kho</td><td>P2</td><td>Chi nhánh</td><td>Sản phẩm, số lượng, chi nhánh đích</td></tr>
+      <tr><td>Điểm khuyến mãi</td><td>P8</td><td>Khách hàng</td><td>Điểm tích lũy, ưu đãi áp dụng</td></tr>
+    </table>
+  </div>
+</div>
+
+<script>
+  function switchTab(id) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.target.classList.add('active');
+  }
+</script>
+</body>
+</html>
