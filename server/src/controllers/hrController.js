@@ -408,6 +408,72 @@ const hrController = {
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }
+    },
+
+    getSalaryStats: async (req, res) => {
+        const { year, month } = req.query;
+        if (!year) return res.status(400).json({ success: false, message: 'Thiếu năm' });
+
+        try {
+            // 1. Xu hướng 12 tháng trong năm
+            const [monthlyTrend] = await pool.query(`
+                SELECT 
+                    m.month,
+                    COALESCE(SUM(l.TongLuong), 0) as total
+                FROM (
+                    SELECT 1 as month UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 
+                    UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 
+                    UNION SELECT 9 UNION SELECT 10 UNION SELECT 11 UNION SELECT 12
+                ) m
+                LEFT JOIN luong l ON m.month = l.Thang AND l.Nam = ?
+                GROUP BY m.month
+                ORDER BY m.month
+            `, [year]);
+
+            // 2. Cơ cấu chi phí của tháng hiện tại
+            let composition = { base: 0, allowance: 0, bonus: 0, penalty: 0 };
+            if (month) {
+                const [compData] = await pool.query(`
+                    SELECT 
+                        SUM(LuongCoBan) as base,
+                        SUM(PhuCap) as allowance,
+                        SUM(Thuong) as bonus,
+                        SUM(Phat) as penalty
+                    FROM luong 
+                    WHERE Thang = ? AND Nam = ?
+                `, [month, year]);
+
+                if (compData[0]) {
+                    composition = {
+                        base: parseFloat(compData[0].base || 0),
+                        allowance: parseFloat(compData[0].allowance || 0),
+                        bonus: parseFloat(compData[0].bonus || 0),
+                        penalty: parseFloat(compData[0].penalty || 0)
+                    };
+                }
+            }
+
+            // 3. Top thưởng/phạt (Top 5 thưởng cao nhất)
+            const [topRewards] = await pool.query(`
+                SELECT nv.HoTen, l.Thuong
+                FROM luong l
+                JOIN nhanvien nv ON l.MaNV = nv.MaNV
+                WHERE l.Thang = ? AND l.Nam = ? AND l.Thuong > 0
+                ORDER BY l.Thuong DESC
+                LIMIT 5
+            `, [month, year]);
+
+            res.json({
+                success: true,
+                data: {
+                    monthlyTrend,
+                    composition,
+                    topRewards
+                }
+            });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
     }
 };
 

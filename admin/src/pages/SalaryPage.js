@@ -4,16 +4,24 @@ import axios from 'axios';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import {
+  Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement
+} from 'chart.js';
+import { Bar, Pie } from 'react-chartjs-2';
 import '../styles/AttendancePage.css';
+
 import { FEATURES } from '../constants/permissions';
 import { PermissionContext } from '../components/PermissionContext';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement);
 
 const API_HR = 'http://localhost:5000/api/hr';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0)) + 'đ';
 const fmtShort = (n) => {
   const v = Math.round(n || 0);
-  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace('.0', '') + ' tr';
+  if (v >= 1_000_000_000) return (v / 1_000_000_000).toFixed(2).replace(/\.?0+$/, '') + ' tỷ';
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.?0+$/, '') + ' tr';
   if (v >= 1_000) return (v / 1_000).toFixed(0) + 'k';
   return v + 'đ';
 };
@@ -28,7 +36,8 @@ const selectMenuStyle = (base) => ({ ...base, zIndex: 9999 });
 
 const SalaryPage = () => {
   const { hasPermissionById } = useContext(PermissionContext);
-  const [activeTab, setActiveTab] = useState('salary'); // 'salary' or 'bonus-penalty'
+  const [activeTab, setActiveTab] = useState('summary'); // 'summary', 'bonus_penalty', 'stats'
+  const [statsData, setStatsData] = useState({ monthlyTrend: [], composition: { base: 0, allowance: 0, bonus: 0, penalty: 0 }, topRewards: [] });
 
   // Shared state
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -112,13 +121,25 @@ const SalaryPage = () => {
     } catch { }
   };
 
+  const fetchSalaryStats = async () => {
+    try {
+      const res = await axios.get(`http://localhost:5000/api/hr/salary/stats?year=${year}&month=${month}`);
+      if (res.data.success) {
+        setStatsData(res.data.data);
+      }
+    } catch (err) {
+      console.error('Fetch stats error:', err);
+    }
+  };
+
   useEffect(() => {
-    if (activeTab === 'salary') fetchSalary();
-    else fetchBPData();
+    if (activeTab === 'summary') fetchSalary();
+    else if (activeTab === 'bonus_penalty') fetchBPData();
+    else if (activeTab === 'stats') fetchSalaryStats();
   }, [month, year, activeTab, bpFilterLoai]);
 
   useEffect(() => {
-    if (activeTab === 'bonus-penalty') fetchBPEmployees();
+    if (activeTab === 'bonus_penalty') fetchBPEmployees();
   }, [activeTab]);
 
 
@@ -257,25 +278,140 @@ const SalaryPage = () => {
       <div className="thongke-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1><i className="fas fa-money-bill-wave"></i> Quản lý lương & Thưởng phạt</h1>
 
-        <div style={{ display: 'flex', background: '#e0e0e0', borderRadius: 8, padding: 4 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
           <button
-            onClick={() => setActiveTab('salary')}
+            onClick={() => setActiveTab('summary')}
             style={{
-              padding: '8px 20px', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 700,
-              background: activeTab === 'salary' ? '#fff' : 'transparent',
-              boxShadow: activeTab === 'salary' ? '0 2px 5px rgba(0,0,0,0.1)' : 'none'
-            }}>Bảng lương</button>
+              padding: '10px 20px', border: '1px solid #ddd', borderRadius: '8px 8px 0 0',
+              background: activeTab === 'summary' ? '#fff' : '#f5f5f5',
+              borderBottom: activeTab === 'summary' ? '2px solid #fff' : '1px solid #ddd',
+              fontWeight: 600, cursor: 'pointer', marginBottom: -1
+            }}
+          >Bảng lương</button>
           <button
-            onClick={() => setActiveTab('bonus-penalty')}
+            onClick={() => setActiveTab('bonus_penalty')}
             style={{
-              padding: '8px 20px', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 700,
-              background: activeTab === 'bonus-penalty' ? '#fff' : 'transparent',
-              boxShadow: activeTab === 'bonus-penalty' ? '0 2px 5px rgba(0,0,0,0.1)' : 'none'
-            }}>Thưởng / Phạt</button>
+              padding: '10px 20px', border: '1px solid #ddd', borderRadius: '8px 8px 0 0',
+              background: activeTab === 'bonus_penalty' ? '#fff' : '#f5f5f5',
+              borderBottom: activeTab === 'bonus_penalty' ? '2px solid #fff' : '1px solid #ddd',
+              fontWeight: 600, cursor: 'pointer', marginBottom: -1
+            }}
+          >Thưởng / Phạt</button>
+          <button
+            onClick={() => setActiveTab('stats')}
+            style={{
+              padding: '10px 20px', border: '1px solid #ddd', borderRadius: '8px 8px 0 0',
+              background: activeTab === 'stats' ? '#fff' : '#f5f5f5',
+              borderBottom: activeTab === 'stats' ? '2px solid #fff' : '1px solid #ddd',
+              fontWeight: 600, cursor: 'pointer', marginBottom: -1
+            }}
+          >Biểu đồ Thống kê 📊</button>
         </div>
       </div>
 
       <div className="thongke-content">
+        {/* ANALYTICS TAB CONTENT */}
+        {activeTab === 'stats' && (
+          <div style={{ padding: 20, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 30 }}>
+              {/* Bar Chart */}
+              <div style={{ background: '#fcfcfc', padding: 20, borderRadius: 12, border: '1px solid #eee' }}>
+                <h3 style={{ marginBottom: 20, color: '#333', fontSize: 16 }}>Xu hướng chi lương năm {year}</h3>
+                <div style={{ height: 350 }}>
+                  <Bar
+                    data={{
+                      labels: statsData.monthlyTrend.map(m => `T${m.month}`),
+                      datasets: [{
+                        label: 'Tổng chi lương (VNĐ)',
+                        data: statsData.monthlyTrend.map(m => parseFloat(m.total || 0)),
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgb(54, 162, 235)',
+                        borderWidth: 1,
+                        borderRadius: 6
+                      }]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: { legend: { display: false } },
+                      scales: { y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString('vi-VN') } } }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Pie Chart */}
+              <div style={{ background: '#fcfcfc', padding: 20, borderRadius: 12, border: '1px solid #eee' }}>
+                <h3 style={{ marginBottom: 20, color: '#333', fontSize: 16 }}>Cơ cấu chi phí lương tháng {month}</h3>
+                <div style={{ height: 350 }}>
+                  {(statsData.composition.base > 0 || statsData.composition.allowance > 0 || statsData.composition.bonus > 0) ? (
+                    <Pie
+                      data={{
+                        labels: ['Lương gốc', 'Phụ cấp', 'Thưởng', 'Phạt'],
+                        datasets: [{
+                          data: [
+                            parseFloat(statsData.composition.base || 0),
+                            parseFloat(statsData.composition.allowance || 0),
+                            parseFloat(statsData.composition.bonus || 0),
+                            parseFloat(statsData.composition.penalty || 0)
+                          ],
+                          backgroundColor: [
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(255, 205, 86, 0.7)',
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 99, 132, 0.7)'
+                          ],
+                          hoverOffset: 15
+                        }]
+                      }}
+                      options={{ responsive: true, maintainAspectRatio: false }}
+                    />
+                  ) : (
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#999' }}>
+                      Chưa có dữ liệu tính lương tháng này
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Insights Grid */}
+            <div style={{ marginTop: 30, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+              <div style={{ padding: 20, background: '#e3f2fd', borderRadius: 12, border: '1px solid #bbdefb' }}>
+                <h4 style={{ color: '#1565c0', marginBottom: 10 }}><i className="fas fa-trophy"></i> Top thưởng tháng {month}</h4>
+                {statsData.topRewards.length > 0 ? (
+                  <ul style={{ listStyle: 'none', padding: 0 }}>
+                    {statsData.topRewards.map((r, i) => (
+                      <li key={i} style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                        <span>{i + 1}. {r.HoTen}</span>
+                        <span style={{ fontWeight: 600, color: '#2e7d32' }}>+{parseFloat(r.Thuong || 0).toLocaleString()}đ</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <div style={{ fontSize: 13, color: '#666' }}>Không có nhân viên nào nhận thưởng.</div>}
+              </div>
+
+              <div style={{ padding: 20, background: '#f1f8e9', borderRadius: 12, border: '1px solid #dcedc8' }}>
+                <h4 style={{ color: '#2e7d32', marginBottom: 10 }}><i className="fas fa-chart-line"></i> Phân tích nhanh</h4>
+                <p style={{ fontSize: 13, lineHeight: '1.6', color: '#333' }}>
+                  Tổng quỹ lương năm {year} tính đến hiện tại là <strong>{statsData.monthlyTrend.reduce((s, m) => s + parseFloat(m.total || 0), 0).toLocaleString()} VNĐ</strong>.
+                  <br />
+                  Trung bình mỗi tháng chi khoảng <strong>{(statsData.monthlyTrend.reduce((s, m) => s + parseFloat(m.total || 0), 0) / (statsData.monthlyTrend.filter(m => parseFloat(m.total || 0) > 0).length || 1)).toLocaleString()} VNĐ</strong>.
+                </p>
+              </div>
+
+              <div style={{ padding: 20, background: '#fff9c4', borderRadius: 12, border: '1px solid #fff176' }}>
+                <h4 style={{ color: '#fbc02d', marginBottom: 10 }}><i className="fas fa-lightbulb"></i> Gợi ý</h4>
+                <p style={{ fontSize: 13, lineHeight: '1.6', color: '#555' }}>
+                  {statsData.composition.penalty > statsData.composition.bonus ?
+                    "Tháng này tổng tiền phạt cao hơn thưởng. Bạn nên rà soát lại lý do nhân viên vi phạm nhiều." :
+                    "Cơ cấu thưởng tháng này khá tốt, giúp tạo động lực cho nhân viên."
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* FILTERS */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

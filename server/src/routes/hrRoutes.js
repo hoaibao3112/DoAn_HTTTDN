@@ -147,6 +147,11 @@ router.post('/salary/calculate',
     hrController.calculateMonthlySalary
 );
 
+router.get('/salary/stats',
+    checkPermission(FEATURES.SALARY, PERMISSIONS.VIEW),
+    hrController.getSalaryStats
+);
+
 // ======================= NEW: SALARY PRINT & REPORTING =======================
 
 // Print Salary by Month (for employee) - NEW
