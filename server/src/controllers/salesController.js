@@ -79,7 +79,70 @@ const salesController = {
                     [detailValues]
                 );
 
-                // 3b. Batch UPDATE tồn kho chính (ton_kho)
+                // 3b. ✅ TỰ ĐỘNG LẤY HÀNG TỪ NHIỀU KHO THEO PRIORITY
+                // - Ưu tiên lấy từ kho quầy (Priority=1) trước
+                // - Nếu quầy không đủ → tự động lấy từ kho phụ (Priority=2,3...)
+                // - Nếu toàn cửa hàng không đủ → báo lỗi
+                const warehouseAllocations = [];
+                
+                for (const item of ChiTiet) {
+                    // Lấy tất cả kho của cửa hàng này, sắp xếp theo Priority
+                    const [warehouses] = await conn.query(`
+                        SELECT kc.MaKho, kc.TenKho, kc.Priority,
+                               COALESCE(tkct.SoLuongTon, 0) AS TonHienTai
+                        FROM kho_con kc
+                        LEFT JOIN ton_kho_chi_tiet tkct ON tkct.MaKho = kc.MaKho AND tkct.MaSP = ?
+                        WHERE kc.MaCH = ? AND kc.TinhTrang = 1
+                        ORDER BY kc.Priority ASC
+                        FOR UPDATE
+                    `, [item.MaSP, MaCH]);
+
+                    if (warehouses.length === 0) {
+                        throw new Error(`Không tìm thấy kho hoạt động nào trong cửa hàng.`);
+                    }
+
+                    // Tính tổng tồn kho toàn cửa hàng
+                    const totalAvailable = warehouses.reduce((sum, wh) => sum + wh.TonHienTai, 0);
+                    if (totalAvailable < item.SoLuong) {
+                        throw new Error(
+                            `Sản phẩm MaSP=${item.MaSP} ` +
+                            `tồn: ${totalAvailable}, yêu cầu: ${item.SoLuong}.`
+                        );
+                    }
+
+                    // Phân bổ từ các kho theo Priority (nhỏ → lớn, nghĩa là quầy trước)
+                    let remaining = item.SoLuong;
+                    const itemAllocations = [];
+
+                    for (const wh of warehouses) {
+                        if (remaining <= 0) break;
+
+                        const toTake = Math.min(remaining, wh.TonHienTai);
+                        if (toTake > 0) {
+                            // Trừ từ kho này
+                            await conn.query(
+                                'UPDATE ton_kho_chi_tiet SET SoLuongTon = SoLuongTon - ? WHERE MaKho = ? AND MaSP = ?',
+                                [toTake, wh.MaKho, item.MaSP]
+                            );
+
+                            itemAllocations.push({
+                                MaKho: wh.MaKho,
+                                TenKho: wh.TenKho,
+                                Priority: wh.Priority,
+                                SoLuong: toTake
+                            });
+
+                            remaining -= toTake;
+                        }
+                    }
+
+                    warehouseAllocations.push({
+                        MaSP: item.MaSP,
+                        allocations: itemAllocations
+                    });
+                }
+
+                // 3c. Cập nhật tồn kho tổng quát (ton_kho) để tương thích với hệ thống cũ
                 const productIds = ChiTiet.map(item => item.MaSP);
                 const caseClauses = ChiTiet.map(item => 
                     `WHEN MaSP = ${conn.escape(item.MaSP)} THEN SoLuongTon - ${item.SoLuong}`
@@ -90,33 +153,6 @@ const salesController = {
                     SET SoLuongTon = CASE ${caseClauses} END
                     WHERE MaSP IN (?) AND MaCH = ?
                 `, [productIds, MaCH]);
-
-                // 3c. Cập nhật tồn kho kho quầy (Priority=1) - CHỈ trừ kho quầy
-                // Nếu không đủ hàng → báo lỗi, nhân viên phải chuyển kho trước khi bán
-                for (const item of ChiTiet) {
-                    const [[counterWh]] = await conn.query(`
-                        SELECT tkct.MaKho, tkct.SoLuongTon, kc.TenKho
-                        FROM ton_kho_chi_tiet tkct
-                        JOIN kho_con kc ON tkct.MaKho = kc.MaKho
-                        WHERE tkct.MaSP = ? AND kc.MaCH = ? AND kc.Priority = 1 AND kc.TinhTrang = 1
-                        FOR UPDATE
-                    `, [item.MaSP, MaCH]);
-
-                    if (!counterWh) {
-                        throw new Error(`Sản phẩm MaSP=${item.MaSP} chưa có tồn kho tại kho quầy.`);
-                    }
-                    if (counterWh.SoLuongTon < item.SoLuong) {
-                        throw new Error(
-                            `Kho quầy (${counterWh.TenKho}) không đủ hàng. ` +
-                            `Tồn: ${counterWh.SoLuongTon}, yêu cầu: ${item.SoLuong}. ` +
-                            `Vui lòng chuyển kho trước khi bán.`
-                        );
-                    }
-                    await conn.query(
-                        'UPDATE ton_kho_chi_tiet SET SoLuongTon = SoLuongTon - ? WHERE MaKho = ? AND MaSP = ?',
-                        [item.SoLuong, counterWh.MaKho, item.MaSP]
-                    );
-                }
             }
 
             // 4. Update Customer Points & Loyalty

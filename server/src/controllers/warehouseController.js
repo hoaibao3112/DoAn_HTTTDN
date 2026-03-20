@@ -1,7 +1,7 @@
 import pool from '../config/connectDatabase.js';
 import { logActivity } from '../utils/auditLogger.js';
 
-// ========================= HELPER: Nhập thẳng vào kho (mỗi kho độc lập) =========================
+// ========================= HELPER 1: Nhập thẳng vào kho (mỗi kho độc lập) =========================
 /**
  * Phân bổ số lượng sản phẩm vào một kho cụ thể (MaKho).
  * @returns {Array} [{MaKho, TenKho, SoLuong}]
@@ -38,6 +38,71 @@ async function allocateToWarehouse(conn, MaKho, MaSP, soLuong) {
     }
 
     return [{ MaKho: wh.MaKho, TenKho: wh.TenKho, SoLuong: qty }];
+}
+
+// ========================= HELPER 2: Bán hàng thông minh (tự động lấy từ các kho theo Priority) =========================
+/**
+ * TỰ ĐỘNG chia hàng từ nhiều kho theo Priority (ưu tiên quầy trước, kho phụ sau).
+ * Nếu quầy (Priority=1) không đủ → tự động lấy từ Priority=2, 3...
+ * @param {Connection} conn - Database connection
+ * @param {number} MaSP - Product ID
+ * @param {number} MaCH - Store ID
+ * @param {number} soLuong - Quantity to sell
+ * @returns {object} { total: n, allocations: [{MaKho, TenKho, SoLuong}, ...] }
+ * @throws Error nếu tổng cửa hàng không đủ hàng
+ */
+async function smartAllocateFromWarehouses(conn, MaSP, MaCH, soLuong) {
+    // Lấy tất cả kho của cửa hàng này, sắp xếp theo Priority
+    const [warehouses] = await conn.query(`
+        SELECT kc.MaKho, kc.TenKho, kc.Priority,
+               COALESCE(tkct.SoLuongTon, 0) AS TonHienTai
+        FROM kho_con kc
+        LEFT JOIN ton_kho_chi_tiet tkct ON tkct.MaKho = kc.MaKho AND tkct.MaSP = ?
+        WHERE kc.MaCH = ? AND kc.TinhTrang = 1
+        ORDER BY kc.Priority ASC
+        FOR UPDATE
+    `, [MaSP, MaCH]);
+
+    if (warehouses.length === 0) {
+        throw new Error(`Không tìm thấy kho hoạt động nào trong cửa hàng này.`);
+    }
+
+    // Tính tổng tồn kho toàn cửa hàng
+    const totalAvailable = warehouses.reduce((sum, wh) => sum + wh.TonHienTai, 0);
+    if (totalAvailable < soLuong) {
+        throw new Error(`Sản phẩm MaSP=${MaSP} không đủ. Tồn: ${totalAvailable}, yêu cầu: ${soLuong}.`);
+    }
+
+    // Phân bổ từ các kho theo Priority (nhỏ → lớn, nghĩa là quầy trước)
+    const allocations = [];
+    let remaining = soLuong;
+
+    for (const wh of warehouses) {
+        if (remaining <= 0) break;
+
+        const toTake = Math.min(remaining, wh.TonHienTai);
+        if (toTake > 0) {
+            // Trừ từ kho này
+            await conn.query(
+                'UPDATE ton_kho_chi_tiet SET SoLuongTon = SoLuongTon - ? WHERE MaKho = ? AND MaSP = ?',
+                [toTake, wh.MaKho, MaSP]
+            );
+
+            allocations.push({
+                MaKho: wh.MaKho,
+                TenKho: wh.TenKho,
+                Priority: wh.Priority,
+                SoLuong: toTake
+            });
+
+            remaining -= toTake;
+        }
+    }
+
+    return {
+        total: soLuong,
+        allocations
+    };
 }
 
 const warehouseController = {
@@ -347,7 +412,10 @@ const warehouseController = {
     },
 
     createPurchaseOrder: async (req, res) => {
-        const { MaNCC, MaCH, ChiTiet, DaThanhToan = 0, GhiChu, TyLeLoi } = req.body;
+        // MaCH có thể là: 
+        // - Store ID (cửa hàng) nếu autoDistribute=true → chia hàng đến tất cả kho của cửa hàng
+        // - Warehouse ID (kho cụ thể) nếu autoDistribute=false → nhập vào kho cụ thể
+        const { MaNCC, MaCH, ChiTiet, DaThanhToan = 0, GhiChu, TyLeLoi, autoDistribute = true } = req.body;
 
         if (!MaNCC || !MaCH || !Array.isArray(ChiTiet) || !ChiTiet.length) {
             return res.status(400).json({ success: false, message: 'Thiếu MaNCC, MaCH hoặc danh sách sản phẩm' });
@@ -360,17 +428,27 @@ const warehouseController = {
             const [ncc] = await conn.query('SELECT MaNCC FROM nhacungcap WHERE MaNCC = ? AND TinhTrang = 1', [MaNCC]);
             if (!ncc.length) throw new Error('Nhà cung cấp không tồn tại hoặc đã ngưng hoạt động');
 
-            const [ch] = await conn.query('SELECT MaKho FROM kho_con WHERE MaKho = ? AND TinhTrang = 1', [MaCH]);
-            if (!ch.length) throw new Error('Kho không tồn tại hoặc đã ngưng hoạt động');
+            // Kiểm tra dữ liệu cửa hàng/kho
+            let MaCHStore = MaCH; // Store ID
+            if (!autoDistribute) {
+                // Nếu không auto-distribute, MaCH là warehouse ID → lấy store ID từ kho
+                const [whData] = await conn.query('SELECT MaKho, MaCH FROM kho_con WHERE MaKho = ? AND TinhTrang = 1', [MaCH]);
+                if (!whData.length) throw new Error('Kho không tồn tại hoặc đã ngưng hoạt động');
+                MaCHStore = whData[0].MaCH; // Store ID
+            } else {
+                // Nếu auto-distribute, MaCH là store ID → kiểm tra store tồn tại
+                const [storeData] = await conn.query('SELECT MaCH FROM cua_hang WHERE MaCH = ? AND TinhTrang = 1', [MaCH]);
+                if (!storeData.length) throw new Error('Cửa hàng không tồn tại');
+            }
 
             const tongTien = ChiTiet.reduce((sum, item) => sum + Number(item.SoLuong) * Number(item.DonGiaNhap), 0);
             const conNo = Math.max(0, tongTien - Number(DaThanhToan));
 
-            // 1. Tạo phiếu nhập
+            // 1. Tạo phiếu nhập (lưu store ID, không warehouse ID)
             const [pnResult] = await conn.query(`
                 INSERT INTO phieunhap (MaNCC, MaCH, MaTK, TongTien, DaThanhToan, ConNo, TrangThai, GhiChu)
                 VALUES (?, ?, ?, ?, ?, ?, 'Hoan_thanh', ?)
-            `, [MaNCC, MaCH, req.user.MaTK, tongTien, Number(DaThanhToan), conNo, GhiChu || null]);
+            `, [MaNCC, MaCHStore, req.user.MaTK, tongTien, Number(DaThanhToan), conNo, GhiChu || null]);
 
             const MaPN = pnResult.insertId;
 
@@ -384,24 +462,79 @@ const warehouseController = {
                 const qty  = Number(item.SoLuong);
                 const maSP = Number(item.MaSP);
 
+                // Cập nhật tồn kho tổng (store level)
                 await conn.query(`
                     INSERT INTO ton_kho (MaSP, MaCH, SoLuongTon)
                     VALUES (?, ?, ?)
                     ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?
-                `, [maSP, MaCH, qty, qty]);
+                `, [maSP, MaCHStore, qty, qty]);
 
-                try {
-                    const allocation = await allocateToWarehouse(conn, MaCH, maSP, qty);
-                    allocationLogs.push({ MaSP: maSP, allocation });
-                    for (const a of allocation) {
-                        await conn.query(
-                            'INSERT INTO chitiet_phanbokho (MaPN, MaSP, MaKho, SoLuong) VALUES (?, ?, ?, ?)',
-                            [MaPN, maSP, a.MaKho, a.SoLuong]
-                        );
+                // Phân bổ vào warehouse cụ thể
+                if (autoDistribute) {
+                    // ✅ TỰ ĐỘNG PHÂN BỔ theo priority (Priority nhỏ → lớn, quầy trước)
+                    const [warehouses] = await conn.query(`
+                        SELECT kc.MaKho, kc.TenKho, kc.Priority, kc.Capacity,
+                               COALESCE(tkct.SoLuongTon, 0) AS TonHienTai
+                        FROM kho_con kc
+                        LEFT JOIN ton_kho_chi_tiet tkct ON tkct.MaKho = kc.MaKho AND tkct.MaSP = ?
+                        WHERE kc.MaCH = ? AND kc.TinhTrang = 1
+                        ORDER BY kc.Priority ASC
+                        FOR UPDATE
+                    `, [maSP, MaCHStore]);
+
+                    if (warehouses.length === 0) {
+                        throw new Error(`Cửa hàng không có kho nào hoạt động`);
                     }
-                } catch (allocErr) {
-                    if (allocErr.code !== 'WAREHOUSE_FULL') throw allocErr;
-                    console.warn(`Kho con đầy cho SP ${maSP}:`, allocErr.message);
+
+                    let remaining = qty;
+                    for (const wh of warehouses) {
+                        if (remaining <= 0) break;
+
+                        const space = wh.Capacity - wh.TonHienTai;
+                        const toAdd = Math.min(remaining, space);
+
+                        if (toAdd > 0) {
+                            await conn.query(`
+                                INSERT INTO ton_kho_chi_tiet (MaKho, MaSP, SoLuongTon)
+                                VALUES (?, ?, ?)
+                                ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?
+                            `, [wh.MaKho, maSP, toAdd, toAdd]);
+
+                            await conn.query(
+                                'INSERT INTO chitiet_phanbokho (MaPN, MaSP, MaKho, SoLuong) VALUES (?, ?, ?, ?)',
+                                [MaPN, maSP, wh.MaKho, toAdd]
+                            );
+
+                            allocationLogs.push({
+                                MaSP: maSP,
+                                MaKho: wh.MaKho,
+                                TenKho: wh.TenKho,
+                                Priority: wh.Priority,
+                                SoLuong: toAdd
+                            });
+
+                            remaining -= toAdd;
+                        }
+                    }
+
+                    if (remaining > 0) {
+                        console.warn(`⚠️ Sản phẩm ${maSP}: Tất cả kho đầy. Chỉ phân bổ ${qty - remaining}/${qty} sản phẩm`);
+                    }
+                } else {
+                    // NHẬP VÀO KHO CỤ THỂ (MaCH là warehouse ID)
+                    try {
+                        const allocation = await allocateToWarehouse(conn, MaCH, maSP, qty);
+                        allocationLogs.push({ MaSP: maSP, allocation });
+                        for (const a of allocation) {
+                            await conn.query(
+                                'INSERT INTO chitiet_phanbokho (MaPN, MaSP, MaKho, SoLuong) VALUES (?, ?, ?, ?)',
+                                [MaPN, maSP, a.MaKho, a.SoLuong]
+                            );
+                        }
+                    } catch (allocErr) {
+                        if (allocErr.code !== 'WAREHOUSE_FULL') throw allocErr;
+                        console.warn(`Kho con đầy cho SP ${maSP}:`, allocErr.message);
+                    }
                 }
             }
 
@@ -433,14 +566,14 @@ const warehouseController = {
             await logActivity({
                 MaTK: req.user.MaTK, HanhDong: 'Them',
                 BangDuLieu: 'phieunhap', MaBanGhi: MaPN,
-                DuLieuMoi: JSON.stringify({ MaNCC, MaCH, TongTien: tongTien, ConNo: conNo }),
+                DuLieuMoi: JSON.stringify({ MaNCC, MaCH: MaCHStore, TongTien: tongTien, ConNo: conNo, autoDistribute }),
                 DiaChi_IP: req.ip
             });
 
             await conn.commit();
             res.status(201).json({
                 success: true, message: 'Tạo phiếu nhập thành công',
-                MaPN, TongTien: tongTien, ConNo: conNo, allocationLogs
+                MaPN, TongTien: tongTien, ConNo: conNo, allocationLogs, autoDistribute
             });
         } catch (error) {
             await conn.rollback();
@@ -1293,6 +1426,106 @@ const warehouseController = {
             );
             res.json({ success: true, data: rows });
         } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // ========================= TỔNG QUAN TỒN KHO (Inventory Summary) =========================
+    // Hiển thị: Tổng cộng toàn cửa hàng + Chi tiết từng kho
+    getInventorySummary: async (req, res) => {
+        try {
+            const { MaCH, MaSP, TenSP, pageSize = 20, page = 1 } = req.query;
+
+            let sqlFilter = 'WHERE 1=1';
+            const params = [];
+
+            if (MaCH) {
+                sqlFilter += ' AND kc.MaCH = ?';
+                params.push(MaCH);
+            }
+            if (MaSP) {
+                sqlFilter += ' AND tkct.MaSP = ?';
+                params.push(MaSP);
+            }
+            if (TenSP) {
+                sqlFilter += ' AND sp.TenSP LIKE ?';
+                params.push(`%${TenSP}%`);
+            }
+
+            const offset = (parseInt(page) - 1) * parseInt(pageSize);
+
+            // 1. Tính tổng tồn kho toàn cửa hàng (tổng cộng)
+            const [summary] = await pool.query(`
+                SELECT 
+                    sp.MaSP, sp.TenSP, sp.DonGia, sp.HinhAnh,
+                    SUM(tkct.SoLuongTon) AS TongTonKho
+                FROM sanpham sp
+                LEFT JOIN ton_kho_chi_tiet tkct ON sp.MaSP = tkct.MaSP
+                LEFT JOIN kho_con kc ON tkct.MaKho = kc.MaKho
+                ${sqlFilter}
+                GROUP BY sp.MaSP, sp.TenSP, sp.DonGia, sp.HinhAnh
+                ORDER BY sp.TenSP ASC
+                LIMIT ? OFFSET ?
+            `, [...params, parseInt(pageSize), offset]);
+
+            // 2. Lấy chi tiết từng kho cho mỗi sản phẩm
+            const detailedInventory = [];
+            for (const product of summary) {
+                const [warehouses] = await pool.query(`
+                    SELECT 
+                        kc.MaKho, kc.TenKho, kc.Priority, kc.Capacity,
+                        COALESCE(tkct.SoLuongTon, 0) AS SoLuongTon,
+                        ROUND((COALESCE(tkct.SoLuongTon, 0) / kc.Capacity) * 100, 1) AS UsagePercent
+                    FROM kho_con kc
+                    LEFT JOIN ton_kho_chi_tiet tkct ON kc.MaKho = tkct.MaKho AND tkct.MaSP = ?
+                    WHERE kc.Capacity > 0 AND kc.TinhTrang = 1
+                    ${MaCH ? 'AND kc.MaCH = ?' : ''}
+                    ORDER BY kc.Priority ASC
+                `, MaCH ? [product.MaSP, MaCH] : [product.MaSP]);
+
+                detailedInventory.push({
+                    ...product,
+                    warehouses
+                });
+            }
+
+            // 3. Thống kê tổng quát cửa hàng
+            const [storeStats] = await pool.query(`
+                SELECT 
+                    ch.MaCH, ch.TenCH,
+                    COUNT(DISTINCT kc.MaKho) AS SoKho,
+                    SUM(kc.Capacity) AS TongCapacity,
+                    SUM(COALESCE(tkct.SoLuongTon, 0)) AS TongTonKho,
+                    COUNT(DISTINCT sp.MaSP) AS SoSanPham
+                FROM cua_hang ch
+                LEFT JOIN kho_con kc ON ch.MaCH = kc.MaCH AND kc.TinhTrang = 1
+                LEFT JOIN ton_kho_chi_tiet tkct ON kc.MaKho = tkct.MaKho
+                LEFT JOIN sanpham sp ON tkct.MaSP = sp.MaSP
+                ${MaCH ? 'WHERE ch.MaCH = ?' : ''}
+                GROUP BY ch.MaCH, ch.TenCH
+            `, MaCH ? [MaCH] : []);
+
+            const [[{ total }]] = await pool.query(`
+                SELECT COUNT(DISTINCT sp.MaSP) AS total
+                FROM sanpham sp
+                LEFT JOIN ton_kho_chi_tiet tkct ON sp.MaSP = tkct.MaSP
+                LEFT JOIN kho_con kc ON tkct.MaKho = kc.MaKho
+                ${sqlFilter}
+            `, params);
+
+            res.json({
+                success: true,
+                data: detailedInventory,
+                storeStats: storeStats[0] || null,
+                pagination: {
+                    page: parseInt(page),
+                    pageSize: parseInt(pageSize),
+                    total,
+                    totalPages: Math.ceil(total / parseInt(pageSize))
+                }
+            });
+        } catch (error) {
+            console.error('getInventorySummary:', error);
             res.status(500).json({ success: false, message: error.message });
         }
     }
