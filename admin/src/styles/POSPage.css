@@ -277,6 +277,26 @@
     cursor: pointer;
 }
 
+.btn-search-customer {
+    background: #f0f0f0;
+    color: #666;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-search-customer:hover {
+    background: #1890ff;
+    color: white;
+    border-color: #1890ff;
+}
+
 .customer-info-mini {
     margin-top: 6px;
     display: flex;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import apiClient from '../services/api';
 import { 
   Button, Input, message, Table, Modal, Space, Tag, Select, Card, Row, Col, 
   Descriptions, Slider, Statistic, Tabs, Tooltip, Progress 
@@ -8,55 +8,6 @@ import { handleApiError } from '../utils/errorHandler';
 import { 
   UserOutlined, TrophyOutlined, HistoryOutlined, RiseOutlined, FallOutlined 
 } from '@ant-design/icons';
-
-// Create axios instance with auto token attachment
-const api = axios.create({ baseURL: 'http://localhost:5000', withCredentials: false });
-
-const TOKEN_KEYS = ['adminToken', 'token', 'accessToken', 'auth_token', 'jwt', 'authToken', 'wn_token'];
-
-api.interceptors.request.use((config) => {
-  let token = null;
-  let keyFound = null;
-  for (const k of TOKEN_KEYS) {
-    const v = localStorage.getItem(k);
-    if (v) { token = v; keyFound = k; break; }
-  }
-  if (!token && typeof document !== 'undefined' && document.cookie) {
-    const cookies = document.cookie.split(';').map(c => c.trim());
-    for (const k of TOKEN_KEYS) {
-      const found = cookies.find(c => c.startsWith(k + '='));
-      if (found) {
-        token = decodeURIComponent(found.split('=')[1]);
-        keyFound = k;
-        break;
-      }
-    }
-  }
-  config.headers = config.headers || {};
-  if (token) {
-    config.headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-    config.headers['X-Auth-Key'] = keyFound;
-    try { console.debug('api attach token (masked):', token.substring(0, 10) + '...', 'key=', keyFound); } catch (e) { }
-  } else {
-    delete config.headers['Authorization'];
-    delete config.headers['X-Auth-Key'];
-  }
-  return config;
-});
-
-api.interceptors.response.use(
-  r => r,
-  (error) => {
-    if (error?.response?.status === 401) {
-      const msg = error.response.data?.error || '';
-      if (/Không tìm thấy token|hết hạn|Token đã hết hạn/i.test(msg)) {
-        for (const k of TOKEN_KEYS) localStorage.removeItem(k);
-      }
-      message.error(msg || 'Phiên không hợp lệ. Vui lòng đăng nhập lại.');
-    }
-    return Promise.reject(error);
-  }
-);
 
 // Tier configuration
 const TIER_CONFIG = {
@@ -86,12 +37,12 @@ const CustomerManagement = () => {
   const [pageSize, setPageSize] = useState(10);
   const [totalCustomers, setTotalCustomers] = useState(0);
 
-  const API_URL = '/api/customers';
+  const API_URL = '/customers';
 
   // Fetch statistics
   const fetchStatistics = async () => {
     try {
-      const res = await api.get(`${API_URL}/statistics`);
+      const res = await apiClient.get(`${API_URL}/statistics`);
       if (res.data && res.data.data) {
         setStatistics(res.data.data);
       }
@@ -114,7 +65,7 @@ const CustomerManagement = () => {
       if (pointRange[0] > 0) params.minDiem = pointRange[0];
       if (pointRange[1] < 50000) params.maxDiem = pointRange[1];
 
-      const res = await api.get(API_URL, { params });
+      const res = await apiClient.get(API_URL, { params });
       if (res.data && res.data.data) {
         setCustomers(res.data.data);
         setTotalCustomers(res.data.pagination?.total || res.data.data.length);
@@ -149,7 +100,7 @@ const CustomerManagement = () => {
   const fetchCustomerDetail = async (makh) => {
     try {
       setDetailLoading(true);
-      const res = await api.get(`${API_URL}/${makh}`);
+      const res = await apiClient.get(`${API_URL}/${makh}`);
       if (res.data && res.data.data) {
         setCustomerDetail(res.data.data);
         setIsDetailModalVisible(true);
@@ -165,7 +116,7 @@ const CustomerManagement = () => {
   // Toggle customer status
   const handleToggleStatus = async (makh) => {
     try {
-      await api.patch(`${API_URL}/${makh}/toggle-status`);
+      await apiClient.patch(`${API_URL}/${makh}/toggle-status`);
       message.success('Đổi trạng thái thành công');
       fetchCustomers();
       fetchStatistics();
@@ -561,210 +512,218 @@ const CustomerManagement = () => {
             Đang tải...
           </div>
         ) : customerDetail ? (
-          <Tabs defaultActiveKey="info">
-            <Tabs.TabPane 
-              tab={
-                <span>
-                  <UserOutlined />
-                  Thông tin cơ bản
-                </span>
-              } 
-              key="info"
-            >
-              <Descriptions bordered column={2}>
-                <Descriptions.Item label="Mã KH" span={2}>
-                  <strong>#{customerDetail.MaKH}</strong>
-                </Descriptions.Item>
-                <Descriptions.Item label="Họ tên" span={2}>
-                  {customerDetail.HoTen}
-                </Descriptions.Item>
-                <Descriptions.Item label="SĐT">
-                  {customerDetail.SDT}
-                </Descriptions.Item>
-                <Descriptions.Item label="Email">
-                  {customerDetail.Email || <span style={{ color: '#999' }}>Chưa có</span>}
-                </Descriptions.Item>
-                <Descriptions.Item label="Địa chỉ" span={2}>
-                  {customerDetail.DiaChi || <span style={{ color: '#999' }}>Chưa có</span>}
-                </Descriptions.Item>
-                <Descriptions.Item label="Trạng thái">
-                  <Tag color={customerDetail.TinhTrang === 1 ? 'green' : 'red'}>
-                    {customerDetail.TinhTrang === 1 ? 'Hoạt động' : 'Vô hiệu'}
-                  </Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="Ngày tham gia">
-                  {customerDetail.NgayThamGia ? new Date(customerDetail.NgayThamGia).toLocaleDateString('vi-VN') : 'N/A'}
-                </Descriptions.Item>
-              </Descriptions>
-            </Tabs.TabPane>
+          <Tabs 
+            defaultActiveKey="info"
+            items={[
+              {
+                key: 'info',
+                label: (
+                  <span>
+                    <UserOutlined />
+                    Thông tin cơ bản
+                  </span>
+                ),
+                children: (
+                  <Descriptions bordered column={2}>
+                    <Descriptions.Item label="Mã KH" span={2}>
+                      <strong>#{customerDetail.MaKH}</strong>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Họ tên" span={2}>
+                      {customerDetail.HoTen}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="SĐT">
+                      {customerDetail.SDT}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Email">
+                      {customerDetail.Email || <span style={{ color: '#999' }}>Chưa có</span>}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Địa chỉ" span={2}>
+                      {customerDetail.DiaChi || <span style={{ color: '#999' }}>Chưa có</span>}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Trạng thái">
+                      <Tag color={customerDetail.TinhTrang === 1 ? 'green' : 'red'}>
+                        {customerDetail.TinhTrang === 1 ? 'Hoạt động' : 'Vô hiệu'}
+                      </Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Ngày tham gia">
+                      {customerDetail.NgayThamGia ? new Date(customerDetail.NgayThamGia).toLocaleDateString('vi-VN') : 'N/A'}
+                    </Descriptions.Item>
+                  </Descriptions>
+                )
+              },
+              {
+                key: 'loyalty',
+                label: (
+                  <span>
+                    <TrophyOutlined />
+                    Thông tin hội viên
+                  </span>
+                ),
+                children: (
+                  <div>
+                    <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                      <Col span={12}>
+                        <Card size="small">
+                          <Statistic
+                            title="Hạng thành viên"
+                            value={TIER_CONFIG[customerDetail.HangTV]?.label || 'N/A'}
+                            prefix={TIER_CONFIG[customerDetail.HangTV]?.icon}
+                            valueStyle={{ 
+                              color: TIER_CONFIG[customerDetail.HangTV]?.color,
+                              fontSize: 28
+                            }}
+                          />
+                          {customerDetail.NgayNangHang && (
+                            <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
+                              Lên hạng: {new Date(customerDetail.NgayNangHang).toLocaleDateString('vi-VN')}
+                            </div>
+                          )}
+                        </Card>
+                      </Col>
+                      <Col span={12}>
+                        <Card size="small">
+                          <Statistic
+                            title="Điểm hiện tại"
+                            value={customerDetail.DiemTichLuy || 0}
+                            valueStyle={{ color: '#1890ff', fontSize: 28 }}
+                            suffix="điểm"
+                          />
+                        </Card>
+                      </Col>
+                      <Col span={12}>
+                        <Card size="small">
+                          <Statistic
+                            title="Tổng điểm tích lũy"
+                            value={customerDetail.TongDiemTichLuy || 0}
+                            valueStyle={{ color: '#52c41a', fontSize: 20 }}
+                            suffix="điểm"
+                          />
+                        </Card>
+                      </Col>
+                      <Col span={12}>
+                        <Card size="small">
+                          <Statistic
+                            title="Điểm đã sử dụng"
+                            value={customerDetail.DiemDaDung || 0}
+                            valueStyle={{ color: '#ff4d4f', fontSize: 20 }}
+                            suffix="điểm"
+                          />
+                        </Card>
+                      </Col>
+                    </Row>
 
-            <Tabs.TabPane 
-              tab={
-                <span>
-                  <TrophyOutlined />
-                  Thông tin hội viên
-                </span>
-              } 
-              key="loyalty"
-            >
-              <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                <Col span={12}>
-                  <Card size="small">
-                    <Statistic
-                      title="Hạng thành viên"
-                      value={TIER_CONFIG[customerDetail.HangTV]?.label || 'N/A'}
-                      prefix={TIER_CONFIG[customerDetail.HangTV]?.icon}
-                      valueStyle={{ 
-                        color: TIER_CONFIG[customerDetail.HangTV]?.color,
-                        fontSize: 28
-                      }}
-                    />
-                    {customerDetail.NgayNangHang && (
-                      <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
-                        Lên hạng: {new Date(customerDetail.NgayNangHang).toLocaleDateString('vi-VN')}
+                    <Descriptions bordered column={2} title="Ưu đãi hiện tại">
+                      <Descriptions.Item label="Giảm giá" span={1}>
+                        <Tag color="green" style={{ fontSize: 16 }}>
+                          {customerDetail.PhanTramGiam || 0}%
+                        </Tag>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Hệ số tích điểm" span={1}>
+                        <Tag color="blue" style={{ fontSize: 16 }}>
+                          x{customerDetail.HeSoTichDiem || 1}
+                        </Tag>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Tối đa dùng điểm" span={2}>
+                        <Tag color="orange" style={{ fontSize: 16 }}>
+                          {(customerDetail.ToiDaDungDiem || 0).toLocaleString()} điểm
+                        </Tag>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Tiến độ lên hạng" span={2}>
+                        {customerDetail.DiemCanDeLenHang > 0 ? (
+                          <div>
+                            <Progress 
+                              percent={
+                                Math.round(
+                                  ((customerDetail.DiemTichLuy || 0) / 
+                                  ((customerDetail.DiemTichLuy || 0) + customerDetail.DiemCanDeLenHang)) * 100
+                                )
+                              }
+                              strokeColor="#52c41a"
+                            />
+                            <div style={{ marginTop: 8, fontSize: 14 }}>
+                              Cần thêm <strong style={{ color: '#1890ff' }}>
+                                {customerDetail.DiemCanDeLenHang.toLocaleString()}
+                              </strong> điểm để lên hạng tiếp theo
+                            </div>
+                          </div>
+                        ) : (
+                          <Tag color="gold">Đã đạt hạng cao nhất</Tag>
+                        )}
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </div>
+                )
+              },
+              {
+                key: 'orders',
+                label: (
+                  <span>
+                    <HistoryOutlined />
+                    Lịch sử mua hàng
+                  </span>
+                ),
+                children: (
+                  <>
+                    {customerDetail.recentOrders && customerDetail.recentOrders.length > 0 ? (
+                      <Table
+                        dataSource={customerDetail.recentOrders}
+                        rowKey="MaHD"
+                        pagination={false}
+                        size="small"
+                        columns={[
+                          { 
+                            title: 'Mã HD', 
+                            dataIndex: 'MaHD', 
+                            key: 'MaHD',
+                            render: (text) => <strong>#{text}</strong>
+                          },
+                          { 
+                            title: 'Ngày mua', 
+                            dataIndex: 'NgayLap', 
+                            key: 'NgayLap',
+                            render: (date) => new Date(date).toLocaleDateString('vi-VN')
+                          },
+                          { 
+                            title: 'Tổng tiền', 
+                            dataIndex: 'TongTien', 
+                            key: 'TongTien',
+                            render: (val) => (
+                              <span style={{ fontWeight: 600 }}>
+                                {(val || 0).toLocaleString()} đ
+                              </span>
+                            ),
+                            align: 'right'
+                          },
+                          { 
+                            title: 'Điểm tích', 
+                            dataIndex: 'DiemTichLuy', 
+                            key: 'DiemTichLuy',
+                            render: (val) => (
+                              <Tag color="blue">+{val || 0} điểm</Tag>
+                            ),
+                            align: 'center'
+                          },
+                          { 
+                            title: 'Điểm dùng', 
+                            dataIndex: 'DiemSuDung', 
+                            key: 'DiemSuDung',
+                            render: (val) => (
+                              val > 0 ? <Tag color="red">-{val} điểm</Tag> : <Tag>0</Tag>
+                            ),
+                            align: 'center'
+                          }
+                        ]}
+                      />
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                        Chưa có lịch sử mua hàng
                       </div>
                     )}
-                  </Card>
-                </Col>
-                <Col span={12}>
-                  <Card size="small">
-                    <Statistic
-                      title="Điểm hiện tại"
-                      value={customerDetail.DiemTichLuy || 0}
-                      valueStyle={{ color: '#1890ff', fontSize: 28 }}
-                      suffix="điểm"
-                    />
-                  </Card>
-                </Col>
-                <Col span={12}>
-                  <Card size="small">
-                    <Statistic
-                      title="Tổng điểm tích lũy"
-                      value={customerDetail.TongDiemTichLuy || 0}
-                      valueStyle={{ color: '#52c41a', fontSize: 20 }}
-                      suffix="điểm"
-                    />
-                  </Card>
-                </Col>
-                <Col span={12}>
-                  <Card size="small">
-                    <Statistic
-                      title="Điểm đã sử dụng"
-                      value={customerDetail.DiemDaDung || 0}
-                      valueStyle={{ color: '#ff4d4f', fontSize: 20 }}
-                      suffix="điểm"
-                    />
-                  </Card>
-                </Col>
-              </Row>
-
-              <Descriptions bordered column={2} title="Ưu đãi hiện tại">
-                <Descriptions.Item label="Giảm giá" span={1}>
-                  <Tag color="green" style={{ fontSize: 16 }}>
-                    {customerDetail.PhanTramGiam || 0}%
-                  </Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="Hệ số tích điểm" span={1}>
-                  <Tag color="blue" style={{ fontSize: 16 }}>
-                    x{customerDetail.HeSoTichDiem || 1}
-                  </Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="Tối đa dùng điểm" span={2}>
-                  <Tag color="orange" style={{ fontSize: 16 }}>
-                    {(customerDetail.ToiDaDungDiem || 0).toLocaleString()} điểm
-                  </Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="Tiến độ lên hạng" span={2}>
-                  {customerDetail.DiemCanDeLenHang > 0 ? (
-                    <div>
-                      <Progress 
-                        percent={
-                          Math.round(
-                            ((customerDetail.DiemTichLuy || 0) / 
-                            ((customerDetail.DiemTichLuy || 0) + customerDetail.DiemCanDeLenHang)) * 100
-                          )
-                        }
-                        strokeColor="#52c41a"
-                      />
-                      <div style={{ marginTop: 8, fontSize: 14 }}>
-                        Cần thêm <strong style={{ color: '#1890ff' }}>
-                          {customerDetail.DiemCanDeLenHang.toLocaleString()}
-                        </strong> điểm để lên hạng tiếp theo
-                      </div>
-                    </div>
-                  ) : (
-                    <Tag color="gold">Đã đạt hạng cao nhất</Tag>
-                  )}
-                </Descriptions.Item>
-              </Descriptions>
-            </Tabs.TabPane>
-
-            <Tabs.TabPane 
-              tab={
-                <span>
-                  <HistoryOutlined />
-                  Lịch sử mua hàng
-                </span>
-              } 
-              key="orders"
-            >
-              {customerDetail.recentOrders && customerDetail.recentOrders.length > 0 ? (
-                <Table
-                  dataSource={customerDetail.recentOrders}
-                  rowKey="MaHD"
-                  pagination={false}
-                  size="small"
-                  columns={[
-                    { 
-                      title: 'Mã HD', 
-                      dataIndex: 'MaHD', 
-                      key: 'MaHD',
-                      render: (text) => <strong>#{text}</strong>
-                    },
-                    { 
-                      title: 'Ngày mua', 
-                      dataIndex: 'NgayLap', 
-                      key: 'NgayLap',
-                      render: (date) => new Date(date).toLocaleDateString('vi-VN')
-                    },
-                    { 
-                      title: 'Tổng tiền', 
-                      dataIndex: 'TongTien', 
-                      key: 'TongTien',
-                      render: (val) => (
-                        <span style={{ fontWeight: 600 }}>
-                          {(val || 0).toLocaleString()} đ
-                        </span>
-                      ),
-                      align: 'right'
-                    },
-                    { 
-                      title: 'Điểm tích', 
-                      dataIndex: 'DiemTichLuy', 
-                      key: 'DiemTichLuy',
-                      render: (val) => (
-                        <Tag color="blue">+{val || 0} điểm</Tag>
-                      ),
-                      align: 'center'
-                    },
-                    { 
-                      title: 'Điểm dùng', 
-                      dataIndex: 'DiemSuDung', 
-                      key: 'DiemSuDung',
-                      render: (val) => (
-                        val > 0 ? <Tag color="red">-{val} điểm</Tag> : <Tag>0</Tag>
-                      ),
-                      align: 'center'
-                    }
-                  ]}
-                />
-              ) : (
-                <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
-                  Chưa có lịch sử mua hàng
-                </div>
-              )}
-            </Tabs.TabPane>
-          </Tabs>
+                  </>
+                )
+              }
+            ]}
+          />
         ) : null}
       </Modal>
 

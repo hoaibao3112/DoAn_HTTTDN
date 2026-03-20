@@ -386,16 +386,20 @@ const POSPage = () => {
             );
 
             if (response.data.success && response.data.data && response.data.data.length > 0) {
-                // Take first match
+                // Take first match - Database returns uppercase field names
                 const foundCustomer = response.data.data[0];
                 setCustomer({
-                    ...foundCustomer,
-                    HoTen: foundCustomer.tenkh,
-                    MaKH: foundCustomer.makh,
-                    SDT: foundCustomer.sdt,
-                    DiemTichLuy: foundCustomer.loyalty_points || 0
+                    MaKH: foundCustomer.MaKH,
+                    HoTen: foundCustomer.HoTen,
+                    SDT: foundCustomer.SDT,
+                    Email: foundCustomer.Email,
+                    DiemTichLuy: foundCustomer.DiemTichLuy || 0,
+                    TongDiemTichLuy: foundCustomer.TongDiemTichLuy || 0,
+                    HangTV: foundCustomer.HangTV,
+                    ...foundCustomer
                 });
-                alert(`Khách hàng: ${foundCustomer.tenkh}`);
+                setCustomerSearch(''); // Clear search field after finding
+                alert(`Tìm thấy khách hàng: ${foundCustomer.HoTen}`);
             } else {
                 alert('Không tìm thấy khách hàng. Vui lòng tạo mới.');
                 setShowCustomerForm(true);
@@ -408,14 +412,19 @@ const POSPage = () => {
     };
 
     const createCustomer = async () => {
+        if (!newCustomer.TenKH || !newCustomer.SDT) {
+            alert('Vui lòng nhập tên và SĐT của khách hàng!');
+            return;
+        }
+
         try {
             const token = localStorage.getItem('authToken');
-            // Use /api/customers endpoint
+            // Use /api/customers endpoint - Database expects uppercase field names
             const payload = {
-                tenkh: newCustomer.TenKH,
-                sdt: newCustomer.SDT,
-                email: newCustomer.Email,
-                diachi: newCustomer.DiaChi
+                HoTen: newCustomer.TenKH,
+                SDT: newCustomer.SDT,
+                Email: newCustomer.Email,
+                DiaChi: newCustomer.DiaChi
             };
 
             const response = await axios.post(
@@ -425,11 +434,15 @@ const POSPage = () => {
             );
 
             if (response.data.success) {
+                const createdCustomer = response.data.data;
                 setCustomer({
-                    HoTen: newCustomer.TenKH,
-                    MaKH: response.data.makh || response.data.MaKH,
-                    SDT: newCustomer.SDT,
-                    DiemTichLuy: 0
+                    MaKH: createdCustomer.MaKH,
+                    HoTen: createdCustomer.HoTen,
+                    SDT: createdCustomer.SDT,
+                    Email: createdCustomer.Email,
+                    DiemTichLuy: 0,
+                    TongDiemTichLuy: 0,
+                    HangTV: 'Dong'
                 });
                 setShowCustomerForm(false);
                 setNewCustomer({ TenKH: '', SDT: '', Email: '', DiaChi: '' });
@@ -437,7 +450,8 @@ const POSPage = () => {
             }
         } catch (error) {
             console.error('Error creating customer:', error);
-            alert('Lỗi tạo khách hàng: ' + (error.response?.data?.message || error.message));
+            const errorMsg = error.response?.data?.message || error.message;
+            alert('Lỗi tạo khách hàng: ' + errorMsg);
         }
     };
 
@@ -775,12 +789,23 @@ const POSPage = () => {
                                 <span className="material-icons">person_search</span>
                                 <input
                                     type="text"
-                                    placeholder="SĐT khách hàng..."
+                                    placeholder="Nhập SĐT khách hàng..."
                                     value={customerSearch}
                                     onChange={(e) => setCustomerSearch(e.target.value)}
                                     onKeyPress={(e) => e.key === 'Enter' && searchCustomer()}
                                 />
-                                <button className="btn-add-mini" onClick={() => setShowCustomerForm(!showCustomerForm)}>
+                                <button 
+                                    className="btn-search-customer"
+                                    onClick={searchCustomer}
+                                    title="Tìm kiếm khách hàng"
+                                >
+                                    <span className="material-icons">search</span>
+                                </button>
+                                <button 
+                                    className="btn-add-mini" 
+                                    onClick={() => setShowCustomerForm(!showCustomerForm)}
+                                    title="Tạo khách hàng mới"
+                                >
                                     <span className="material-icons">add</span>
                                 </button>
                             </div>
@@ -795,9 +820,37 @@ const POSPage = () => {
 
                             {showCustomerForm && (
                                 <div className="quick-customer-form mini">
-                                    <input type="text" placeholder="Tên" value={newCustomer.TenKH} onChange={(e) => setNewCustomer({ ...newCustomer, TenKH: e.target.value })} />
-                                    <input type="text" placeholder="SĐT" value={newCustomer.SDT} onChange={(e) => setNewCustomer({ ...newCustomer, SDT: e.target.value })} />
-                                    <button onClick={createCustomer}>Lưu</button>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Tên khách hàng *"
+                                        value={newCustomer.TenKH} 
+                                        onChange={(e) => setNewCustomer({ ...newCustomer, TenKH: e.target.value })}
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="SĐT *"
+                                        value={newCustomer.SDT} 
+                                        onChange={(e) => setNewCustomer({ ...newCustomer, SDT: e.target.value })}
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Email (tùy chọn)"
+                                        value={newCustomer.Email} 
+                                        onChange={(e) => setNewCustomer({ ...newCustomer, Email: e.target.value })}
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Địa chỉ (tùy chọn)"
+                                        value={newCustomer.DiaChi} 
+                                        onChange={(e) => setNewCustomer({ ...newCustomer, DiaChi: e.target.value })}
+                                    />
+                                    <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                                        <button onClick={createCustomer} style={{ flex: 1, background: '#52c41a', color: 'white' }}>Lưu</button>
+                                        <button onClick={() => {
+                                            setShowCustomerForm(false);
+                                            setNewCustomer({ TenKH: '', SDT: '', Email: '', DiaChi: '' });
+                                        }} style={{ flex: 1, background: '#f5f5f5', color: '#666' }}>Hủy</button>
+                                    </div>
                                 </div>
                             )}
                         </div>
