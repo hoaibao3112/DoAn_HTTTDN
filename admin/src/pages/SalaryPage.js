@@ -423,7 +423,7 @@ const SalaryPage = () => {
             <Select options={years} value={years.find(y => y.value === year)} onChange={v => setYear(v.value)} styles={{ control: b => ({ ...b, minWidth: 100 }) }} />
           </div>
 
-          {activeTab === 'salary' ? (
+          {activeTab === 'summary' ? (
             <>
               <button onClick={handleCalculate} disabled={calculating} className="btn-salary" style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}>
                 <i className={`fas ${calculating ? 'fa-spinner fa-spin' : 'fa-calculator'}`}></i> {calculating ? 'Đang tính...' : 'Tính lương'}
@@ -451,7 +451,7 @@ const SalaryPage = () => {
         </div>
 
         {/* TAB 1: SALARY */}
-        {activeTab === 'salary' && (
+        {activeTab === 'summary' && (
           <>
             {salaryList.length > 0 && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
@@ -522,7 +522,7 @@ const SalaryPage = () => {
         )}
 
         {/* TAB 2: BONUS/PENALTY */}
-        {activeTab === 'bonus-penalty' && (
+        {activeTab === 'bonus_penalty' && (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 }}>
               <SummaryCard icon="fa-trophy" label="Tổng thưởng" value={fmt(bpSummaryData.TongThuong)} color="#2e7d32" bg="#e8f5e9" />
