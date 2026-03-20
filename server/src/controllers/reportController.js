@@ -7,7 +7,7 @@ const reportController = {
             const query = `
                 SELECT 
                     YEAR(NgayBan) as Nam,
-                    SUM(TongTien) as TongDoanhThu,
+                    SUM(ThanhToan) as TongDoanhThu,
                     COUNT(*) as SoHoaDon
                 FROM hoadon
                 WHERE TrangThai = 'Hoan_thanh'
@@ -29,7 +29,7 @@ const reportController = {
             const query = `
                 SELECT 
                     MONTH(NgayBan) as Thang,
-                    SUM(TongTien) as TongDoanhThu,
+                    SUM(ThanhToan) as TongDoanhThu,
                     COUNT(*) as SoHoaDon
                 FROM hoadon
                 WHERE YEAR(NgayBan) = ? AND TrangThai = 'Hoan_thanh'
@@ -51,7 +51,7 @@ const reportController = {
             const query = `
                 SELECT 
                     DAY(NgayBan) as Ngay,
-                    SUM(TongTien) as TongDoanhThu,
+                    SUM(ThanhToan) as TongDoanhThu,
                     COUNT(*) as SoHoaDon
                 FROM hoadon
                 WHERE YEAR(NgayBan) = ? AND MONTH(NgayBan) = ? AND TrangThai = 'Hoan_thanh'
@@ -73,7 +73,7 @@ const reportController = {
             const query = `
                 SELECT 
                     DATE(NgayBan) as Ngay,
-                    SUM(TongTien) as TongDoanhThu,
+                    SUM(ThanhToan) as TongDoanhThu,
                     COUNT(*) as SoHoaDon
                 FROM hoadon
                 WHERE DATE(NgayBan) BETWEEN ? AND ? AND TrangThai = 'Hoan_thanh'
@@ -105,13 +105,18 @@ const reportController = {
         try {
             const { timePeriod = 'month', tuNgay, denNgay } = req.body;
             const timeWhere = reportController._buildTimeWhere(timePeriod, tuNgay, denNgay);
+            // FIX Bug 8: Calculate revenue by distributing ThanhToan proportionally to each item
+            // Revenue = (Item subtotal / Total TongTien) * ThanhToan for each invoice
             const [results] = await pool.query(`
                 SELECT 
                     sp.MaSP,
                     sp.TenSP,
                     sp.HinhAnh,
                     SUM(ct.SoLuong) AS SoLuongBan,
-                    SUM(ct.SoLuong * ct.DonGia - IFNULL(ct.GiamGia,0)) AS DoanhThu,
+                    SUM(
+                        (ct.SoLuong * ct.DonGia - IFNULL(ct.GiamGia,0)) * 
+                        hd.ThanhToan / NULLIF(hd.TongTien, 1)
+                    ) AS DoanhThu,
                     COUNT(DISTINCT hd.MaHD) AS SoHoaDon
                 FROM chitiethoadon ct
                 JOIN hoadon hd ON ct.MaHD = hd.MaHD
@@ -132,12 +137,17 @@ const reportController = {
         try {
             const { timePeriod = 'month', tuNgay, denNgay } = req.body;
             const timeWhere = reportController._buildTimeWhere(timePeriod, tuNgay, denNgay);
+            // FIX Bug 9: Calculate revenue by distributing ThanhToan proportionally to each item
+            // Revenue = (Item subtotal / Total TongTien) * ThanhToan for each invoice
             const [results] = await pool.query(`
                 SELECT 
                     tl.MaTL,
                     tl.TenTL,
                     SUM(ct.SoLuong) AS SoLuongBan,
-                    SUM(ct.SoLuong * ct.DonGia - IFNULL(ct.GiamGia,0)) AS DoanhThu,
+                    SUM(
+                        (ct.SoLuong * ct.DonGia - IFNULL(ct.GiamGia,0)) * 
+                        hd.ThanhToan / NULLIF(hd.TongTien, 1)
+                    ) AS DoanhThu,
                     COUNT(DISTINCT sp.MaSP) AS SoSanPham
                 FROM chitiethoadon ct
                 JOIN hoadon hd ON ct.MaHD = hd.MaHD

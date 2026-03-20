@@ -428,6 +428,19 @@ const warehouseController = {
             const [ncc] = await conn.query('SELECT MaNCC FROM nhacungcap WHERE MaNCC = ? AND TinhTrang = 1', [MaNCC]);
             if (!ncc.length) throw new Error('Nhà cung cấp không tồn tại hoặc đã ngưng hoạt động');
 
+            // ✅ BUG FIX 6: Validate tất cả sản phẩm tồn tại
+            const productIds = ChiTiet.map(item => item.MaSP);
+            const [products] = await conn.query(
+                'SELECT MaSP FROM sanpham WHERE MaSP IN (?) AND TinhTrang = 1',
+                [productIds]
+            );
+            const validProductIds = products.map(p => p.MaSP);
+            for (const id of productIds) {
+                if (!validProductIds.includes(id)) {
+                    throw new Error(`Sản phẩm MaSP=${id} không tồn tại hoặc đã bị vô hiệu hóa`);
+                }
+            }
+
             // Kiểm tra dữ liệu cửa hàng/kho
             let MaCHStore = MaCH; // Store ID
             if (!autoDistribute) {
@@ -458,6 +471,7 @@ const warehouseController = {
 
             // 3. Cập nhật tồn kho + phân bổ kho con
             const allocationLogs = [];
+            let totalUnallocated = 0;  // ✅ Track hàng không phân bổ được
             for (const item of ChiTiet) {
                 const qty  = Number(item.SoLuong);
                 const maSP = Number(item.MaSP);
@@ -518,7 +532,12 @@ const warehouseController = {
                     }
 
                     if (remaining > 0) {
-                        console.warn(`⚠️ Sản phẩm ${maSP}: Tất cả kho đầy. Chỉ phân bổ ${qty - remaining}/${qty} sản phẩm`);
+                        totalUnallocated += remaining;
+                        console.warn(
+                            `⚠️ Sản phẩm ${maSP}: Tất cả kho đầy. ` +
+                            `Chỉ phân bổ ${qty - remaining}/${qty} sản phẩm. ` +
+                            `Còn lại: ${remaining} chưa được phân bổ`
+                        );
                     }
                 } else {
                     // NHẬP VÀO KHO CỤ THỂ (MaCH là warehouse ID)
@@ -534,6 +553,7 @@ const warehouseController = {
                     } catch (allocErr) {
                         if (allocErr.code !== 'WAREHOUSE_FULL') throw allocErr;
                         console.warn(`Kho con đầy cho SP ${maSP}:`, allocErr.message);
+                        totalUnallocated += qty;
                     }
                 }
             }
@@ -566,15 +586,27 @@ const warehouseController = {
             await logActivity({
                 MaTK: req.user.MaTK, HanhDong: 'Them',
                 BangDuLieu: 'phieunhap', MaBanGhi: MaPN,
-                DuLieuMoi: JSON.stringify({ MaNCC, MaCH: MaCHStore, TongTien: tongTien, ConNo: conNo, autoDistribute }),
+                DuLieuMoi: JSON.stringify({ MaNCC, MaCH: MaCHStore, TongTien: tongTien, ConNo: conNo, autoDistribute, totalUnallocated }),
                 DiaChi_IP: req.ip
             });
 
             await conn.commit();
-            res.status(201).json({
-                success: true, message: 'Tạo phiếu nhập thành công',
-                MaPN, TongTien: tongTien, ConNo: conNo, allocationLogs, autoDistribute
-            });
+            
+            // ✅ BUG FIX 5: Kiểm tra nếu có hàng không được phân bổ
+            if (totalUnallocated > 0) {
+                res.status(201).json({
+                    success: false,
+                    message: `Phân bổ không hoàn toàn. ${totalUnallocated} sản phẩm chưa được phân bổ do kho đầy.`,
+                    warning: true,
+                    MaPN, TongTien: tongTien, ConNo: conNo, allocationLogs, autoDistribute, totalUnallocated
+                });
+            } else {
+                res.status(201).json({
+                    success: true, 
+                    message: 'Tạo phiếu nhập thành công',
+                    MaPN, TongTien: tongTien, ConNo: conNo, allocationLogs, autoDistribute
+                });
+            }
         } catch (error) {
             await conn.rollback();
             console.error('createPurchaseOrder:', error);
@@ -610,7 +642,7 @@ const warehouseController = {
                        END AS TrangThaiTon
                 FROM ton_kho tk
                 JOIN sanpham sp ON tk.MaSP = sp.MaSP
-                LEFT JOIN kho_con kc ON tk.MaCH = kc.MaKho
+                LEFT JOIN kho_con kc ON tk.MaCH = kc.MaCH
                 ${where}
                 ORDER BY kc.TenKho, sp.TenSP
                 LIMIT ? OFFSET ?

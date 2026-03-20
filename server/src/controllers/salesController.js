@@ -47,20 +47,88 @@ const salesController = {
         try {
             await conn.beginTransaction();
 
-            // 1. Calculate totals
-            let subTotal = 0;
-            for (const item of ChiTiet) {
-                subTotal += (item.DonGia * item.SoLuong) - (item.GiamGia || 0);
+            // ✅ BUG FIX 6: Validate tất cả sản phẩm tồn tại
+            const productIds = ChiTiet.map(item => item.MaSP);
+            const [products] = await conn.query(
+                'SELECT MaSP FROM sanpham WHERE MaSP IN (?) AND TinhTrang = 1',
+                [productIds]
+            );
+            const validProductIds = products.map(p => p.MaSP);
+            for (const id of productIds) {
+                if (!validProductIds.includes(id)) {
+                    throw new Error(`Sản phẩm MaSP=${id} không tồn tại hoặc đã bị vô hiệu hóa`);
+                }
             }
 
-            const tongThanhToan = subTotal - GiamGia - (DiemSuDung ? DiemSuDung * 1000 : 0);
-            const diemTichLuyMoi = Math.floor(tongThanhToan * 0.01); // 1% value
+            // ✅ BUG FIX 1: Tính toán TongTien ĐÚNG (Kế toán)
+            // TongTien = Tổng gốc TRƯỚC tất cả giảm giá
+            // GiamChiTiet = Tổng chiết khấu từng sản phẩm
+            // GiamGia = Chiết khấu cấp hóa đơn
+            // DiemSuDung = Điểm khách hàng sử dụng
+            // ThanhToan = TongTien - GiamChiTiet - GiamGia - (DiemSuDung * 1000)
+            
+            let TongTienGoc = 0;        // Tổng (giá × số lượng) trước tất cả giảm giá
+            let TongGiamChiTiet = 0;    // Tổng chiết khấu từng sản phẩm
+            
+            for (const item of ChiTiet) {
+                const itemTotal = item.DonGia * item.SoLuong;
+                TongTienGoc += itemTotal;
+                TongGiamChiTiet += (item.GiamGia || 0);
+            }
 
-            // 2. Create hoadon record
+            // ✅ BUG FIX 3: Validate giảm giá không vượt quá tổng tiền
+            // Tính tuần tự từng bậc
+            let remaining = TongTienGoc - TongGiamChiTiet;  // Sau discount từng item
+            
+            if (GiamGia > remaining) {
+                throw new Error(
+                    `Chiết khấu cửa hàng (${GiamGia.toLocaleString('vi-VN')}) ` +
+                    `vượt quá số tiền còn lại (${remaining.toLocaleString('vi-VN')})`
+                );
+            }
+            remaining -= GiamGia;
+            
+            // ✅ BUG FIX 4: Validate điểm khách hàng đủ trước khi trừ
+            let pointDeduction = 0;
+            if (MaKH && DiemSuDung && DiemSuDung > 0) {
+                const [customer] = await conn.query(
+                    'SELECT MaKH, DiemTichLuy FROM khachhang WHERE MaKH = ? FOR UPDATE',
+                    [MaKH]
+                );
+                if (!customer.length) {
+                    throw new Error(`Khách hàng MaKH=${MaKH} không tồn tại`);
+                }
+                
+                pointDeduction = DiemSuDung * 1000;
+                if (customer[0].DiemTichLuy < DiemSuDung) {
+                    throw new Error(
+                        `Khách hàng chỉ có ${customer[0].DiemTichLuy} điểm, ` +
+                        `nhưng cố dùng ${DiemSuDung} điểm (${pointDeduction.toLocaleString('vi-VN')}đ)`
+                    );
+                }
+            }
+            
+            if (pointDeduction > remaining) {
+                throw new Error(
+                    `Điểm sử dụng (${pointDeduction.toLocaleString('vi-VN')}đ) ` +
+                    `vượt quá số tiền còn lại (${remaining.toLocaleString('vi-VN')}đ)`
+                );
+            }
+            remaining -= pointDeduction;
+            
+            if (remaining < 0) {
+                throw new Error(`Tổng thanh toán âm (${remaining.toLocaleString('vi-VN')}đ). Vui lòng kiểm tra lại.`);
+            }
+            
+            const tongThanhToan = remaining;
+            const diemTichLuyMoi = Math.floor(TongTienGoc * 0.01); // 1% của TongTienGoc, không phải ThanhToan
+
+            // 2. Create hoadon record với đúng các cột
+            // Lưu ý: TongTien là tổng TRƯỚC tất cả giảm giá
             const [hdResult] = await conn.query(
                 `INSERT INTO hoadon (MaKH, MaNV, MaCH, TongTien, GiamGia, DiemSuDung, DiemTichLuy, ThanhToan, PhuongThucTT, TrangThai) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Hoan_thanh')`,
-                [MaKH || null, req.user.MaTK, MaCH, subTotal, GiamGia, DiemSuDung || 0, diemTichLuyMoi, tongThanhToan, PhuongThucTT]
+                [MaKH || null, req.user.MaTK, MaCH, TongTienGoc, GiamGia || 0, DiemSuDung || 0, diemTichLuyMoi, tongThanhToan, PhuongThucTT]
             );
             const MaHD = hdResult.insertId;
 
@@ -157,6 +225,7 @@ const salesController = {
 
             // 4. Update Customer Points & Loyalty
             if (MaKH) {
+                // Điểm trừ đã được validate ở trên, giờ chỉ cần UPDATE
                 await conn.query(
                     'UPDATE khachhang SET DiemTichLuy = DiemTichLuy - ? + ?, TongChiTieu = TongChiTieu + ? WHERE MaKH = ?',
                     [DiemSuDung || 0, diemTichLuyMoi, tongThanhToan, MaKH]
@@ -170,7 +239,7 @@ const salesController = {
                 HanhDong: 'Them',
                 BangDuLieu: 'hoadon',
                 MaBanGhi: MaHD,
-                DuLieuMoi: { MaKH, TongThanhToan: tongThanhToan },
+                DuLieuMoi: { MaKH, TongTien: TongTienGoc, ThanhToan: tongThanhToan },
                 DiaChi_IP: req.ip
             });
 
