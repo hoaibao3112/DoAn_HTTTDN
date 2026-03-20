@@ -243,7 +243,7 @@ const supplierController = {
                 [MaCongNo, SoTien, PhuongThuc || 'Tien_mat', req.user.MaTK, GhiChu]
             );
 
-            // Update debt
+            // Update debt in cong_no_ncc table
             const newPaid = parseFloat(debt[0].SoTienDaTra) + parseFloat(SoTien);
             const newRemaining = parseFloat(debt[0].SoTienNo) - newPaid;
             let newStatus = 'Chua_thanh_toan';
@@ -260,6 +260,32 @@ const supplierController = {
                  WHERE MaCongNo = ?`,
                 [newPaid, newStatus, MaCongNo]
             );
+
+            // ✅ ALSO UPDATE phieunhap table if MaPN exists
+            if (debt[0].MaPN) {
+                console.log('DEBUG: Updating phieunhap for MaPN:', debt[0].MaPN, 'with newPaid:', newPaid);
+                const newPhieuPaid = newPaid;
+                const [phieu] = await conn.query(
+                    'SELECT TongTien FROM phieunhap WHERE MaPN = ?',
+                    [debt[0].MaPN]
+                );
+                console.log('DEBUG: phieu result:', phieu);
+                if (phieu.length > 0) {
+                    const phieuNewRemaining = Math.max(0, parseFloat(phieu[0].TongTien) - newPhieuPaid);
+                    console.log('DEBUG: Updating with DaThanhToan:', newPhieuPaid, 'ConNo:', phieuNewRemaining);
+                    const updateResult = await conn.query(
+                        `UPDATE phieunhap 
+                         SET DaThanhToan = ?, ConNo = ?
+                         WHERE MaPN = ?`,
+                        [newPhieuPaid, phieuNewRemaining, debt[0].MaPN]
+                    );
+                    console.log('DEBUG: Update result:', updateResult);
+                } else {
+                    console.log('DEBUG: phieu không tìm thấy với MaPN:', debt[0].MaPN);
+                }
+            } else {
+                console.log('DEBUG: debt[0].MaPN không có giá trị');
+            }
 
             await conn.commit();
             res.json({ success: true, message: 'Ghi nhận thanh toán thành công', SoTienConLai: newRemaining });

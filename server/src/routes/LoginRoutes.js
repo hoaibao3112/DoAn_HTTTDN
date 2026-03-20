@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/connectDatabase.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs'; // dùng bcrypt để so sánh mật khẩu đã hash
+import { logActivity } from '../utils/auditLogger.js';
 
 const router = express.Router();
 
@@ -127,7 +128,5 @@ router.post('/logout', async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
-
-import { logActivity } from '../utils/auditLogger.js';
 
 export default router;

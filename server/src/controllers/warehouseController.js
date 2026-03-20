@@ -344,8 +344,9 @@ const warehouseController = {
                 SELECT pn.MaPN, pn.NgayNhap, pn.TongTien, pn.DaThanhToan, pn.ConNo,
                        pn.TrangThai, pn.GhiChu,
                        ncc.MaNCC, ncc.TenNCC,
-                       pn.MaCH, kc.TenKho AS TenCH,
-                       tk.TenTK AS NguoiLap
+                       pn.MaCH, 
+                       COALESCE(kc.TenKho, 'N/A') AS TenCH,
+                       COALESCE(tk.TenTK, 'Unknown') AS NguoiLap
                 FROM phieunhap pn
                 JOIN nhacungcap ncc ON pn.MaNCC = ncc.MaNCC
                 LEFT JOIN kho_con kc ON pn.MaCH = kc.MaKho
@@ -355,19 +356,29 @@ const warehouseController = {
                 LIMIT ? OFFSET ?
             `, [...params, parseInt(pageSize), offset]);
 
-            const [[{ total }]] = await pool.query(
+            // Get total count
+            const countResults = await pool.query(
                 `SELECT COUNT(*) AS total FROM phieunhap pn ${where}`, params
             );
+            const total = countResults[0][0]?.total || 0;
 
             res.json({
-                success: true, data: rows,
+                success: true, 
+                data: rows,
                 pagination: {
-                    page: parseInt(page), pageSize: parseInt(pageSize),
-                    total, totalPages: Math.ceil(total / parseInt(pageSize))
+                    page: parseInt(page), 
+                    pageSize: parseInt(pageSize),
+                    total, 
+                    totalPages: Math.ceil(total / parseInt(pageSize))
                 }
             });
         } catch (error) {
-            res.status(500).json({ success: false, message: error.message });
+            console.error('Error in getAllPurchaseOrders:', error);
+            res.status(500).json({ 
+                success: false, 
+                message: error.message,
+                details: error.stack 
+            });
         }
     },
 
@@ -450,7 +461,7 @@ const warehouseController = {
                 MaCHStore = whData[0].MaCH; // Store ID
             } else {
                 // Nếu auto-distribute, MaCH là store ID → kiểm tra store tồn tại
-                const [storeData] = await conn.query('SELECT MaCH FROM cua_hang WHERE MaCH = ? AND TinhTrang = 1', [MaCH]);
+                const [storeData] = await conn.query('SELECT MaCH FROM cua_hang WHERE MaCH = ? AND TrangThai = 1', [MaCH]);
                 if (!storeData.length) throw new Error('Cửa hàng không tồn tại');
             }
 
