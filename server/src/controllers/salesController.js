@@ -151,19 +151,25 @@ const salesController = {
                 // - Ưu tiên lấy từ kho quầy (Priority=1) trước
                 // - Nếu quầy không đủ → tự động lấy từ kho phụ (Priority=2,3...)
                 // - Nếu toàn cửa hàng không đủ → báo lỗi
+                // ✅ FIX N+1: Query tất cả kho CHỈ MỘT LẦN, rồi dùng trong loop
+                const [allWarehouses] = await conn.query(`
+                    SELECT kc.MaKho, kc.TenKho, kc.Priority,
+                           COALESCE(tkct.SoLuongTon, 0) AS TonHienTai,
+                           tkct.MaSP
+                    FROM kho_con kc
+                    LEFT JOIN ton_kho_chi_tiet tkct ON tkct.MaKho = kc.MaKho
+                    WHERE kc.MaCH = ? AND kc.TinhTrang = 1
+                    ORDER BY kc.Priority ASC
+                    FOR UPDATE
+                `, [MaCH]);
+                
                 const warehouseAllocations = [];
                 
                 for (const item of ChiTiet) {
-                    // Lấy tất cả kho của cửa hàng này, sắp xếp theo Priority
-                    const [warehouses] = await conn.query(`
-                        SELECT kc.MaKho, kc.TenKho, kc.Priority,
-                               COALESCE(tkct.SoLuongTon, 0) AS TonHienTai
-                        FROM kho_con kc
-                        LEFT JOIN ton_kho_chi_tiet tkct ON tkct.MaKho = kc.MaKho AND tkct.MaSP = ?
-                        WHERE kc.MaCH = ? AND kc.TinhTrang = 1
-                        ORDER BY kc.Priority ASC
-                        FOR UPDATE
-                    `, [item.MaSP, MaCH]);
+                    // Filter warehouses cho sản phẩm này từ allWarehouses (tránh N+1)
+                    const warehouses = allWarehouses
+                        .filter(w => w.MaSP === item.MaSP || w.MaSP === null)
+                        .sort((a, b) => a.Priority - b.Priority);
 
                     if (warehouses.length === 0) {
                         throw new Error(`Không tìm thấy kho hoạt động nào trong cửa hàng.`);
@@ -356,13 +362,19 @@ const salesController = {
             if (!hd.length) throw new Error('Hóa đơn không tồn tại');
             if (hd[0].TrangThai === 'Da_huy') throw new Error('Hóa đơn đã bị hủy');
 
-            // 1. Restore stock
+            // 1. Restore stock - ✅ FIX N+1: Batch update thay vì loop
             const [details] = await conn.query('SELECT MaSP, SoLuong, MaCH FROM chitiethoadon JOIN hoadon ON chitiethoadon.MaHD = hoadon.MaHD WHERE hoadon.MaHD = ?', [id]);
-            for (const item of details) {
-                await conn.query(
-                    'UPDATE ton_kho SET SoLuongTon = SoLuongTon + ? WHERE MaSP = ? AND MaCH = ?',
-                    [item.SoLuong, item.MaSP, item.MaCH]
-                );
+            if (details.length > 0) {
+                // Build CASE statement để cập nhật tất cả items cùng lúc
+                const caseClauses = details
+                    .map(item => `WHEN MaSP = ${conn.escape(item.MaSP)} AND MaCH = ${conn.escape(item.MaCH)} THEN SoLuongTon + ${item.SoLuong}`)
+                    .join(' ');
+                
+                await conn.query(`
+                    UPDATE ton_kho 
+                    SET SoLuongTon = CASE ${caseClauses} ELSE SoLuongTon END
+                    WHERE (MaSP, MaCH) IN (${details.map(() => '(?,?)').join(',')})
+                `, details.flatMap(item => [item.MaSP, item.MaCH]));
             }
 
             // 2. Update status

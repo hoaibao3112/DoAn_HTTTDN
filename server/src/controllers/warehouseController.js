@@ -483,6 +483,35 @@ const warehouseController = {
             // 3. Cập nhật tồn kho + phân bổ kho con
             const allocationLogs = [];
             let totalUnallocated = 0;  // ✅ Track hàng không phân bổ được
+            
+            // ✅ FIX N+1: Query tất cả warehouses + stock CHỈ MỘT LẦN (tránh N+1 query)
+            const productMaSPs = ChiTiet.map(item => Number(item.MaSP));
+            const [allWarehouseData] = await conn.query(`
+                SELECT kc.MaKho, kc.TenKho, kc.Priority, kc.Capacity,
+                       tkct.MaSP, COALESCE(tkct.SoLuongTon, 0) AS TonHienTai
+                FROM kho_con kc
+                LEFT JOIN ton_kho_chi_tiet tkct ON tkct.MaKho = kc.MaKho AND tkct.MaSP IN (?)
+                WHERE kc.MaCH = ? AND kc.TinhTrang = 1
+                ORDER BY kc.Priority ASC
+                FOR UPDATE
+            `, [productMaSPs, MaCHStore]);
+            
+            // Map warehouses theo MaSP để tra cứu nhanh
+            const warehousesByProduct = {};
+            productMaSPs.forEach(id => { warehousesByProduct[id] = []; });
+            allWarehouseData.forEach(wh => {
+                // Nếu MaSP là null, tức là kho không có hàng → thêm vào tất cả products
+                if (wh.MaSP === null) {
+                    productMaSPs.forEach(id => {
+                        if (!warehousesByProduct[id].some(w => w.MaKho === wh.MaKho)) {
+                            warehousesByProduct[id].push({ ...wh, MaSP: id, TonHienTai: 0 });
+                        }
+                    });
+                } else {
+                    warehousesByProduct[wh.MaSP].push(wh);
+                }
+            });
+            
             for (const item of ChiTiet) {
                 const qty  = Number(item.SoLuong);
                 const maSP = Number(item.MaSP);
@@ -497,15 +526,8 @@ const warehouseController = {
                 // Phân bổ vào warehouse cụ thể
                 if (autoDistribute) {
                     // ✅ TỰ ĐỘNG PHÂN BỔ theo priority (Priority nhỏ → lớn, quầy trước)
-                    const [warehouses] = await conn.query(`
-                        SELECT kc.MaKho, kc.TenKho, kc.Priority, kc.Capacity,
-                               COALESCE(tkct.SoLuongTon, 0) AS TonHienTai
-                        FROM kho_con kc
-                        LEFT JOIN ton_kho_chi_tiet tkct ON tkct.MaKho = kc.MaKho AND tkct.MaSP = ?
-                        WHERE kc.MaCH = ? AND kc.TinhTrang = 1
-                        ORDER BY kc.Priority ASC
-                        FOR UPDATE
-                    `, [maSP, MaCHStore]);
+                    // Sử dụng data đã query từ trước (tránh N+1)
+                    const warehouses = warehousesByProduct[maSP] || [];
 
                     if (warehouses.length === 0) {
                         throw new Error(`Cửa hàng không có kho nào hoạt động`);
@@ -569,21 +591,33 @@ const warehouseController = {
                 }
             }
 
-            // 4. Cập nhật giá
-            for (const item of ChiTiet) {
-                const giaNhap = Number(item.DonGiaNhap);
-                if (TyLeLoi && Number(TyLeLoi) > 0) {
-                    const donGia = Math.round(giaNhap * (1 + Number(TyLeLoi) / 100));
-                    await conn.query(
-                        'UPDATE sanpham SET GiaNhap = ?, DonGia = ?, TinhTrang = 1 WHERE MaSP = ?',
-                        [giaNhap, donGia, item.MaSP]
-                    );
-                } else {
-                    await conn.query(
-                        'UPDATE sanpham SET GiaNhap = ?, TinhTrang = 1 WHERE MaSP = ?',
-                        [giaNhap, item.MaSP]
-                    );
+            // 4. Cập nhật giá - ✅ FIX N+1: Batch update thay vì loop
+            if (ChiTiet.length > 0) {
+                const priceUpdates = ChiTiet.map(item => ({
+                    MaSP: item.MaSP,
+                    GiaNhap: Number(item.DonGiaNhap),
+                    DonGia: TyLeLoi && Number(TyLeLoi) > 0 
+                        ? Math.round(Number(item.DonGiaNhap) * (1 + Number(TyLeLoi) / 100))
+                        : Number(item.DonGiaNhap)
+                }));
+                
+                // Build CASE statements
+                let caseGiaNhap = 'CASE';
+                let caseDonGia = 'CASE';
+                for (const update of priceUpdates) {
+                    caseGiaNhap += ` WHEN MaSP = ${conn.escape(update.MaSP)} THEN ${conn.escape(update.GiaNhap)}`;
+                    caseDonGia += ` WHEN MaSP = ${conn.escape(update.MaSP)} THEN ${conn.escape(update.DonGia)}`;
                 }
+                caseGiaNhap += ' ELSE GiaNhap END';
+                caseDonGia += ' ELSE DonGia END';
+                
+                await conn.query(`
+                    UPDATE sanpham 
+                    SET GiaNhap = ${caseGiaNhap}, 
+                        DonGia = ${caseDonGia}, 
+                        TinhTrang = 1 
+                    WHERE MaSP IN (?)
+                `, [productIds]);
             }
 
             // 5. Công nợ NCC
