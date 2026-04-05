@@ -40,3 +40,19 @@ temp/
 # Database dumps
 *.sql
 Dump*.sql
+
+# API Testing & Reports
+*_Postman.json
+postman/
+newman/
+test-results/
+playwright-report/
+*.http
+REST_Client/
+output*.json
+
+# Test Source Code & Configs
+tests/
+.env.test
+jest.config.js
+scripts/generate_postman.js

@@ -10,7 +10,9 @@
     "prod": "NODE_ENV=production node server.js",
     "backfill:preferences": "node ./src/scripts/backfill_preferences.js",
     "hash-taikhoan": "node ./src/utils/hashTaikhoanPasswords.js",
-    "test": "jest --detectOpenHandles --runInBand"
+    "test": "jest --detectOpenHandles --forceExit --runInBand",
+    "test:ci": "jest --detectOpenHandles --forceExit --runInBand --ci",
+    "test:auth": "jest --detectOpenHandles --forceExit tests/integration/auth.test.js"
   },
   "keywords": [],
   "author": "",
