@@ -885,10 +885,11 @@ const AttendancePage = () => {
                               padding: '6px 12px',
                               borderRadius: 4,
                               cursor: 'pointer',
-                              marginRight: 8
+                              marginRight: 8,
+                              fontWeight: 'bold'
                             }}
                           >
-                            <i className="fas fa-edit"></i>
+                            Sửa
                           </button>
                           <button
                             onClick={() => handleDeleteHoliday(holiday.MaNgayLe)}
@@ -898,10 +899,11 @@ const AttendancePage = () => {
                               border: 'none',
                               padding: '6px 12px',
                               borderRadius: 4,
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              fontWeight: 'bold'
                             }}
                           >
-                            <i className="fas fa-trash"></i>
+                            Xóa
                           </button>
                         </td>
                       </tr>

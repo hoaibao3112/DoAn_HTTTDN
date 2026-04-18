@@ -136,9 +136,27 @@ router.get('/leave-requests',
     hrController.getAllLeaveRequests
 );
 
+// Get approved leave requests (for review/history)
+router.get('/leave-requests/approved',
+    checkPermission(FEATURES.LEAVE, PERMISSIONS.VIEW),
+    hrController.getApprovedLeaveRequests
+);
+
+// Get single leave request by id
+router.get('/leave-requests/:id',
+    checkPermission(FEATURES.LEAVE, PERMISSIONS.VIEW),
+    hrController.getLeaveById
+);
+
 router.put('/leave-requests/:id/approve',
     checkPermission(FEATURES.LEAVE, PERMISSIONS.APPROVE),
     hrController.approveLeave
+);
+
+// Update leave request (dates, reason, status) — HR managers
+router.put('/leave-requests/:id',
+    checkPermission(FEATURES.LEAVE, PERMISSIONS.UPDATE),
+    hrController.updateLeaveRequest
 );
 
 // Salary Calculation

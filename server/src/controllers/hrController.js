@@ -438,6 +438,93 @@ const hrController = {
         }
     },
 
+    // Get all approved leave requests (for review / historical edits)
+    getApprovedLeaveRequests: async (req, res) => {
+        try {
+            const [rows] = await pool.query(
+                `SELECT x.*, n.HoTen FROM xin_nghi_phep x JOIN nhanvien n ON x.MaNV = n.MaNV WHERE x.TrangThai = 'Da_duyet' ORDER BY x.NgayBatDau DESC`
+            );
+            res.json({ success: true, data: rows });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // Get a single leave request by id
+    getLeaveById: async (req, res) => {
+        const { id } = req.params;
+        try {
+            const [rows] = await pool.query(
+                `SELECT x.*, n.HoTen FROM xin_nghi_phep x JOIN nhanvien n ON x.MaNV = n.MaNV WHERE x.id = ? LIMIT 1`,
+                [id]
+            );
+            if (!rows || rows.length === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy đơn' });
+            res.json({ success: true, data: rows[0] });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // Update an existing leave request (dates, reason, or status) — intended for HR managers
+    updateLeaveRequest: async (req, res) => {
+        const { id } = req.params;
+        const { NgayBatDau, NgayKetThuc, LyDo, TrangThai } = req.body;
+        try {
+            // Get editor's MaNV for audit
+            const [editor] = await pool.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
+
+            const connection = await pool.getConnection();
+            try {
+                await connection.beginTransaction();
+
+                // Build update dynamically to allow partial updates
+                const updates = [];
+                const params = [];
+                if (NgayBatDau !== undefined) { updates.push('NgayBatDau = ?'); params.push(NgayBatDau); }
+                if (NgayKetThuc !== undefined) { updates.push('NgayKetThuc = ?'); params.push(NgayKetThuc); }
+                if (LyDo !== undefined) { updates.push('LyDo = ?'); params.push(LyDo); }
+                if (TrangThai !== undefined) { updates.push('TrangThai = ?'); params.push(TrangThai); }
+
+                if (updates.length === 0) {
+                    return res.status(400).json({ success: false, message: 'Không có trường nào để cập nhật' });
+                }
+
+                // Append audit fields
+                updates.push('NguoiSua = ?', 'NgaySua = NOW()');
+                params.push(editor[0]?.MaNV || null);
+
+                params.push(id);
+
+                await connection.query(
+                    `UPDATE xin_nghi_phep SET ${updates.join(', ')} WHERE id = ?`,
+                    params
+                );
+
+                // Note: Adjusting related `cham_cong` entries is complex (may require backfill); currently we only update the request record.
+
+                await connection.commit();
+
+                await logActivity({
+                    MaTK: req.user?.MaTK || null,
+                    HanhDong: 'Cap_nhat_don_nghi',
+                    BangDuLieu: 'xin_nghi_phep',
+                    MaBanGhi: id,
+                    DiaChi_IP: req.ip,
+                    GhiChu: `Cập nhật đơn nghỉ (id=${id}) bởi MaNV=${editor[0]?.MaNV || null}`
+                });
+
+                res.json({ success: true, message: 'Cập nhật đơn thành công' });
+            } catch (err) {
+                await connection.rollback();
+                throw err;
+            } finally {
+                connection.release();
+            }
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
     approveLeave: async (req, res) => {
         const { id } = req.params;
         const { TrangThai } = req.body; // Da_duyet, Tu_choi

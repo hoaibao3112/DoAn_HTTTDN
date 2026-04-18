@@ -12,9 +12,11 @@ const { TextArea } = Input;
 const LeavePage = () => {
   const { hasPermission } = useContext(PermissionContext);
   const [data, setData] = useState([]);
+  const [approvedData, setApprovedData] = useState([]);
   const [open, setOpen] = useState(false);
   const [processingId, setProcessingId] = useState(null);
   const [filterStatus, setFilterStatus] = useState('');
+  const [viewMode, setViewMode] = useState('pending'); // 'pending' | 'approved'
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
 
@@ -38,13 +40,39 @@ const LeavePage = () => {
     }
   };
 
+  const fetchApproved = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await axios.get('http://localhost:5000/api/hr/leave-requests/approved', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data.success) {
+        const sorted = res.data.data.sort((a, b) => b.id - a.id);
+        setApprovedData(sorted);
+      }
+    } catch (err) {
+      message.error('Lỗi khi tải danh sách đã duyệt');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (hasPermission('Nghĩ Phép', 'Đọc')) {
-      fetchLeave();
+      if (viewMode === 'pending') fetchLeave();
+      else fetchApproved();
     } else {
       message.error('Bạn không có quyền xem danh sách nghỉ phép!');
     }
   }, [hasPermission]);
+
+  useEffect(() => {
+    if (hasPermission('Nghĩ Phép', 'Đọc')) {
+      if (viewMode === 'pending') fetchLeave();
+      else fetchApproved();
+    }
+  }, [viewMode]);
 
   // Duyệt đơn nghỉ phép
   const handleApprove = async (id) => {
@@ -173,7 +201,8 @@ const LeavePage = () => {
       fixed: 'right',
       width: 180,
       render: (_, record) =>
-        record.TrangThai === 'Cho_duyet' && hasPermission('Nghĩ Phép', 'Sửa') ? (
+        // Pending requests: show approve/reject
+        (viewMode === 'pending' && record.TrangThai === 'Cho_duyet' && hasPermission('Nghĩ Phép', 'Sửa')) ? (
           <Space size="small">
             <Button
               icon={<CheckCircleOutlined />}
@@ -223,10 +252,11 @@ const LeavePage = () => {
     }
   };
 
-  // Filter data
+  // Choose data set based on view mode and apply filter
+  const currentList = viewMode === 'pending' ? data : approvedData;
   const filteredData = filterStatus
-    ? data.filter(item => item.trang_thai === filterStatus)
-    : data;
+    ? currentList.filter(item => item.TrangThai === filterStatus)
+    : currentList;
 
   if (!hasPermission('Nghĩ Phép', 'Đọc')) {
     return <div className="no-permission">Bạn không có quyền truy cập trang này!</div>;
@@ -257,19 +287,32 @@ const LeavePage = () => {
               <Select.Option value="Tu_choi">Từ chối</Select.Option>
             </Select>
           </div>
+          <div style={{ marginLeft: 16 }}>
+            <Space>
+              <Button type={viewMode === 'pending' ? 'primary' : 'default'} onClick={() => setViewMode('pending')}>Chờ duyệt</Button>
+              <Button type={viewMode === 'approved' ? 'primary' : 'default'} onClick={() => setViewMode('approved')}>Đã duyệt</Button>
+            </Space>
+          </div>
           <div className="stats-summary">
-            <div className="stat-card pending">
-              <span className="stat-number">{data.filter(d => d.trang_thai === 'Cho_duyet').length}</span>
-              <span className="stat-label">Chờ duyệt</span>
-            </div>
-            <div className="stat-card approved">
-              <span className="stat-number">{data.filter(d => d.trang_thai === 'Da_duyet').length}</span>
-              <span className="stat-label">Đã duyệt</span>
-            </div>
-            <div className="stat-card rejected">
-              <span className="stat-number">{data.filter(d => d.trang_thai === 'Tu_choi').length}</span>
-              <span className="stat-label">Từ chối</span>
-            </div>
+            {(() => {
+              const all = [...data, ...approvedData];
+              return (
+                <>
+                  <div className="stat-card pending">
+                    <span className="stat-number">{all.filter(d => d.TrangThai === 'Cho_duyet').length}</span>
+                    <span className="stat-label">Chờ duyệt</span>
+                  </div>
+                  <div className="stat-card approved">
+                    <span className="stat-number">{all.filter(d => d.TrangThai === 'Da_duyet').length}</span>
+                    <span className="stat-label">Đã duyệt</span>
+                  </div>
+                  <div className="stat-card rejected">
+                    <span className="stat-number">{all.filter(d => d.TrangThai === 'Tu_choi').length}</span>
+                    <span className="stat-label">Từ chối</span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -350,6 +393,8 @@ const LeavePage = () => {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* Edit modal removed as requested */}
     </div>
   );
 };
