@@ -43,6 +43,12 @@ router.post('/customers', checkPermission(FEATURES.CUSTOMERS, PERMISSIONS.CREATE
 
 // ======================= 4.4 INVOICE MANAGEMENT =======================
 router.get('/hoadon', checkPermission(FEATURES.INVOICES, PERMISSIONS.VIEW), salesController.getAllInvoices);
+
+// Export latest invoices as CSV/XLSX
+router.get('/hoadon/export-latest',
+    checkPermission(FEATURES.INVOICES, PERMISSIONS.VIEW),
+    salesController.exportLatestInvoices
+);
 router.get('/hoadon/:id', checkPermission(FEATURES.INVOICES, PERMISSIONS.VIEW), salesController.getInvoiceById);
 router.put('/hoadon/:id/trangthai', checkPermission(FEATURES.INVOICES, PERMISSIONS.UPDATE), salesController.updateInvoiceStatus);
 router.put('/hoadon/:id/huy', checkPermission(FEATURES.INVOICES, PERMISSIONS.UPDATE), salesController.cancelInvoice);

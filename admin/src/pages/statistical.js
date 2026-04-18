@@ -156,7 +156,7 @@ useEffect(() => {
       ?? (new Date().getMonth() + 1);
     setSelectedSalaryMonth(Number(m));
   }
-}, [salaryMonthly]);
+}, [salaryMonthly, selectedSalaryMonth]);
   const fetchBanHangData = useCallback(async () => {
     setLoading(true);
     try {

@@ -1,5 +1,6 @@
 import pool from '../config/connectDatabase.js';
 import { logActivity } from '../utils/auditLogger.js';
+import ExcelJS from 'exceljs';
 
 const salesController = {
     // ======================= 4.1 POS SESSIONS (Phiên bán hàng) =======================
@@ -398,6 +399,84 @@ const salesController = {
             res.status(500).json({ success: false, message: error.message });
         } finally {
             conn.release();
+        }
+    }
+,
+
+    exportLatestInvoices: async (req, res) => {
+        try {
+            const limit = parseInt(req.query.limit) || 100;
+            const [rows] = await pool.query(
+                `SELECT hd.MaHD, hd.MaKH, kh.HoTen as TenKH, kh.SDT as SDTKH, hd.NgayBan, hd.TongTien, hd.GiamGia, hd.DiemSuDung, hd.ThanhToan, hd.TrangThai, nv.HoTen as TenNV, ch.TenCH as TenCH
+                 FROM hoadon hd
+                 LEFT JOIN khachhang kh ON hd.MaKH = kh.MaKH
+                 LEFT JOIN nhanvien nv ON hd.MaNV = nv.MaNV
+                 LEFT JOIN cua_hang ch ON hd.MaCH = ch.MaCH
+                 ORDER BY hd.NgayBan DESC
+                 LIMIT ?`, [limit]
+            );
+
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = 'Bansach System';
+            workbook.created = new Date();
+            const sheet = workbook.addWorksheet('Invoices');
+
+            // Define columns with headers and keys
+            sheet.columns = [
+                { header: 'Mã HĐ', key: 'MaHD', width: 10 },
+                { header: 'Mã KH', key: 'MaKH', width: 10 },
+                { header: 'Tên KH', key: 'TenKH', width: 30 },
+                { header: 'SĐT KH', key: 'SDTKH', width: 18 },
+                { header: 'Ngày bán', key: 'NgayBan', width: 20 },
+                { header: 'Tổng tiền', key: 'TongTien', width: 14 },
+                { header: 'Giảm giá', key: 'GiamGia', width: 12 },
+                { header: 'Điểm sử dụng', key: 'DiemSuDung', width: 12 },
+                { header: 'Thanh toán', key: 'ThanhToan', width: 14 },
+                { header: 'Trạng thái', key: 'TrangThai', width: 14 },
+                { header: 'Nhân viên', key: 'TenNV', width: 25 },
+                { header: 'Cửa hàng', key: 'TenCH', width: 25 }
+            ];
+
+            // Header styling
+            sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F75FE' } };
+
+            // Add rows
+            rows.forEach(r => {
+                sheet.addRow({
+                    MaHD: r.MaHD,
+                    MaKH: r.MaKH || '',
+                    TenKH: r.TenKH || '',
+                    SDTKH: r.SDTKH || '',
+                    NgayBan: r.NgayBan ? new Date(r.NgayBan) : null,
+                    TongTien: r.TongTien ?? null,
+                    GiamGia: r.GiamGia ?? null,
+                    DiemSuDung: r.DiemSuDung ?? null,
+                    ThanhToan: r.ThanhToan ?? null,
+                    TrangThai: r.TrangThai || '',
+                    TenNV: r.TenNV || '',
+                    TenCH: r.TenCH || ''
+                });
+            });
+
+            // Format columns: date and currency
+            sheet.getColumn('NgayBan').numFmt = 'dd/mm/yyyy hh:mm';
+            ['TongTien','GiamGia','ThanhToan'].forEach(key => {
+                sheet.getColumn(key).numFmt = '#,##0';
+                sheet.getColumn(key).alignment = { horizontal: 'right' };
+            });
+
+            // Auto filter and freeze header
+            sheet.autoFilter = { from: 'A1', to: 'L1' };
+            sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const filename = `invoices_latest_${limit}.xlsx`;
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.send(buffer);
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
     }
 };

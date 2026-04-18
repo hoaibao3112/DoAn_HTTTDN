@@ -43,7 +43,7 @@ router.get('/', checkPermission(FEATURES.USERS, PERMISSIONS.VIEW), async (req, r
 
 // 2. Create new account (Admin with 'Them' permission)
 router.post('/', checkPermission(FEATURES.USERS, PERMISSIONS.CREATE), async (req, res) => {
-  const { TenTK, MatKhau, Email, MaNQ } = req.body;
+  const { TenTK, MatKhau, Email, MaNQ, MaNV } = req.body;
 
   if (!TenTK || !MatKhau) {
     return res.status(400).json({ success: false, message: 'Thiếu thông tin bắt buộc' });
@@ -61,6 +61,11 @@ router.post('/', checkPermission(FEATURES.USERS, PERMISSIONS.CREATE), async (req
       'INSERT INTO taikhoan (TenTK, MatKhau, Email, MaNQ) VALUES (?, ?, ?, ?)',
       [TenTK, hashedPassword, Email, MaNQ]
     );
+
+    // Link account to employee if MaNV is provided
+    if (MaNV) {
+      await pool.query('UPDATE nhanvien SET MaTK = ? WHERE MaNV = ?', [result.insertId, MaNV]);
+    }
 
     await logActivity({
       MaTK: req.user.MaTK,

@@ -163,9 +163,10 @@ const UserManagement = () => {
       cancelText: 'Thoát',
       async onOk() {
         try {
-          await axios.delete(`${API_URL}/${MaNV}`);
+          const res = await axios.delete(`${API_URL}/${MaNV}`);
           await fetchUsers();
-          message.success('Xóa người dùng thành công!');
+          const text = res?.data?.message || 'Xóa người dùng thành công!';
+          message.success(text);
         } catch (error) {
           handleApiError(error, 'Lỗi khi xóa người dùng');
         }

@@ -19,13 +19,14 @@ const { confirm } = Modal;
 const { TabPane } = Tabs;
 
 const AccountManagement = () => {
-  const { hasPermission } = useContext(PermissionContext);
+  const { hasPermission, refreshPermissions } = useContext(PermissionContext);
   const [state, setState] = useState({
     accounts: [],
     newAccount: {
       TenTK: '',
       MatKhau: '',
       MaNQ: undefined,
+      MaNV: undefined,
       NgayTao: new Date().toISOString().split('T')[0],
       TinhTrang: '1',
     },
@@ -38,9 +39,10 @@ const AccountManagement = () => {
     permissions: [], // Danh sách quyền của nhóm quyền hiện tại
     features: [], // Danh sách chức năng (cho việc thêm quyền)
     newPermission: { MaCN: undefined, HanhDong: [], TinhTrang: '1' }, // Form thêm quyền mới
+    employees: [], // Danh sách nhân viên
   });
 
-  const { accounts, newAccount, editingAccount, searchTerm, isModalVisible, loading, error, quyenList, permissions, features, newPermission } = state;
+  const { accounts, newAccount, editingAccount, searchTerm, isModalVisible, loading, error, quyenList, permissions, features, newPermission, employees } = state;
 
   const API_URL = 'http://localhost:5000/api/accounts';
   const PERMISSION_API = 'http://localhost:5000/api/permissions';
@@ -53,10 +55,11 @@ const AccountManagement = () => {
         throw new Error('Không tìm thấy token xác thực');
       }
 
-      const [accountsResp, rolesResp, featuresResp] = await Promise.all([
+      const [accountsResp, rolesResp, featuresResp, employeesResp] = await Promise.all([
         axios.get(API_URL, { headers: { Authorization: `Bearer ${token}` } }),
         axios.get('http://localhost:5000/api/roles/list/active', { headers: { Authorization: `Bearer ${token}` } }),
         axios.get(`${PERMISSION_API}/features`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get('http://localhost:5000/api/hr/employees', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       setState(prev => ({
@@ -71,6 +74,7 @@ const AccountManagement = () => {
         }),
         quyenList: rolesResp.data.data || [],
         features: featuresResp.data || [],
+        employees: employeesResp.data.data || [],
       }));
     } catch (error) {
       setState(prev => ({ ...prev, error: error.message }));
@@ -145,6 +149,7 @@ const AccountManagement = () => {
       TenTK: newAccount.TenTK,
       MatKhau: newAccount.MatKhau,
       MaNQ: newAccount.MaNQ,
+      MaNV: newAccount.MaNV,
       NgayTao: newAccount.NgayTao,
       TinhTrang: parseInt(newAccount.TinhTrang),
     };
@@ -159,7 +164,8 @@ const AccountManagement = () => {
         newAccount: {
           TenTK: '',
           MatKhau: '',
-          MaQuyen: undefined,
+          MaNQ: undefined,
+          MaNV: undefined,
           NgayTao: new Date().toISOString().split('T')[0],
           TinhTrang: '1',
         },
@@ -281,6 +287,7 @@ const AccountManagement = () => {
 
       await axios.post(PERMISSION_API, payload, { headers: { Authorization: `Bearer ${token}` } });
       await fetchPermissions(editingAccount.MaNQ);
+      if (refreshPermissions) await refreshPermissions();
       setState(prev => ({ ...prev, newPermission: { MaCN: undefined, HanhDong: [], TinhTrang: '1' } }));
       message.success('Thêm quyền thành công!');
     } catch (error) {
@@ -305,6 +312,7 @@ const AccountManagement = () => {
           const token = localStorage.getItem('authToken');
           await axios.delete(`${PERMISSION_API}/${maCTQ}`, { headers: { Authorization: `Bearer ${token}` } });
           await fetchPermissions(editingAccount.MaNQ);
+          if (refreshPermissions) await refreshPermissions();
           message.success('Xóa quyền thành công!');
         } catch (error) {
           handleApiError(error, 'Lỗi khi xóa quyền');
@@ -340,6 +348,7 @@ const AccountManagement = () => {
         Duyet: editingPermission.Duyet
       }, { headers: { Authorization: `Bearer ${token}` } });
       await fetchPermissions(editingAccount.MaNQ);
+      if (refreshPermissions) await refreshPermissions();
       setEditingPermission(null);
       message.success('Cập nhật quyền thành công!');
     } catch (error) {
@@ -488,6 +497,7 @@ const AccountManagement = () => {
                   TenTK: '',
                   MatKhau: '',
                   MaNQ: undefined,
+                  MaNV: undefined,
                   NgayTao: new Date().toISOString().split('T')[0],
                   TinhTrang: '1',
                 },
@@ -571,6 +581,25 @@ const AccountManagement = () => {
                           required
                         />
                       </div>
+                      {!editingAccount && (
+                        <div className="info-item">
+                          <p className="info-label">Gắn với Nhân viên (Tùy chọn)</p>
+                          <Select
+                            size="small"
+                            value={newAccount?.MaNV}
+                            onChange={(value) => handleInputChange('MaNV', value)}
+                            style={{ width: '100%' }}
+                            placeholder="Chọn nhân viên chưa có tài khoản"
+                            allowClear
+                          >
+                            {employees.filter(emp => !emp.MaTK).map(emp => (
+                              <Option key={emp.MaNV} value={emp.MaNV}>
+                                {emp.MaNV} - {emp.HoTen}
+                              </Option>
+                            ))}
+                          </Select>
+                        </div>
+                      )}
                       <div className="info-item">
                         <p className="info-label">Quyền <span style={{ color: 'red' }}>*</span></p>
                         <Select
@@ -631,7 +660,9 @@ const AccountManagement = () => {
                             onChange={(v) => setState(prev => ({ ...prev, newPermission: { ...prev.newPermission, MaCN: v } }))}
                             style={{ width: 200 }}
                           >
-                            {features.map(f => <Option key={f.MaCN} value={f.MaCN}>{f.TenCN}</Option>)}
+                            {features
+                              .filter(f => !permissions.some(p => p.MaCN === f.MaCN))
+                              .map(f => <Option key={f.MaCN} value={f.MaCN}>{f.TenCN}</Option>)}
                           </Select>
                         </Form.Item>
                         <Form.Item label="Hành động">

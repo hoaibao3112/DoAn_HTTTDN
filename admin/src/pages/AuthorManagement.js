@@ -50,17 +50,23 @@ const AuthorManagement = () => {
 
       if (Array.isArray(response.data.data)) {
         const processedAuthors = response.data.data.map((author) => {
-          const imageUrl = (author.HinhAnh || author.AnhTG) && (author.HinhAnh || author.AnhTG) !== 'null'
-            ? `${IMAGE_BASE_PATH}${author.HinhAnh || author.AnhTG}`
-            : PLACEHOLDER_IMAGE;
-          console.log(`[DEBUG] URL ảnh cho tác giả ${author.MaTG}: ${imageUrl}`);
+          const rawImage = author.HinhAnh || author.AnhTG;
+          const imageUrl = rawImage && rawImage !== 'null' ? `${IMAGE_BASE_PATH}${rawImage}` : PLACEHOLDER_IMAGE;
+
+          // Robust nationality and birthday fallback handling
+          const rawNation = author.QuocTich || author.QuocGia || author.Quoc_tich || author.Nationality || '';
+
+          // Try various date fields commonly used by backend
+          const rawDate = author.NgaySinh || author.Ngay_sinh || author.birthday || author.BirthDate || null;
+          const parsedDate = rawDate ? dayjs(rawDate) : null;
+          const NgaySinhISO = parsedDate && parsedDate.isValid() ? parsedDate.format('YYYY-MM-DD') : null;
 
           return {
             ...author,
-            TenTG: author.TenTG?.trim() || '',
-            QuocTich: author.QuocTich || '',
-            NgaySinh: author.NgaySinh ? dayjs(author.NgaySinh).format('YYYY-MM-DD') : null,
-            TieuSu: author.MoTa || author.TieuSu || '',
+            TenTG: (author.TenTG || author.name || '').toString().trim(),
+            QuocTich: rawNation.toString(),
+            NgaySinh: NgaySinhISO,
+            TieuSu: author.MoTa || author.TieuSu || author.Bio || '',
             AnhTG: imageUrl,
           };
         });
@@ -265,13 +271,17 @@ const AuthorManagement = () => {
       title: 'Ngày sinh',
       dataIndex: 'NgaySinh',
       key: 'NgaySinh',
-      width: 120,
+      width: 140,
+      render: (text, record) => {
+        return record.NgaySinh ? dayjs(record.NgaySinh).format('DD/MM/YYYY') : '-';
+      }
     },
     {
       title: 'Quốc tịch',
       dataIndex: 'QuocTich',
       key: 'QuocTich',
-      width: 150,
+      width: 160,
+      render: (text) => text ? text : '-'
     },
     {
       title: 'Tiểu sử',
@@ -384,6 +394,7 @@ const AuthorManagement = () => {
             size="small"
             className="compact-author-table"
             style={{ fontSize: '13px' }}
+            rowClassName={(record, idx) => idx % 2 === 0 ? 'row-even' : 'row-odd'}
             locale={{
               emptyText: 'Không tìm thấy tác giả',
             }}
@@ -554,10 +565,18 @@ const AuthorManagement = () => {
         }
         .compact-author-table .ant-table-thead > tr > th {
           padding: 8px 12px;
+          background: #f0f6ff;
+          color: #162A4A;
+          font-weight: 700;
+          border-bottom: 1px solid #e6eef8;
         }
         .compact-author-table .ant-table-tbody > tr > td {
           padding: 8px 12px;
+          vertical-align: middle;
         }
+        .compact-author-table .row-even { background: #ffffff; }
+        .compact-author-table .row-odd { background: #fbfdff; }
+        .thongke-content { background: #fff; padding: 18px; border-radius: 12px; box-shadow: 0 2px 8px rgba(16,24,40,0.06); }
         input[type="file"] {
           font-size: 12px;
         }

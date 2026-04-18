@@ -69,7 +69,7 @@ export const checkPermission = (featureId, action) => {
                 });
             }
 
-            const { MaNQ, MaTK, TenDangNhap } = req.user;
+            const { MaNQ, MaTK, TenTK } = req.user;
 
             // Kiểm tra user có nhóm quyền chưa
             if (!MaNQ) {
@@ -77,7 +77,7 @@ export const checkPermission = (featureId, action) => {
                     success: false,
                     message: 'Tài khoản chưa được gán nhóm quyền. Vui lòng liên hệ quản trị viên.',
                     details: {
-                        user: TenDangNhap || MaTK,
+                        user: TenTK || MaTK,
                         issue: 'NO_ROLE_ASSIGNED'
                     }
                 });
@@ -101,7 +101,7 @@ export const checkPermission = (featureId, action) => {
                     success: false,
                     message: `Bạn không có quyền "${action}" cho chức năng "${featureName}"`,
                     details: {
-                        user: TenDangNhap || MaTK,
+                        user: TenTK || MaTK,
                         role: MaNQ,
                         feature: featureName,
                         featureId: featureId,
@@ -114,7 +114,7 @@ export const checkPermission = (featureId, action) => {
             // ========== CÓ QUYỀN - CHO PHÉP TIẾP TỤC ==========
             // Log để audit (optional - có thể bật/tắt)
             if (process.env.LOG_PERMISSIONS === 'true') {
-                console.log(`✅ Permission granted: User ${TenDangNhap} (Role ${MaNQ}) - ${action} on Feature ${featureId}`);
+                console.log(`✅ Permission granted: User ${TenTK} (Role ${MaNQ}) - ${action} on Feature ${featureId}`);
             }
 
             next();

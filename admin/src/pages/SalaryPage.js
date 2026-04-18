@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useMemo } from 'react';
 import Select from 'react-select';
 import axios from 'axios';
-import * as XLSX from 'xlsx';
+import { exportToExcel } from '../utils/excelHelper';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import {
@@ -31,8 +31,7 @@ const LOAI_OPTIONS = [
   { value: 'Phat', label: '⚠️ Phạt', color: '#c62828' },
 ];
 
-const selectStyle = (base) => ({ ...base, minWidth: 130 });
-const selectMenuStyle = (base) => ({ ...base, zIndex: 9999 });
+// selectStyle/selectMenuStyle removed (unused)
 
 const SalaryPage = () => {
   const { hasPermissionById } = useContext(PermissionContext);
@@ -43,7 +42,7 @@ const SalaryPage = () => {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const token = localStorage.getItem('authToken');
-  const headers = { Authorization: `Bearer ${token}` };
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `Tháng ${i + 1}` }));
   const years = Array.from({ length: 8 }, (_, i) => ({ value: 2023 + i, label: `${2023 + i}` }));
@@ -55,7 +54,7 @@ const SalaryPage = () => {
   const [loadingSalary, setLoadingSalary] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [paying, setPaying] = useState(null);
-  const [payingAll, setPayingAll] = useState(false);
+  
   const [detailModal, setDetailModal] = useState(false);
   const [detailRow, setDetailRow] = useState(null);
 
@@ -75,7 +74,7 @@ const SalaryPage = () => {
   const canDeleteBP = hasPermissionById(FEATURES.BONUS_PENALTY, 'xoa');
 
   // --- DATA FETCHING ---
-  const fetchSalary = async () => {
+  const fetchSalary = React.useCallback(async () => {
     setLoadingSalary(true);
     try {
       const res = await axios.get(`${API_HR}/salary-detail?year=${year}&month=${month}`, { headers });
@@ -91,9 +90,9 @@ const SalaryPage = () => {
       setSalaryTotal(0);
     }
     setLoadingSalary(false);
-  };
+  }, [year, month, headers]);
 
-  const fetchBPData = async () => {
+  const fetchBPData = React.useCallback(async () => {
     setLoadingBP(true);
     try {
       const params = new URLSearchParams({ month, year });
@@ -109,9 +108,9 @@ const SalaryPage = () => {
       setBpList([]);
     }
     setLoadingBP(false);
-  };
+  }, [month, year, bpFilterLoai, headers]);
 
-  const fetchBPEmployees = async () => {
+  const fetchBPEmployees = React.useCallback(async () => {
     try {
       const res = await axios.get(`${API_HR}/employees`, { headers });
       setBpEmployees((res.data.data || []).map(e => ({
@@ -119,9 +118,9 @@ const SalaryPage = () => {
         label: `${e.HoTen} (${e.ChucVu || 'NV'})`,
       })));
     } catch { }
-  };
+  }, [headers]);
 
-  const fetchSalaryStats = async () => {
+  const fetchSalaryStats = React.useCallback(async () => {
     try {
       const res = await axios.get(`http://localhost:5000/api/hr/salary/stats?year=${year}&month=${month}`);
       if (res.data.success) {
@@ -130,17 +129,17 @@ const SalaryPage = () => {
     } catch (err) {
       console.error('Fetch stats error:', err);
     }
-  };
+  }, [year, month]);
 
   useEffect(() => {
     if (activeTab === 'summary') fetchSalary();
     else if (activeTab === 'bonus_penalty') fetchBPData();
     else if (activeTab === 'stats') fetchSalaryStats();
-  }, [month, year, activeTab, bpFilterLoai]);
+  }, [activeTab, fetchSalary, fetchBPData, fetchSalaryStats]);
 
   useEffect(() => {
     if (activeTab === 'bonus_penalty') fetchBPEmployees();
-  }, [activeTab]);
+  }, [activeTab, fetchBPEmployees]);
 
 
   // --- SALARY HANDLERS ---
@@ -172,20 +171,7 @@ const SalaryPage = () => {
     setPaying(null);
   };
 
-  const handlePayAll = async () => {
-    const pending = salaryList.filter(r => r.TrangThai !== 'Da_chi_tra');
-    if (pending.length === 0) { alert('Tất cả đã được chi trả!'); return; }
-    if (!window.confirm(`Xác nhận chi trả lương cho ${pending.length} nhân viên còn lại?\nTổng: ${fmt(salarySummary.ChuaChiTra)}`)) return;
-    setPayingAll(true);
-    try {
-      const res = await axios.put(`${API_HR}/salary-pay-all`, { month, year }, { headers });
-      alert(res.data.message);
-      fetchSalary();
-    } catch (err) {
-      alert('Lỗi: ' + (err.response?.data?.message || err.message));
-    }
-    setPayingAll(false);
-  };
+  
 
   const dailyRate = (row) => parseFloat(row.LuongCoBan || 0) / 26;
   const hourlyRate = (row) => parseFloat(row.LuongCoBan || 0) / 208;
@@ -195,38 +181,65 @@ const SalaryPage = () => {
   const handleExportExcel = () => {
     if (salaryList.length === 0) { alert('Chưa có dữ liệu để xuất!'); return; }
     const rows = salaryList.map((row, idx) => ({
-      STT: idx + 1, 'Mã NV': row.MaNV, 'Họ tên': row.HoTen, 'Chức vụ': row.ChucVu || '',
-      'Lương cơ bản': parseFloat(row.LuongCoBan || 0), 'Số ngày công': parseFloat(row.SoNgayLam || 0),
-      'Lương công': Math.round(basePay(row)), 'Giờ tăng ca': parseFloat(row.SoGioTangCa || 0),
-      'Lương tăng ca': Math.round(otPay(row)), 'Phụ cấp': parseFloat(row.PhuCap || 0),
-      'Thưởng': parseFloat(row.Thuong || 0), 'Phạt': parseFloat(row.Phat || 0),
-      'Tổng lương': parseFloat(row.TongLuong || 0),
-      'Trạng thái': row.TrangThai === 'Da_chi_tra' ? 'Đã chi trả' : 'Chưa chi trả',
+      STT: idx + 1,
+      MaNV: row.MaNV,
+      HoTen: row.HoTen,
+      ChucVu: row.ChucVu || '',
+      LuongCoBan: parseFloat(row.LuongCoBan || 0),
+      SoNgayCong: parseFloat(row.SoNgayLam || 0),
+      LuongCong: Math.round(basePay(row)),
+      GioTangCa: parseFloat(row.SoGioTangCa || 0),
+      LuongTangCa: Math.round(otPay(row)),
+      PhuCap: parseFloat(row.PhuCap || 0),
+      Thuong: parseFloat(row.Thuong || 0),
+      Phat: parseFloat(row.Phat || 0),
+      TongThuNhap: parseFloat(row.TongLuong || 0),
+      TrangThai: row.TrangThai === 'Da_chi_tra' ? 'Đã chi trả' : 'Chưa chi trả',
     }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `Luong_T${month}_${year}`);
-    XLSX.writeFile(wb, `BangLuong_T${month}_${year}.xlsx`);
+
+    const columns = [
+      { key: 'STT', header: 'STT', width: 6 },
+      { key: 'MaNV', header: 'Mã NV', width: 10 },
+      { key: 'HoTen', header: 'Tên NV', width: 30 },
+      { key: 'ChucVu', header: 'Chức vụ', width: 20 },
+      { key: 'LuongCoBan', header: 'Lương cơ bản', width: 16, type: 'currency' },
+      { key: 'SoNgayCong', header: 'Số ngày công', width: 12 },
+      { key: 'GioTangCa', header: 'Giờ tăng ca', width: 10 },
+      { key: 'PhuCap', header: 'Phụ cấp', width: 12, type: 'currency' },
+      { key: 'Thuong', header: 'Thưởng', width: 12, type: 'currency' },
+      { key: 'Phat', header: 'Phạt', width: 12, type: 'currency' },
+      { key: 'TongThuNhap', header: 'Tổng thu nhập', width: 16, type: 'currency' },
+      { key: 'TrangThai', header: 'Trạng thái', width: 12 }
+    ];
+    exportToExcel({ filename: `BangLuong_T${month}_${year}.xlsx`, sheetName: `Luong_T${month}_${year}`, columns, data: rows });
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (salaryList.length === 0) { alert('Chưa có dữ liệu để xuất!'); return; }
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    doc.setFontSize(14);
-    doc.text(`BANG LUONG NHAN VIEN - THANG ${month}/${year}`, doc.internal.pageSize.getWidth() / 2, 40, { align: 'center' });
-    const tableRows = salaryList.map((row, idx) => [
-      idx + 1, row.MaNV, row.HoTen, row.ChucVu || '',
-      fmt(row.LuongCoBan), row.SoNgayLam, `+${row.SoGioTangCa}h`, fmt(row.PhuCap), fmt(row.Thuong), fmt(row.Phat),
-      fmt(row.TongLuong), row.TrangThai === 'Da_chi_tra' ? 'Da tra' : 'Chua tra'
-    ]);
-    doc.autoTable({
-      startY: 60,
-      head: [['STT', 'Ma NV', 'Ho ten', 'Chuc vu', 'Luong CB', 'Công', 'T.Ca', 'Phu cap', 'Thuong', 'Phat', 'Tong', 'TT']],
-      body: tableRows,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [25, 118, 210] }
-    });
-    doc.save(`BangLuong_T${month}_${year}.pdf`);
+    try {
+      const hc = await import('html2canvas');
+      const html2canvas = hc.default || hc;
+      const el = document.getElementById('salary-export-area');
+      if (!el) {
+        alert('Không tìm thấy vùng dữ liệu để xuất (salary-export-area)');
+        return;
+      }
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false });
+      const imgData = canvas.toDataURL('image/png');
+      const doc = new jsPDF('l', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 10;
+      const usableWidth = pageWidth - margin * 2;
+      const imgProps = doc.getImageProperties(imgData);
+      const imgHeight = (imgProps.height * usableWidth) / imgProps.width;
+      doc.addImage(imgData, 'PNG', margin, 10, usableWidth, imgHeight);
+      const filename = `BangLuong_T${month}_${year}.pdf`;
+      doc.save(filename);
+      alert('Xuất PDF Lương (ảnh) thành công!');
+    } catch (err) {
+      console.error('Lỗi html2canvas PDF export (luong):', err);
+      alert('Xuất PDF thất bại. Hãy cài `html2canvas` (npm i html2canvas) hoặc báo mình để mình hỗ trợ.');
+    }
   };
 
   // --- BONUS/PENALTY HANDLERS ---
@@ -270,7 +283,7 @@ const SalaryPage = () => {
   };
 
   const bpSummaryData = bpSummary?.summary || {};
-  const bpSummaryRows = bpSummary?.data || [];
+  
 
   return (
     <div className="thongke-page">
@@ -463,7 +476,7 @@ const SalaryPage = () => {
             )}
             {loadingSalary ? <div style={{ textAlign: 'center', padding: 40 }}><i className="fas fa-spinner fa-spin"></i> Đang tải...</div> : (
               salaryList.length === 0 ? <div style={{ textAlign: 'center', padding: 40, background: '#f5f5f5', borderRadius: 10 }}>Chưa có dữ liệu lương tháng này. Hãy nhấn "Tính lương".</div> : (
-                <div style={{ overflowX: 'auto' }}>
+                <div id="salary-export-area" style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ background: '#1976d2', color: '#fff' }}>

@@ -215,6 +215,7 @@ const hrController = {
             const [rows] = await pool.query('SELECT * FROM nhanvien');
             res.json({ success: true, data: rows });
         } catch (error) {
+            console.error('❌ Error in getAllEmployees:', error);
             res.status(500).json({ success: false, message: error.message });
         }
     },
@@ -252,44 +253,120 @@ const hrController = {
         const { id } = req.params;
         const data = req.body;
         try {
+            // Helper to convert ISO or Date to YYYY-MM-DD for MySQL date columns
+            const toSQLDate = (v) => {
+                if (!v) return null;
+                if (typeof v === 'string') {
+                    // Take date part before 'T' if present, otherwise try to parse
+                    if (v.includes('T')) return v.split('T')[0];
+                    // If already YYYY-MM-DD
+                    const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
+                    if (m) return m[1];
+                    const d = new Date(v);
+                    if (!isNaN(d)) return d.toISOString().slice(0, 10);
+                    return null;
+                }
+                if (v instanceof Date && !isNaN(v)) return v.toISOString().slice(0, 10);
+                return null;
+            };
+
+            // Normalize incoming data to avoid SQL errors when frontend sends partial object
+            const normalized = {
+                HoTen: data.HoTen || null,
+                Email: data.Email || null,
+                SDT: data.SDT || null,
+                DiaChi: data.DiaChi || null,
+                CCCD: data.CCCD || null,
+                NgaySinh: toSQLDate(data.NgaySinh),
+                NgayVaoLam: toSQLDate(data.NgayVaoLam),
+                NgayNghiViec: toSQLDate(data.NgayNghiViec),
+                GioiTinh: data.GioiTinh || null,
+                ChucVu: data.ChucVu || null,
+                LuongCoBan: (data.LuongCoBan !== undefined && data.LuongCoBan !== null && data.LuongCoBan !== '') ? Number(data.LuongCoBan) : 0,
+                PhuCap: (data.PhuCap !== undefined && data.PhuCap !== null && data.PhuCap !== '') ? Number(data.PhuCap) : 0,
+                MaCH: (data.MaCH !== undefined && data.MaCH !== null && data.MaCH !== '') ? Number(data.MaCH) : null,
+                TinhTrang: (data.TinhTrang !== undefined && data.TinhTrang !== null && data.TinhTrang !== '') ? Number(data.TinhTrang) : 1
+            };
+
             await pool.query(
                 `UPDATE nhanvien SET 
                     HoTen=?, Email=?, SDT=?, DiaChi=?, CCCD=?, 
-                    NgaySinh=?, GioiTinh=?, ChucVu=?, LuongCoBan=?, 
+                    NgaySinh=?, NgayVaoLam=?, NgayNghiViec=?, GioiTinh=?, ChucVu=?, LuongCoBan=?, 
                     PhuCap=?, MaCH=?, TinhTrang=?
                  WHERE MaNV=?`,
                 [
-                    data.HoTen,
-                    data.Email || null,
-                    data.SDT || null,
-                    data.DiaChi || null,
-                    data.CCCD || null,
-                    data.NgaySinh || null,
-                    data.GioiTinh || null,
-                    data.ChucVu || null,
-                    data.LuongCoBan || 0,
-                    data.PhuCap || 0,
-                    data.MaCH || null,
-                    data.TinhTrang !== undefined ? data.TinhTrang : 1,
+                    normalized.HoTen,
+                    normalized.Email,
+                    normalized.SDT,
+                    normalized.DiaChi,
+                    normalized.CCCD,
+                    normalized.NgaySinh,
+                    normalized.NgayVaoLam,
+                    normalized.NgayNghiViec,
+                    normalized.GioiTinh,
+                    normalized.ChucVu,
+                    normalized.LuongCoBan,
+                    normalized.PhuCap,
+                    normalized.MaCH,
+                    normalized.TinhTrang,
                     id
                 ]
             );
             res.json({ success: true, message: 'Updated successfully' });
         } catch (error) {
-            console.error('Error updating employee:', error);
-            res.status(500).json({ success: false, message: error.message });
+            console.error('Error updating employee:', { id, body: req.body, error });
+            res.status(500).json({ success: false, message: 'Lỗi khi cập nhật nhân viên', error: error.message });
         }
     },
 
     deleteEmployee: async (req, res) => {
         const { id } = req.params;
         try {
-            // Soft delete
-            await pool.query('UPDATE nhanvien SET TinhTrang = 0, NgayNghiViec = NOW() WHERE MaNV = ?', [id]);
-            // Also deactivate account
-            await pool.query('UPDATE taikhoan SET TinhTrang = 0 WHERE MaTK = (SELECT MaTK FROM nhanvien WHERE MaNV = ?)', [id]);
-            res.json({ success: true, message: 'Employee deactivated' });
+            // 1. Kiểm tra trạng thái hiện tại
+            const [current] = await pool.query('SELECT TinhTrang, HoTen FROM nhanvien WHERE MaNV = ?', [id]);
+            
+            if (current.length === 0) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy nhân viên' });
+            }
+            // 2. Thực hiện vô hiệu hóa (soft-delete) — áp dụng cho cả trạng thái đang hoạt động hoặc đã nghỉ
+            const connection = await pool.getConnection();
+            try {
+                await connection.beginTransaction();
+
+                // Cập nhật ngày nghỉ việc và trạng thái
+                await connection.query(
+                    'UPDATE nhanvien SET TinhTrang = 0, NgayNghiViec = IFNULL(NgayNghiViec, NOW()) WHERE MaNV = ?',
+                    [id]
+                );
+
+                // Lấy MaTK liên kết trước để tránh subquery gây lỗi nếu không tồn tại
+                const [tkRows] = await connection.query('SELECT MaTK FROM nhanvien WHERE MaNV = ?', [id]);
+                const MaTK = tkRows && tkRows[0] ? tkRows[0].MaTK : null;
+
+                if (MaTK) {
+                    await connection.query('UPDATE taikhoan SET TinhTrang = 0 WHERE MaTK = ?', [MaTK]);
+                }
+
+                await connection.commit();
+
+                await logActivity({
+                    MaTK: req.user?.MaTK || null,
+                    HanhDong: 'Xoa_nhan_vien',
+                    BangDuLieu: 'nhanvien',
+                    MaBanGhi: id,
+                    DiaChi_IP: req.ip,
+                    GhiChu: `Đã vô hiệu hóa nhân viên: ${current[0].HoTen}`
+                });
+
+                res.json({ success: true, message: `Đã hoàn tất vô hiệu hóa nhân viên "${current[0].HoTen}"` });
+            } catch (err) {
+                await connection.rollback();
+                throw err;
+            } finally {
+                connection.release();
+            }
         } catch (error) {
+            console.error('❌ Error in deleteEmployee:', error);
             res.status(500).json({ success: false, message: error.message });
         }
     },

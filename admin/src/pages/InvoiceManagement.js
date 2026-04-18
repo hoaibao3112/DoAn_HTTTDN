@@ -39,6 +39,29 @@ const InvoiceManagement = () => {
     }
   };
 
+  const handleExportLatest = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await axios.get('http://localhost:5000/api/sales/hoadon/export-latest?limit=100', {
+        responseType: 'blob',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'invoices_latest_100.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      message.success('Đã tải về 100 hóa đơn gần nhất');
+    } catch (error) {
+      console.error('❌ Export error:', error);
+      handleApiError(error, 'Tải về thất bại');
+    }
+  };
+
   const handleViewInvoice = async (id) => {
     try {
       const res = await axios.get(`http://localhost:5000/api/orders/hoadon/${id}`);
@@ -205,7 +228,10 @@ const InvoiceManagement = () => {
             style={{ maxWidth: 400 }}
             allowClear
           />
-          <Button onClick={fetchInvoices} loading={loading} style={{ marginLeft: 'auto' }}>Tải lại</Button>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <Button onClick={handleExportLatest}>Tải 100 HĐ gần nhất</Button>
+            <Button onClick={fetchInvoices} loading={loading}>Tải lại</Button>
+          </div>
         </div>
 
         <div className="invoice-table">

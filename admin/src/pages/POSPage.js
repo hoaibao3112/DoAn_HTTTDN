@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import axios from 'axios';
-import { Html5Qrcode, Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import html2pdf from 'html2pdf.js';
-import { Dropdown, Modal, Input, Button as AntdButton } from 'antd';
+import { Dropdown, Modal, Input } from 'antd';
 import { PermissionContext } from '../components/PermissionContext';
 import { FEATURES } from '../constants/permissions';
 import '../styles/POSPage.css';
@@ -52,21 +52,7 @@ const POSPage = () => {
     const cashierName = userInfo.HoTen || 'Nguyễn Văn A';
     const API_BASE_URL = 'http://localhost:5000';
 
-    useEffect(() => {
-        checkOpenSession().then(sess => fetchProducts(sess?.MaCH));
-        fetchCategories();
-    }, []);
-
-    // Kiểm tra khuyến mãi tự động khi giỏ hàng thay đổi
-    useEffect(() => {
-        if (cart.length > 0) {
-            checkAvailablePromotions();
-        } else {
-            setAvailablePromotions([]);
-            setSelectedPromotion(null);
-            setPromotionDiscount(0);
-        }
-    }, [cart]);
+    
 
     const getImageUrl = (path) => {
         if (!path) return '/placeholder-book.jpg';
@@ -106,7 +92,7 @@ const POSPage = () => {
         return (productList || []).map(p => ({ ...p, SoLuong: 0 }));
     };
 
-    const fetchProducts = async (MaCH) => {
+    const fetchProducts = useCallback(async (MaCH) => {
         try {
             const token = localStorage.getItem('authToken');
             const response = await axios.get('http://localhost:5000/api/warehouse/products?pageSize=500', {
@@ -123,27 +109,28 @@ const POSPage = () => {
         } catch (error) {
             console.error('Error fetching products:', error);
         }
-    };
+    }, [session]);
 
-    const fetchCategories = async () => {
+    const fetchCategories = useCallback(async () => {
         try {
             const response = await axios.get('http://localhost:5000/api/catalog/categories');
             setCategories(response.data.data || response.data);
         } catch (error) {
             console.error('Error fetching categories:', error);
         }
-    };
+    }, []);
 
     // =============== KHUYẾN MÃI ===============
 
-    const checkAvailablePromotions = async () => {
+    const checkAvailablePromotions = useCallback(async () => {
         try {
             const token = localStorage.getItem('authToken');
+            const subtotal = cart.reduce((s, item) => s + (item.DonGia * item.quantity), 0);
             const response = await axios.post(
                 'http://localhost:5000/api/promotions/check-available',
                 {
                     MaCH: session?.MaCH || 1,
-                    TongTien: calculateSubtotal(),
+                    TongTien: subtotal,
                     MaKH: customer?.MaKH || null,
                     ChiTiet: cart.map(item => ({
                         MaSP: item.MaSP,
@@ -167,7 +154,7 @@ const POSPage = () => {
         } catch (error) {
             console.error('Error checking promotions:', error);
         }
-    };
+    }, [session, cart, selectedPromotion, customer]);
 
     const applyVoucherCode = async () => {
         if (!voucherCode.trim()) {
@@ -218,6 +205,22 @@ const POSPage = () => {
         setPromotionDiscount(0);
         setVoucherCode('');
     };
+
+    useEffect(() => {
+        checkOpenSession().then(sess => fetchProducts(sess?.MaCH));
+        fetchCategories();
+    }, [fetchProducts, fetchCategories]);
+
+    // Kiểm tra khuyến mãi tự động khi giỏ hàng thay đổi
+    useEffect(() => {
+        if (cart.length > 0) {
+            checkAvailablePromotions();
+        } else {
+            setAvailablePromotions([]);
+            setSelectedPromotion(null);
+            setPromotionDiscount(0);
+        }
+    }, [cart, checkAvailablePromotions]);
 
     // =============== BARCODE SCANNER ===============
 
