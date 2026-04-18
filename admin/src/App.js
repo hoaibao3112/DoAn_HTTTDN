@@ -295,16 +295,7 @@ const App = () => {
         }
       />
 
-      <Route
-        path="/admin/branches"
-        element={
-          <PrivateRoute
-            component={() => (
-              <RestrictedRoute component={BranchManagement} permissionId={FEATURES.CATEGORIES} />
-            )}
-          />
-        }
-      />
+
 
       <Route
         path="/admin/sub-warehouses"
@@ -319,7 +310,13 @@ const App = () => {
 
       <Route
         path="/admin/barcode-generator"
-        element={<PrivateRoute component={BarcodeGeneratorPage} />}
+        element={
+          <PrivateRoute
+            component={() => (
+              <RestrictedRoute component={BarcodeGeneratorPage} permissionId={FEATURES.POS} />
+            )}
+          />
+        }
       />
 
       <Route

@@ -396,7 +396,9 @@ const ProductManagement = () => {
             window.location.href = '/admin/login';
             return;
           }
-          handleApiError(error, 'Lỗi khi xóa sản phẩm!');
+          // ✅ Hiển thị message từ backend (lỗi tồn kho, v.v.)
+          const errorMsg = error.response?.data?.message || 'Lỗi khi xóa sản phẩm!';
+          message.error(errorMsg);
         }
       },
     });
@@ -480,8 +482,8 @@ const ProductManagement = () => {
     },
     {
       title: 'Tác giả',
-      dataIndex: 'TacGia',
-      key: 'TacGia',
+      dataIndex: 'TenTG',
+      key: 'TenTG',
       width: 120,
       ellipsis: true,
       render: (text) => text || 'Chưa có',

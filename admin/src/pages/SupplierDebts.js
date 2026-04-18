@@ -5,6 +5,7 @@ import { handleApiError } from '../utils/errorHandler';
 import { PermissionContext } from '../components/PermissionContext';
 import { FEATURES } from '../constants/permissions';
 import dayjs from 'dayjs';
+import * as XLSX from 'xlsx';
 import '../styles/SupplierDebts.css';
 
 const SupplierDebts = () => {
@@ -173,8 +174,65 @@ const SupplierDebts = () => {
                 fetchDebts();
             }
         } catch (error) {
-            console.error('Error recording payment:', error);
             handleApiError(error, 'Lỗi ghi nhận thanh toán');
+        }
+    };
+
+    const handleExportExcel = () => {
+        try {
+            if (filteredDebts.length === 0) {
+                message.warning('Không có dữ liệu để xuất báo cáo!');
+                return;
+            }
+
+            // Chuẩn bị dữ liệu để xuất
+            const dataToExport = filteredDebts.map((debt, index) => ({
+                'STT': index + 1,
+                'Nhà Cung Cấp': debt.supplier,
+                'Liên Hệ': debt.contact || '',
+                'Mã Phiếu Nhập': debt.purchaseOrder,
+                'Tổng Tiền (VNĐ)': debt.totalAmount,
+                'Đã Thanh Toán (VNĐ)': debt.paid,
+                'Nợ Còn Lại (VNĐ)': debt.remaining,
+                'Hạn Thanh Toán': debt.dueDate ? dayjs(debt.dueDate).format('DD/MM/YYYY') : 'N/A',
+                'Trạng Thái': debt.status === 'paid' ? 'Đã thanh toán' : debt.status === 'overdue' ? 'Nợ quá hạn' : 'Chưa thanh toán'
+            }));
+
+            // Thêm dòng Tổng Cộng siêu xịn ở cuối Data
+            dataToExport.push({
+                'STT': '',
+                'Nhà Cung Cấp': 'TỔNG CỘNG',
+                'Liên Hệ': '',
+                'Mã Phiếu Nhập': '',
+                'Tổng Tiền (VNĐ)': filteredDebts.reduce((sum, d) => sum + (Number(d.totalAmount) || 0), 0),
+                'Đã Thanh Toán (VNĐ)': filteredDebts.reduce((sum, d) => sum + (Number(d.paid) || 0), 0),
+                'Nợ Còn Lại (VNĐ)': filteredDebts.reduce((sum, d) => sum + (Number(d.remaining) || 0), 0),
+                'Hạn Thanh Toán': '',
+                'Trạng Thái': ''
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+            // Căn chỉnh độ rộng các cột cho đẹp (hữu ích)
+            ws['!cols'] = [
+                { wch: 5 },   // STT
+                { wch: 30 },  // NCC
+                { wch: 15 },  // Lien he
+                { wch: 20 },  // PO
+                { wch: 20 },  // Tong tien
+                { wch: 20 },  // Da thanh toan
+                { wch: 20 },  // Con lai
+                { wch: 15 },  // Han
+                { wch: 20 },  // Trang thai
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws, "BaoCaoCongNo_NCC");
+            XLSX.writeFile(wb, `BaoCao_CongNo_NCC_${dayjs().format('DDMMYYYY_HHmm')}.xlsx`);
+            message.success('Xuất file Excel thành công!');
+        } catch (error) {
+            console.error('Lỗi khi xuất Excel:', error);
+            message.error('Có lỗi xảy ra khi xuất báo cáo!');
         }
     };
 
@@ -211,11 +269,7 @@ const SupplierDebts = () => {
                     <p className="page-subtitle">Theo dõi, đối soát và thanh toán các khoản nợ nhập hàng</p>
                 </div>
                 <div className="header-actions">
-                    <button className="btn-history">
-                        <span className="material-icons">history</span>
-                        Lịch sử thanh toán
-                    </button>
-                    <button className="btn-export">
+                    <button className="btn-export" onClick={handleExportExcel}>
                         <span className="material-icons">file_download</span>
                         Xuất báo cáo
                     </button>

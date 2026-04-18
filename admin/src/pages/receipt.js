@@ -442,7 +442,7 @@ const NhapHang = () => {
               type="number"
               value={tyLeLoi}
               onChange={e => setTyLeLoi(Number(e.target.value))}
-              style={{ width: 80 }}
+              style={{ width: 120 }}
               addonAfter="%"
             />
           </div>
@@ -452,7 +452,7 @@ const NhapHang = () => {
               <div style={{ maxHeight: 400, overflowY: 'auto', marginBottom: 16 }}>
                 {fields.map(({ key, name, ...restField }) => (
                   <div key={key} className="form-item-row" style={{ background: '#fff', border: '1px solid #eee' }}>
-                    <Form.Item {...restField} name={[name, 'MaSP']} rules={[{ required: true }]} style={{ width: 250, margin: 0 }}>
+                    <Form.Item {...restField} name={[name, 'MaSP']} rules={[{ required: true }]} style={{ margin: 0 }}>
                       <Select
                         showSearch
                         optionFilterProp="children"
@@ -474,14 +474,14 @@ const NhapHang = () => {
                     </Form.Item>
 
                     <Form.Item {...restField} name={[name, 'SoLuong']} rules={[{ required: true }]} style={{ margin: 0 }}>
-                      <Input type="number" placeholder="SL" min={1} style={{ width: 80 }} />
+                      <Input type="number" placeholder="SL" min={1} style={{ width: '100%' }} />
                     </Form.Item>
 
                     <Form.Item {...restField} name={[name, 'DonGiaNhap']} rules={[{ required: true }]} style={{ margin: 0 }}>
-                      <Input type="number" placeholder="Giá nhập" min={0} style={{ width: 140 }} />
+                      <Input type="number" placeholder="Giá nhập" min={0} style={{ width: '100%' }} />
                     </Form.Item>
 
-                    <div style={{ width: 150 }}>
+                    <div style={{ minWidth: 120 }}>
                       <span style={{ fontSize: 11, color: '#999' }}>Giá bán (dự kiến {tyLeLoi}%)</span>
                       <div style={{ fontWeight: 700, color: '#1677ff' }}>
                         {(Math.round(Number(formItems[name]?.DonGiaNhap || 0) * (1 + tyLeLoi / 100))).toLocaleString()}đ

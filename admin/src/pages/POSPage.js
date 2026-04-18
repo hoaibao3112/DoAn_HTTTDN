@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext, useRef } from 'react';
 import axios from 'axios';
 import { Html5Qrcode, Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import html2pdf from 'html2pdf.js';
+import { Dropdown, Modal, Input, Button as AntdButton } from 'antd';
 import { PermissionContext } from '../components/PermissionContext';
 import { FEATURES } from '../constants/permissions';
 import '../styles/POSPage.css';
@@ -34,6 +35,7 @@ const POSPage = () => {
 
     // BARCODE SCANNER
     const [showScanner, setShowScanner] = useState(false);
+    const [showManualModal, setShowManualModal] = useState(false);
     const [manualISBN, setManualISBN] = useState('');
     const [scannerStatus, setScannerStatus] = useState('Sẵn sàng quét...');
     const scannerRef = useRef(null);
@@ -196,7 +198,7 @@ const POSPage = () => {
                 setSelectedPromotion(promoData);
                 setPromotionDiscount(promoData.GiaTriGiam || 0);
                 setVoucherCode('');
-                alert(`Áp dụng mã thành công! Giảm ${promoData.GiaTriGiam.toLocaleString()}đ`);
+                alert(`Áp dụng mã thành công! Giảm ${promoData.GiaTriGiam.toLocaleString('vi-VN')}đ`);
                 setShowPromotions(false);
             }
         } catch (error) {
@@ -222,39 +224,55 @@ const POSPage = () => {
     const searchProductByISBN = async (isbn) => {
         try {
             setScannerStatus(`Đang tìm sản phẩm ISBN: ${isbn}...`);
+            const normalizedISBN = String(isbn).replace(/[-\s]/g, '').trim();
+
+            // 1. Tìm trong mảng products (đã có sẵn số lượng kho)
+            const localProduct = products.find(p => p.ISBN && String(p.ISBN).replace(/[-\s]/g, '').trim() === normalizedISBN);
+
+            if (localProduct) {
+                addToCart(localProduct);
+                setScannerStatus(`✓ Đã thêm: ${localProduct.TenSP}`);
+                // Chỉ tự động đóng nếu đang ở mode Camera
+                if (showScanner) {
+                    setTimeout(() => closeBarcodeScanner(), 1500);
+                }
+                return true;
+            }
+
+            // 2. Dự phòng: gọi API lấy full danh sách để tự filter bằng JS (vượt qua giới hạn LIKE của SQL)
             const token = localStorage.getItem('authToken');
-
-            // Chuẩn hóa ISBN (xóa dấu gạch ngang, khoảng trắng)
-            const normalizedISBN = isbn.replace(/[-\s]/g, '').trim();
-
-            // Tìm sản phẩm theo ISBN từ backend
             const response = await axios.get(
-                `http://localhost:5000/api/warehouse/products?search=${isbn}`,
+                `http://localhost:5000/api/warehouse/products?pageSize=1000`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
             if (response.data.success && response.data.data) {
                 const items = response.data.data.items || response.data.data;
-                // Tìm sản phẩm có ISBN khớp chính xác (sau khi chuẩn hóa)
-                const product = Array.isArray(items)
-                    ? items.find(p => p.ISBN && p.ISBN.replace(/[-\s]/g, '').trim() === normalizedISBN)
+                const dbProduct = Array.isArray(items)
+                    ? items.find(p => p.ISBN && String(p.ISBN).replace(/[-\s]/g, '').trim() === normalizedISBN)
                     : null;
 
-                if (product) {
-                    addToCart(product);
-                    setScannerStatus(`✓ Đã thêm: ${product.TenSP}`);
-                    setTimeout(() => {
-                        closeBarcodeScanner();
-                    }, 1500);
+                if (dbProduct) {
+                    // Do thiếu tồn kho quầy, set tạm cực lớn rồi add
+                    if (dbProduct.SoLuong === undefined) dbProduct.SoLuong = 999;
+                    addToCart(dbProduct);
+                    setScannerStatus(`✓ Đã thêm: ${dbProduct.TenSP}`);
+                    if (showScanner) {
+                        setTimeout(() => closeBarcodeScanner(), 1500);
+                    }
                     return true;
-                } else {
-                    setScannerStatus(`✗ Không tìm thấy sản phẩm với ISBN: ${isbn}`);
-                    return false;
                 }
             }
+            
+            // Xử lý nết thất bại
+            setScannerStatus(`✗ Không tìm thấy sản phẩm với ISBN: ${isbn}`);
+            alert(`Không tìm thấy sách nào có mã số: ${isbn}`);
+            return false;
+            
         } catch (error) {
             console.error('Error searching product by ISBN:', error);
             setScannerStatus(`✗ Lỗi tìm kiếm: ${error.message}`);
+            alert('Lỗi tìm kiếm: ' + error.message);
             return false;
         }
     };
@@ -361,6 +379,8 @@ const POSPage = () => {
             return;
         }
         searchProductByISBN(manualISBN.trim());
+        setShowManualModal(false);
+        setManualISBN('');
     };
 
     // Cleanup scanner khi unmount
@@ -765,8 +785,8 @@ const POSPage = () => {
                                                 <button onClick={() => updateQuantity(item.MaSP, item.quantity + 1)}>+</button>
                                             </div>
                                             <div className="item-prices">
-                                                <span className="item-price">{item.DonGia?.toLocaleString()}đ</span>
-                                                <span className="item-total">{(item.DonGia * item.quantity).toLocaleString()}đ</span>
+                                                <span className="item-price">{formatCurrencyVND(item.DonGia)}</span>
+                                                <span className="item-total">{formatCurrencyVND(item.DonGia * item.quantity)}</span>
                                             </div>
                                         </div>
                                         <button className="item-remove" onClick={() => removeFromCart(item.MaSP)}>
@@ -859,7 +879,7 @@ const POSPage = () => {
                         <div className="totals-section">
                             <div className="total-row">
                                 <span>Tổng cộng</span>
-                                <span className="total-value">{calculateSubtotal().toLocaleString()}đ</span>
+                                <span className="total-value">{formatCurrencyVND(calculateSubtotal())}</span>
                             </div>
 
                             {/* Khuyến mãi Section */}
@@ -906,7 +926,7 @@ const POSPage = () => {
                                                             <small>{promo.MoTa}</small>
                                                         </div>
                                                         <div className="promo-value">
-                                                            -{(promo.giaTriGiamDuKien || 0).toLocaleString()}đ
+                                                            -{formatCurrencyVND(promo.giaTriGiamDuKien || 0)}
                                                         </div>
                                                     </div>
                                                 ))}
@@ -935,13 +955,13 @@ const POSPage = () => {
                             {promotionDiscount > 0 && (
                                 <div className="total-row discount">
                                     <span>Giảm giá</span>
-                                    <span className="total-value discount-value">-{promotionDiscount.toLocaleString()}đ</span>
+                                    <span className="total-value discount-value">-{formatCurrencyVND(promotionDiscount)}</span>
                                 </div>
                             )}
 
                             <div className="total-row final">
                                 <span>THÀNH TIỀN</span>
-                                <span className="total-final">{calculateTotal().toLocaleString()}đ</span>
+                                <span className="total-final">{formatCurrencyVND(calculateTotal())}</span>
                             </div>
                         </div>
 
@@ -971,13 +991,13 @@ const POSPage = () => {
                                     placeholder="Tiền khách đưa..."
                                 />
                                 {customerGiven && calculateChange() > 0 && (
-                                    <div className="change-hint">Thừa: {calculateChange().toLocaleString()}đ</div>
+                                    <div className="change-hint">Thừa: {formatCurrencyVND(calculateChange())}</div>
                                 )}
                             </div>
                         )}
 
                         <button className="btn-checkout-final" onClick={handleCheckout} disabled={loading || cart.length === 0}>
-                            {loading ? 'ĐANG XỬ LÝ...' : `THANH TOÁN (${calculateTotal().toLocaleString()}đ)`}
+                            {loading ? 'ĐANG XỬ LÝ...' : `THANH TOÁN (${formatCurrencyVND(calculateTotal())})`}
                         </button>
                     </div>
                 </div>
@@ -1006,14 +1026,34 @@ const POSPage = () => {
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
-                            <button
-                                className="btn-scan-barcode"
-                                onClick={toggleBarcodeScanner}
-                                title="Quét mã vạch sản phẩm"
+                            <Dropdown 
+                                menu={{ 
+                                    items: [
+                                        {
+                                            key: 'camera',
+                                            label: 'Quét bằng Camera',
+                                            icon: <span className="material-icons" style={{fontSize: 16}}>camera_alt</span>,
+                                            onClick: toggleBarcodeScanner
+                                        },
+                                        {
+                                            key: 'manual',
+                                            label: 'Nhập mã thủ công',
+                                            icon: <span className="material-icons" style={{fontSize: 16}}>keyboard</span>,
+                                            onClick: () => setShowManualModal(true)
+                                        }
+                                    ] 
+                                }} 
+                                placement="bottomRight"
+                                trigger={['click']}
                             >
-                                <span className="material-icons">qr_code_scanner</span>
-                                Quét mã
-                            </button>
+                                <button
+                                    className="btn-scan-barcode"
+                                    title="Tùy chọn nhập mã"
+                                >
+                                    <span className="material-icons">qr_code_scanner</span>
+                                    Quét mã
+                                </button>
+                            </Dropdown>
                         </div>
                     </div>
 
@@ -1031,7 +1071,7 @@ const POSPage = () => {
                                 <div className="product-item-info">
                                     <h4 title={product.TenSP}>{product.TenSP}</h4>
                                     <div className="product-item-footer">
-                                        <span className="price">{product.DonGia?.toLocaleString()}đ</span>
+                                        <span className="price">{formatCurrencyVND(product.DonGia)}</span>
                                         <span className={`stock ${product.SoLuong <= 0 ? 'stock-empty' : product.SoLuong <= 5 ? 'stock-low' : ''}`}>Quầy: {product.SoLuong}</span>
                                     </div>
                                 </div>
@@ -1059,23 +1099,6 @@ const POSPage = () => {
 
                         <div className="scanner-video-container" ref={scannerRef}>
                             <div id="barcode-reader"></div>
-                        </div>
-
-                        <div className="scanner-manual-input">
-                            <p className="manual-label">Hoặc nhập ISBN thủ công:</p>
-                            <div className="manual-input-group">
-                                <input
-                                    type="text"
-                                    placeholder="Nhập ISBN (VD: 978-604-1-00000-1)"
-                                    value={manualISBN}
-                                    onChange={(e) => setManualISBN(e.target.value)}
-                                    onKeyPress={(e) => e.key === 'Enter' && handleManualISBNSubmit()}
-                                />
-                                <button onClick={handleManualISBNSubmit}>
-                                    <span className="material-icons">search</span>
-                                    Tìm kiếm
-                                </button>
-                            </div>
                         </div>
 
                         <div className="scanner-instructions">
@@ -1136,8 +1159,8 @@ const POSPage = () => {
                                         <tr key={index}>
                                             <td>{item.TenSP}</td>
                                             <td className="text-right">{item.SoLuong}</td>
-                                            <td className="text-right">{item.DonGia.toLocaleString()}đ</td>
-                                            <td className="text-right">{item.ThanhTien.toLocaleString()}đ</td>
+                                            <td className="text-right">{item.DonGia.toLocaleString('vi-VN')}đ</td>
+                                            <td className="text-right">{item.ThanhTien.toLocaleString('vi-VN')}đ</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -1146,27 +1169,27 @@ const POSPage = () => {
                             <div className="total-section">
                                 <div className="total-row">
                                     <span>Tổng tiền:</span>
-                                    <span>{completedInvoice.TongTien.toLocaleString()}đ</span>
+                                    <span>{completedInvoice.TongTien.toLocaleString('vi-VN')}đ</span>
                                 </div>
                                 {completedInvoice.GiamGia > 0 && (
                                     <div className="total-row">
                                         <span>Giảm giá:</span>
-                                        <span>-{completedInvoice.GiamGia.toLocaleString()}đ</span>
+                                        <span>-{completedInvoice.GiamGia.toLocaleString('vi-VN')}đ</span>
                                     </div>
                                 )}
                                 <div className="total-row final">
                                     <span>THÀNH TIỀN:</span>
-                                    <span>{completedInvoice.ThanhToan.toLocaleString()}đ</span>
+                                    <span>{completedInvoice.ThanhToan.toLocaleString('vi-VN')}đ</span>
                                 </div>
                                 {completedInvoice.PhuongThucTT === 'Tiền mặt' && (
                                     <>
                                         <div className="total-row">
                                             <span>Tiền khách đưa:</span>
-                                            <span>{completedInvoice.TienKhachDua.toLocaleString()}đ</span>
+                                            <span>{completedInvoice.TienKhachDua.toLocaleString('vi-VN')}đ</span>
                                         </div>
                                         <div className="total-row">
                                             <span>Tiền thừa:</span>
-                                            <span>{completedInvoice.TienThua.toLocaleString()}đ</span>
+                                            <span>{completedInvoice.TienThua.toLocaleString('vi-VN')}đ</span>
                                         </div>
                                     </>
                                 )}
@@ -1193,8 +1216,40 @@ const POSPage = () => {
                     </div>
                 </div>
             )}
+
+            {/* Manual Input Modal */}
+            <Modal
+                title="Nhập mã vạch/ISBN thủ công"
+                open={showManualModal}
+                onOk={handleManualISBNSubmit}
+                onCancel={() => {
+                    setShowManualModal(false);
+                    setManualISBN('');
+                }}
+                okText="Tìm kiếm"
+                cancelText="Hủy"
+            >
+                <div style={{ padding: '10px 0' }}>
+                    <Input
+                        size="large"
+                        placeholder="Nhập mã vạch hoặc ISBN của sản phẩm..."
+                        value={manualISBN}
+                        onChange={(e) => setManualISBN(e.target.value)}
+                        onPressEnter={handleManualISBNSubmit}
+                        autoFocus
+                        prefix={<span className="material-icons" style={{ color: '#bfbfbf', marginRight: 8 }}>qr_code</span>}
+                    />
+                </div>
+            </Modal>
         </div>
     );
 };
+
+// Format currency with thousand separator and no decimals
+function formatCurrencyVND(amount) {
+    if (typeof amount !== 'number') amount = Number(amount);
+    if (isNaN(amount)) return '';
+    return amount.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + 'đ';
+}
 
 export default POSPage;

@@ -303,6 +303,34 @@ const warehouseController = {
     deleteProduct: async (req, res) => {
         const { id } = req.params;
         try {
+            // ✅ LẤY THÔNG TIN SẢN PHẨM
+            const [product] = await pool.query(
+                'SELECT TenSP FROM sanpham WHERE MaSP = ?',
+                [id]
+            );
+            
+            if (!product.length) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy sản phẩm'
+                });
+            }
+
+            const tenSP = product[0].TenSP;
+
+            // ✅ KIỂM TRA TỒN KHO TRƯỚC KHI XÓA
+            const [stock] = await pool.query(
+                'SELECT COALESCE(SUM(SoLuongTon), 0) AS total FROM ton_kho WHERE MaSP = ?',
+                [id]
+            );
+            
+            if (stock[0].total > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Sản phẩm "${tenSP}" còn ${stock[0].total} cuốn trong kho — không thể xóa. Vui lòng xuất hết hàng trước khi xóa.`
+                });
+            }
+
             await pool.query('UPDATE sanpham SET TinhTrang = 0 WHERE MaSP = ?', [id]);
             await logActivity({
                 MaTK: req.user.MaTK, HanhDong: 'Xoa',
@@ -1181,7 +1209,7 @@ const warehouseController = {
                        (SELECT COUNT(*) FROM chi_tiet_kiem_ke ctk WHERE ctk.MaKiemKe = kk.MaKiemKe AND ctk.ChenhLech != 0) AS SoChenhLech
                 FROM kiem_ke_kho kk
                 LEFT JOIN kho_con kc ON kk.MaCH = kc.MaKho
-                JOIN nhanvien nv ON kk.NguoiKiemKe = nv.MaNV
+                LEFT JOIN nhanvien nv ON kk.NguoiKiemKe = nv.MaNV
                 ${where}
                 ORDER BY kk.NgayKiemKe DESC
                 LIMIT ? OFFSET ?
@@ -1207,7 +1235,7 @@ const warehouseController = {
                 SELECT kk.*, kc.TenKho AS TenCH, nv.HoTen AS TenNguoiKiemKe
                 FROM kiem_ke_kho kk
                 LEFT JOIN kho_con kc ON kk.MaCH = kc.MaKho
-                JOIN nhanvien nv ON kk.NguoiKiemKe = nv.MaNV
+                LEFT JOIN nhanvien nv ON kk.NguoiKiemKe = nv.MaNV
                 WHERE kk.MaKiemKe = ?
             `, [id]);
 
@@ -1257,6 +1285,12 @@ const warehouseController = {
                     [item.MaSP, MaCH]
                 );
                 const soLuongHeThong = stockRow?.SoLuong ?? 0;
+
+                // Delete existing record if any, then insert new one
+                await conn.query(
+                    'DELETE FROM chi_tiet_kiem_ke WHERE MaKiemKe = ? AND MaSP = ?',
+                    [MaKiemKe, item.MaSP]
+                );
 
                 await conn.query(
                     'INSERT INTO chi_tiet_kiem_ke (MaKiemKe, MaSP, SoLuongHeThong, SoLuongThucTe, LyDo) VALUES (?, ?, ?, ?, ?)',

@@ -395,7 +395,7 @@ const InventoryCheck = () => {
                                     {createItems.map((item, idx) => {
                                         const chenh = item.SoLuongThucTe - item.TonHeThong;
                                         return (
-                                            <tr key={item.MaSP} className={chenh !== 0 ? 'has-diff' : ''}>
+                                            <tr key={`create-${idx}-${item.MaSP}`} className={chenh !== 0 ? 'has-diff' : ''}>
                                                 <td className="text-muted">{idx + 1}</td>
                                                 <td className="text-muted">{item.MaSP}</td>
                                                 <td className="ic-product-name">{item.TenSP}</td>
@@ -539,7 +539,7 @@ const InventoryCheck = () => {
                                     </thead>
                                     <tbody>
                                         {(detailData.items || []).map((item, idx) => (
-                                            <tr key={item.MaSP} className={item.ChenhLech !== 0 ? 'has-diff' : ''}>
+                                            <tr key={`detail-${idx}-${item.MaSP}`} className={item.ChenhLech !== 0 ? 'has-diff' : ''}>
                                                 <td className="text-muted">{idx + 1}</td>
                                                 <td className="text-muted">{item.MaSP}</td>
                                                 <td className="ic-product-name">{item.TenSP}</td>

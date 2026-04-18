@@ -50,6 +50,49 @@
   flex: 1;
 }
 
+/* ============ SEARCH / FILTER BAR STYLES ============ */
+.search-section .ant-select-selector,
+.search-section .ant-picker {
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+  color: #1e293b !important;
+}
+
+.search-section .ant-select-selection-placeholder,
+.search-section .ant-picker-input > input::placeholder {
+  color: #64748b !important;
+  font-weight: 400 !important;
+}
+
+.search-section .filter-btn {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 4px 10px rgba(22, 119, 255, 0.25) !important;
+  padding: 0 20px;
+}
+
+.search-section .filter-btn:hover {
+  background: var(--primary-2) !important;
+  box-shadow: 0 6px 14px rgba(22, 119, 255, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+.search-section .reset-btn {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #475569 !important;
+  font-weight: 500;
+  padding: 0 16px;
+}
+
+.search-section .reset-btn:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+}
+
 /* ============ TABLE CARD ============ */
 .table-container {
   background: #fff;
@@ -152,7 +195,7 @@
 /* Hàng sản phẩm */
 .form-item-row {
   display: grid;
-  grid-template-columns: 180px 1fr 140px 160px auto;
+  grid-template-columns: minmax(200px, 1fr) 90px 140px 150px auto;
   gap: 12px;
   align-items: end;
   padding: 12px;

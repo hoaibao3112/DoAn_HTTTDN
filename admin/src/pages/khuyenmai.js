@@ -792,7 +792,7 @@ const printVoucherTicket = (voucher) => {
     <span>* Không áp dụng đồng thời nhiều mã</span>
     <span>WebSách © ${new Date().getFullYear()}</span>
   </div>
-  <script>window.onload = function(){ window.print(); }<\/script>
+  <script>window.onload = function(){ window.print(); }</script>
 </body></html>`;
 
   const pw = window.open('', '_blank', 'width=800,height=600');
@@ -983,6 +983,17 @@ const VoucherList = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [form] = Form.useForm();
 
+  // Generate random voucher code
+  const generateVoucherCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = 'VOUCHER';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    form.setFieldValue('MaCode', code);
+    message.success(`Mã voucher được tạo: ${code}`);
+  };
+
   const rowSelection = {
     selectedRowKeys,
     onChange: (keys) => setSelectedRowKeys(keys),
@@ -1052,7 +1063,8 @@ const VoucherList = () => {
       title: 'Mã voucher',
       dataIndex: 'MaCode',
       key: 'MaCode',
-      render: (val) => <Tag color="volcano" style={{ fontSize: 14, padding: '2px 10px' }}><b>{val}</b></Tag>,
+      width: 180,
+      render: (val) => <Tag color="volcano" style={{ fontSize: 15, padding: '6px 12px', fontWeight: 'bold', wordBreak: 'break-word' }}>{val}</Tag>,
     },
     {
       title: 'Chương trình KM',
@@ -1196,7 +1208,11 @@ const VoucherList = () => {
             </Select>
           </Form.Item>
           <Form.Item name="MaCode" label="Mã voucher" rules={[{ required: true, message: 'Nhập mã!' }, { pattern: /^[A-Z0-9_-]+$/, message: 'Chỉ dùng chữ hoa, số, _ -' }]}>
-            <Input placeholder="VD: SALE2026, GIAM50K" style={{ textTransform: 'uppercase' }} />
+            <Input 
+              placeholder="VD: SALE2026, GIAM50K" 
+              style={{ textTransform: 'uppercase' }}
+              addonAfter={<Button type="primary" onClick={generateVoucherCode} style={{ width: 90 }}>Tạo tự động</Button>}
+            />
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
