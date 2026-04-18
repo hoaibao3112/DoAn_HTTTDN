@@ -53,7 +53,11 @@ export const syncMissedAttendancesForDate = async (dateParam) => {
         );
         const leaveSet = new Set(leaveRecords.map(l => l.MaNV));
 
-        // 4. Chuẩn bị batch insert values
+        // 4. Kiểm tra xem ngày có phải lễ hay không
+        const [holidays] = await pool.query('SELECT Ngay FROM ngay_le WHERE DATE(Ngay) = ?', [targetDate]);
+        const isHolidayDate = holidays && holidays.length > 0;
+
+        // 5. Chuẩn bị batch insert values
         const insertValues = [];
         for (const emp of employees) {
             // Skip nếu đã có bản ghi chấm công
@@ -64,13 +68,19 @@ export const syncMissedAttendancesForDate = async (dateParam) => {
                 ? 'Tự động đồng bộ từ đơn nghỉ phép'
                 : 'Hệ thống tự động đánh dấu vắng mặt';
 
-            insertValues.push([emp.MaNV, emp.MaCa, targetDate, statusToInsert, ghiChu, 'System_Sync']);
+            // Xác định loại ngày tăng ca: 'thuong' | 'nghi_tuan' | 'le'
+            const day = new Date(targetDate).getDay(); // 0=Sun,6=Sat
+            let loaiNgayTangCa = 'thuong';
+            if (isHolidayDate) loaiNgayTangCa = 'le';
+            else if (day === 0 || day === 6) loaiNgayTangCa = 'nghi_tuan';
+
+            insertValues.push([emp.MaNV, emp.MaCa, targetDate, statusToInsert, ghiChu, 'System_Sync', loaiNgayTangCa]);
         }
 
         // 5. Batch insert tất cả records cùng lúc (thay vì N queries)
         if (insertValues.length > 0) {
             await pool.query(
-                'INSERT INTO cham_cong (MaNV, MaCa, Ngay, TrangThai, GhiChu, CreatedBy) VALUES ?',
+                'INSERT INTO cham_cong (MaNV, MaCa, Ngay, TrangThai, GhiChu, CreatedBy, LoaiNgayTangCa) VALUES ?',
                 [insertValues]
             );
             console.log(`[Sync] Inserted ${insertValues.length} attendance records for date: ${targetDate}`);

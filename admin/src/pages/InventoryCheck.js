@@ -44,6 +44,7 @@ const InventoryCheck = () => {
     const [completeModal, setCompleteModal] = useState(false);
     const [apDung, setApDung] = useState(true);
     const [completing, setCompleting] = useState(false);
+    const [detailSaving, setDetailSaving] = useState(false);
 
     // ── fetch ─────────────────────────────────────────────────
     const fetchStores = useCallback(async () => {
@@ -168,6 +169,47 @@ const InventoryCheck = () => {
         finally { setCompleting(false); }
     };
 
+    const updateDetailThucTe = (MaSP, val) => {
+        const num = Math.max(0, parseInt(val) || 0);
+        setDetailData(d => ({
+            ...d,
+            items: (d.items || []).map(i => i.MaSP === MaSP ? { ...i, SoLuongThucTe: num, ChenhLech: num - (i.SoLuongHeThong ?? i.TonHeThong ?? 0) } : i)
+        }));
+    };
+
+    const updateDetailLyDo = (MaSP, val) => {
+        setDetailData(d => ({
+            ...d,
+            items: (d.items || []).map(i => i.MaSP === MaSP ? { ...i, LyDo: val } : i)
+        }));
+    };
+
+    const saveDetailChanges = async () => {
+        if (!detailData) return;
+        if (detailData.TrangThai !== 'Dang_kiem') { alert('Phiếu đã hoàn tất, không thể cập nhật'); return; }
+        setDetailSaving(true);
+        try {
+            const payload = {
+                items: (detailData.items || []).map(i => ({ MaSP: i.MaSP, SoLuongThucTe: i.SoLuongThucTe, LyDo: i.LyDo || null }))
+            };
+            const r = await axios.put(`${API}/inventory-checks/${detailData.MaKiemKe}`, payload, { headers: getHeaders() });
+            if (r.data.success) {
+                alert('Cập nhật phiếu kiểm kê thành công');
+                // refresh detail
+                const r2 = await axios.get(`${API}/inventory-checks/${detailData.MaKiemKe}`, { headers: getHeaders() });
+                if (r2.data.success) setDetailData(r2.data.data);
+                fetchChecks(1);
+            } else {
+                alert('Cập nhật thất bại: ' + (r.data.message || ''));
+            }
+        } catch (e) {
+            console.error('Lỗi cập nhật phiếu:', e);
+            alert('Lỗi: ' + (e.response?.data?.message || e.message));
+        } finally {
+            setDetailSaving(false);
+        }
+    };
+
     // ── helpers ───────────────────────────────────────────────
     const createStats = () => {
         const total = createItems.length;
@@ -224,10 +266,15 @@ const InventoryCheck = () => {
                             <span className="material-icons">add</span> Tạo phiếu kiểm kê
                         </button>
                     )}
-                    {view === 'detail' && detailData?.TrangThai === 'Dang_kiem' && canComplete && (
-                        <button className="ic-btn-primary" onClick={() => setCompleteModal(true)}>
-                            <span className="material-icons">check_circle</span> Hoàn tất kiểm kê
-                        </button>
+                    {view === 'detail' && detailData && detailData.TrangThai === 'Dang_kiem' && canComplete && (
+                        <>
+                            <button className="ic-btn-outline" onClick={saveDetailChanges} disabled={detailSaving}>
+                                {detailSaving ? <><span className="material-icons spin">autorenew</span> Đang lưu...</> : <><span className="material-icons">save</span> Lưu thay đổi</>}
+                            </button>
+                            <button className="ic-btn-primary" onClick={() => setCompleteModal(true)}>
+                                <span className="material-icons">check_circle</span> Hoàn tất kiểm kê
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
@@ -544,11 +591,25 @@ const InventoryCheck = () => {
                                                 <td className="text-muted">{item.MaSP}</td>
                                                 <td className="ic-product-name">{item.TenSP}</td>
                                                 <td className="text-center ic-system-qty">{item.SoLuongHeThong}</td>
-                                                <td className="text-center">{item.SoLuongThucTe}</td>
+                                                        <td className="text-center">
+                                                            {detailData.TrangThai === 'Dang_kiem' ? (
+                                                                <input type="number" min="0" className="ic-qty-input" value={item.SoLuongThucTe}
+                                                                    onChange={e => updateDetailThucTe(item.MaSP, e.target.value)} />
+                                                            ) : (
+                                                                item.SoLuongThucTe
+                                                            )}
+                                                        </td>
                                                 <td className={`ic-diff ${diffClass(item.ChenhLech)}`}>
                                                     {item.ChenhLech > 0 ? '+' : ''}{item.ChenhLech}
                                                 </td>
-                                                <td>{item.LyDo || (item.ChenhLech === 0 ? '–' : <span className="ic-no-reason">Chưa có lý do</span>)}</td>
+                                                <td>
+                                                    {detailData.TrangThai === 'Dang_kiem' ? (
+                                                        <input type="text" className="ic-note-input" value={item.LyDo || ''}
+                                                            onChange={e => updateDetailLyDo(item.MaSP, e.target.value)} placeholder={item.ChenhLech !== 0 ? 'Nhập lý do...' : ''} />
+                                                    ) : (
+                                                        item.LyDo || (item.ChenhLech === 0 ? '–' : <span className="ic-no-reason">Chưa có lý do</span>)
+                                                    )}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

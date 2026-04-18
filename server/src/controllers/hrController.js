@@ -12,7 +12,18 @@ const SICK_STATUSES_COMPANY = ['Nghi_benh'];
 const SICK_DAY_ATTENDANCE_BONUS_THRESHOLD = 2;
 
 // Số ngày làm việc tiêu chuẩn trong 1 tháng (công ty có thể điều chỉnh)
-const STANDARD_WORKDAYS_PER_MONTH = 26;
+const STANDARD_WORKDAYS_PER_MONTH = 26; // fallback if hr_settings missing
+
+// Helper: đọc giá trị từ bảng hr_settings
+async function getHrSetting(key, defaultValue = null) {
+    try {
+        const [rows] = await pool.query('SELECT `value` FROM hr_settings WHERE `key` = ? LIMIT 1', [key]);
+        if (rows && rows[0] && rows[0].value !== undefined && rows[0].value !== null) return rows[0].value;
+        return defaultValue;
+    } catch (err) {
+        return defaultValue;
+    }
+}
 
 // =============================================================================
 // CẤU HÌNH BHXH / BHYT / BHTN (tỉ lệ trừ từ nhân viên - theo Luật VN 2024)
@@ -158,6 +169,26 @@ const hrController = {
             // Get employee MaNV from MaTK
             const [emp] = await pool.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
             if (emp.length === 0) return res.status(400).json({ success: false, message: 'Nhân viên không tồn tại' });
+
+            // Kiểm tra quota phép có hưởng lương nếu LoaiDon === 'Nghi_phep'
+            if (LoaiDon === 'Nghi_phep') {
+                const year = new Date(NgayBatDau).getFullYear();
+                const [usedRows] = await pool.query(`
+                  SELECT SUM(DATEDIFF(NgayKetThuc, NgayBatDau) + 1) AS used
+                  FROM xin_nghi_phep
+                  WHERE MaNV = ?
+                    AND LoaiDon = 'Nghi_phep'
+                    AND TrangThai = 'Da_duyet'
+                    AND YEAR(NgayBatDau) = ?
+                `, [emp[0].MaNV, year]);
+                const used = usedRows[0]?.used || 0;
+                const requestedDays = Math.floor((new Date(NgayKetThuc) - new Date(NgayBatDau)) / (24*3600*1000)) + 1;
+                const maxPaidLeavePerYearRaw = await getHrSetting('maxPaidLeavePerYear');
+                const maxPaidLeavePerYear = maxPaidLeavePerYearRaw !== null ? Number(maxPaidLeavePerYearRaw) : 12;
+                if ((used + requestedDays) > maxPaidLeavePerYear) {
+                    return res.status(400).json({ success: false, message: `Vượt quá số ngày phép cho phép. Đã dùng: ${used} ngày, còn lại: ${maxPaidLeavePerYear - used} ngày.` });
+                }
+            }
 
             await pool.query(
                 `INSERT INTO xin_nghi_phep (MaNV, LoaiDon, NgayBatDau, NgayKetThuc, LyDo, MinhChung, TrangThai)
@@ -463,7 +494,15 @@ const hrController = {
         try {
             // Formula: TongLuong = (LuongCoBan / 26 * PayableDays) + PhuCap + Thuong - Phat + (SoGioTangCa * (LuongCoBan / 208) * 1.5)
             // PayableDays include: Di_lam, Tre, Ve_som, Nghi_phep
-            const [employees] = await pool.query('SELECT MaNV, LuongCoBan, PhuCap, COALESCE(SoNguoiPhuThuoc, 0) AS SoNguoiPhuThuoc FROM nhanvien WHERE TinhTrang = 1');
+            const [employees] = await pool.query(
+                `SELECT MaNV,
+                        LuongCoBan,
+                        COALESCE(PhuCapChiuThue, 0) AS PhuCapChiuThue,
+                        COALESCE(PhuCapKhongChiuThue, PhuCap, 0) AS PhuCapKhongChiuThue,
+                        COALESCE(SoNguoiPhuThuoc, 0) AS SoNguoiPhuThuoc,
+                        COALESCE(LuongBinhQuanBHXH6Thang, NULL) AS LuongBinhQuanBHXH6Thang
+                 FROM nhanvien WHERE TinhTrang = 1`
+            );
 
             // Lấy danh sách ngày lễ trong tháng
             const [holidaysInMonth] = await pool.query(
@@ -510,8 +549,10 @@ const hrController = {
                 } = stats[0];
 
                 const base = parseFloat(emp.LuongCoBan) || 0;
-                const dailyRate = base / STANDARD_WORKDAYS_PER_MONTH;
-                const hourlyRate = base / 208;
+                // Lấy số ngày làm việc thực tế trong tháng (fallback về cấu hình nếu rỗng)
+                const actualWorkdays = actualWorkdaysInMonth || STANDARD_WORKDAYS_PER_MONTH;
+                const dailyRate = actualWorkdays > 0 ? (base / actualWorkdays) : (base / STANDARD_WORKDAYS_PER_MONTH);
+                const hourlyRate = dailyRate / 8;
 
                 // ===== BƯỚC 2: Xử lý ngày lễ =====
                 // Nguyên tắc:
@@ -568,7 +609,26 @@ const hrController = {
                 const basePay = dailyRate * (PayableDays + holidayNotWorkedDays) + holidayExtraPay;
 
                 // 2. OT Pay: tính theo giờ tăng ca (1.5x hourly rate)
-                const otPay = OT_Hours * hourlyRate * 1.5;
+                // 2. OT Pay: tính theo giờ tăng ca theo loại ngày
+                // Lấy chi tiết tăng ca để phân loại theo ngày lễ / cuối tuần / ngày thường
+                const [otRows] = await pool.query(
+                    `SELECT Ngay, SoGioTangCa FROM cham_cong WHERE MaNV = ? AND MONTH(Ngay) = ? AND YEAR(Ngay) = ? AND SoGioTangCa > 0`,
+                    [emp.MaNV, month, year]
+                );
+                let otPay = 0;
+                for (const r of (otRows || [])) {
+                    const d = new Date(r.Ngay);
+                    const dayOfWeek = d.getDay(); // 0=Sun,6=Sat
+                    const ngayStr = d.toISOString().split('T')[0];
+                    // Nếu là ngày lễ theo danh sách -> hệ số 3.0
+                    const isHoliday = holidaysInMonth.some(h => new Date(h.Ngay).toISOString().split('T')[0] === ngayStr);
+                    let factor = 1.5;
+                    if (isHoliday) factor = 3.0;
+                    else if (dayOfWeek === 0 || dayOfWeek === 6) factor = 2.0;
+                    else factor = 1.5;
+
+                    otPay += (parseFloat(r.SoGioTangCa) || 0) * hourlyRate * factor;
+                }
 
                 // 3. Fines: đi trễ/về sớm (20k/lần) + thưởng/phạt thủ công
                 // LỜI NHẮC: Không áp dụng phạt cho ngày Thai_san/Om_dau (BHXH trả)
@@ -608,10 +668,20 @@ const hrController = {
                 // Lưu ý tháng có Thai_san / Om_dau:
                 //   - BHXH vẫn tính trên LuongCoBan đầy đủ (không tỉ lệ theo ngày)
                 //   - Lý do: Cơ sở đóng BHXH là lương hợp đồng, không phải lương thực nhận
-                const bhxhEmployee = Math.round(base * BHXH_RATE);   // 8%
-                const bhytEmployee = Math.round(base * BHYT_RATE);   // 1.5%
-                const bhtnEmployee = Math.round(base * BHTN_RATE);   // 1%
-                const totalInsurance = bhxhEmployee + bhytEmployee + bhtnEmployee; // 10.5%
+                // Áp trần đóng BHXH: tối đa 20 lần lương tối thiểu vùng
+                const luongToiThieuVungRaw = await getHrSetting('luongToiThieuVung');
+                const luongToiThieuVung = luongToiThieuVungRaw !== null ? Number(luongToiThieuVungRaw) : 4400000;
+                const mucTranBHXH = 20 * luongToiThieuVung;
+                const luongTinhBH = Math.min(base, mucTranBHXH);
+
+                const bhxhEmployee = Math.round(luongTinhBH * BHXH_RATE);   // 8%
+                const bhytEmployee = Math.round(luongTinhBH * BHYT_RATE);   // 1.5%
+                const bhtnEmployee = Math.round(luongTinhBH * BHTN_RATE);   // 1%
+                const totalInsurance = bhxhEmployee + bhytEmployee + bhtnEmployee; // 10.5% (trên luongTinhBH)
+
+                // Nếu có ngày sick do BHXH (Thai_san, Om_dau) -> tính BhxhSickPay tách riêng
+                const luongDongBHXH = luongTinhBH; // xây dựng trên mức đã áp trần
+                const bhxhSickPay = Math.round(((luongDongBHXH * 0.75) / actualWorkdays) * BhxhSickDays) || 0;
 
                 // ===== BƯỚC 5: Tính thuế TNCN (lũy tiến 7 bậc) =====
                 // Căn cứ Điều 22 Luật Thuế TNCN + Nghị quyết 954/2020/UBTVQH14
@@ -622,7 +692,10 @@ const hrController = {
 
                 // Thu nhập chịu thuế = TongLuong brutto (trước khi trừ bảo hiểm)
                 // (Phụ cấp không chịu thuế theo quy định cần loại ra — đơn giản hóa: tính hết)
-                const incomeSubjectToTax = tongLuongBrutto;
+                // Thu nhập chịu thuế = TongLuong brutto (trước khi trừ bảo hiểm)
+                // Loại ra phụ cấp không chịu thuế
+                const phuCapKhongChiu = parseFloat(emp.PhuCapKhongChiuThue || 0);
+                const incomeSubjectToTax = Math.max(0, tongLuongBrutto - phuCapKhongChiu);
 
                 // Thu nhập tính thuế = Thu nhập chịu thuế − BH nhân viên − Giảm trừ gia cảnh
                 const totalDeduction = totalInsurance
@@ -632,6 +705,7 @@ const hrController = {
                 const pitTax         = calculatePIT(taxableIncome);
 
                 // ===== BƯỚC 6: Lương thực lĩnh =====
+                // Lưu ý: BhxhSickPay là khoản BHXH chi trả, không phải chi phí công ty
                 const tongLuongThucLinh = Math.round(tongLuongBrutto - totalInsurance - pitTax);
 
                 // ===== BƯỚC 7: Ghi vào bảng luong =====
@@ -647,8 +721,8 @@ const hrController = {
                 await pool.query(
                     `INSERT INTO luong (MaNV, Thang, Nam, LuongCoBan, PhuCap, SoNgayLam,
                                         SoGioTangCa, Thuong, Phat, TongLuong,
-                                        KhauTruBHXH, ThueTNCN, LuongThucLinh, TrangThai)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Chua_chi_tra')
+                                        KhauTruBHXH, ThueTNCN, LuongThucLinh, BhxhSickPay, MaternityPay, TrangThai)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Chua_chi_tra')
                      ON DUPLICATE KEY UPDATE
                         TongLuong    = VALUES(TongLuong),
                         SoNgayLam    = VALUES(SoNgayLam),
@@ -658,13 +732,16 @@ const hrController = {
                         PhuCap       = VALUES(PhuCap),
                         KhauTruBHXH  = VALUES(KhauTruBHXH),
                         ThueTNCN     = VALUES(ThueTNCN),
-                        LuongThucLinh = VALUES(LuongThucLinh)`,
+                        LuongThucLinh = VALUES(LuongThucLinh),
+                        BhxhSickPay  = VALUES(BhxhSickPay),
+                        MaternityPay  = VALUES(MaternityPay)`,
                     [
                         emp.MaNV, month, year, base, Math.round(phuCapThang),
                         PayableDays + holidayNotWorkedDays, OT_Hours,
                         Math.round(totalBonus), Math.round(totalPenalty),
                         Math.round(tongLuongBrutto),
                         totalInsurance, pitTax, tongLuongThucLinh,
+                        bhxhSickPay, Math.round((emp.LuongBinhQuanBHXH6Thang || base) / 30 * (MaternityDays || 0)),
                     ]
                 );
             }

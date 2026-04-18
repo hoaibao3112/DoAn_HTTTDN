@@ -173,27 +173,43 @@ const SalaryPage = () => {
 
   
 
-  const dailyRate = (row) => parseFloat(row.LuongCoBan || 0) / 26;
-  const hourlyRate = (row) => parseFloat(row.LuongCoBan || 0) / 208;
-  const basePay = (row) => dailyRate(row) * parseFloat(row.SoNgayLam || 0);
-  const otPay = (row) => parseFloat(row.SoGioTangCa || 0) * hourlyRate(row) * 1.5;
+  const dailyRate = (row) => {
+    const base = parseFloat(row.LuongCoBan || 0);
+    const daysInMonth = parseInt(row.SoNgayLamViecThang || row.SoNgayLamViec || 0) || 0;
+    if (daysInMonth > 0) return base / daysInMonth;
+    return base / 26;
+  };
+  const hourlyRate = (row) => dailyRate(row) / 8;
+  const basePay = (row) => {
+    if (row.LuongCoBanThucTe) return parseFloat(row.LuongCoBanThucTe || 0);
+    return dailyRate(row) * parseFloat(row.PayableDays || row.SoNgayLam || 0);
+  };
+  const otPay = (row) => {
+    if (row.OT_Pay) return parseFloat(row.OT_Pay || 0);
+    return parseFloat(row.SoGioTangCa || 0) * hourlyRate(row) * 1.5;
+  };
 
   const handleExportExcel = () => {
     if (salaryList.length === 0) { alert('Chưa có dữ liệu để xuất!'); return; }
-    const rows = salaryList.map((row, idx) => ({
+      const rows = salaryList.map((row, idx) => ({
       STT: idx + 1,
       MaNV: row.MaNV,
       HoTen: row.HoTen,
       ChucVu: row.ChucVu || '',
-      LuongCoBan: parseFloat(row.LuongCoBan || 0),
-      SoNgayCong: parseFloat(row.SoNgayLam || 0),
-      LuongCong: Math.round(basePay(row)),
-      GioTangCa: parseFloat(row.SoGioTangCa || 0),
-      LuongTangCa: Math.round(otPay(row)),
-      PhuCap: parseFloat(row.PhuCap || 0),
+        LuongCoBan: parseFloat(row.LuongCoBan || 0),
+        SoNgayCong: parseFloat(row.PayableDays || row.SoNgayLam || 0),
+        SoNgayLamViecThang: parseInt(row.SoNgayLamViecThang || row.SoNgayLamViec || 0),
+        LuongCoBanThucTe: parseFloat(row.LuongCoBanThucTe || 0),
+        LuongCong: Math.round(basePay(row)),
+        GioTangCa: parseFloat(row.SoGioTangCa || 0),
+        LuongTangCa: Math.round(otPay(row)),
+        PhuCapChiuThue: parseFloat(row.PhuCapChiuThue || row.PhuCap || 0),
+        PhuCapKhongChiuThue: parseFloat(row.PhuCapKhongChiuThue || 0),
       Thuong: parseFloat(row.Thuong || 0),
       Phat: parseFloat(row.Phat || 0),
-      TongThuNhap: parseFloat(row.TongLuong || 0),
+        BhxhSickPay: parseFloat(row.BhxhSickPay || 0),
+        MaternityPay: parseFloat(row.MaternityPay || 0),
+        TongThuNhap: parseFloat(row.TongLuong || 0),
       TrangThai: row.TrangThai === 'Da_chi_tra' ? 'Đã chi trả' : 'Chưa chi trả',
     }));
 
