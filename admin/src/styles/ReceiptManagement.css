@@ -118,9 +118,13 @@
 }
 
 .ant-table-tbody>tr>td {
-  padding: 16px 12px;
-  font-size: 14px;
+  padding: 10px 12px;
+  font-size: 13px;
   color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
 }
 
 .ant-table-tbody>tr:hover>td {
@@ -296,6 +300,18 @@
   background: #fff;
   border-radius: var(--radius-sm);
   overflow: hidden;
+}
+
+/* Make header less tall and more compact */
+.ant-table-thead>tr>th {
+  padding: 10px 8px !important;
+}
+
+/* Allow long content to wrap in small screens */
+@media (max-width: 800px) {
+  .ant-table-tbody>tr>td {
+    white-space: normal;
+  }
 }
 
 /* ============ ANIMATIONS & UTILITIES ============ */

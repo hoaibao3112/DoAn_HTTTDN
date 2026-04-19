@@ -11,6 +11,8 @@ const { Option } = Select;
 const UserManagement = () => {
   const [state, setState] = useState({
     users: [],
+    roles: [],
+    branches: [],
     newUser: {
       Email: '',
       CCCD: '',
@@ -19,7 +21,6 @@ const UserManagement = () => {
       ChucVu: '',
       LuongCoBan: 0,
       PhuCap: 0,
-      MaCH: null,
       TinhTrang: 1,
     },
     editingUser: null,
@@ -52,8 +53,20 @@ const UserManagement = () => {
     }
   };
 
+  const fetchRoles = async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/roles/list/active');
+      if (res.data.success) setState(prev => ({ ...prev, roles: res.data.data }));
+    } catch (err) {
+      // ignore silently
+    }
+  };
+
+
+
   useEffect(() => {
     fetchUsers();
+    fetchRoles();
   }, []);
 
   const handleInputChange = (field, value) => {
@@ -93,6 +106,54 @@ const UserManagement = () => {
       message.error('Email không hợp lệ!');
       return false;
     }
+    // CCCD must be numeric (9-12 digits) when provided
+    if (userData.CCCD && !/^\d{9,12}$/.test(String(userData.CCCD))) {
+      message.error('CCCD không hợp lệ - phải là 9 đến 12 chữ số.');
+      return false;
+    }
+
+    // Date logic: NgayVaoLam >= NgaySinh and age >= 18
+    if (userData.NgaySinh) {
+      const birth = dayjs(userData.NgaySinh);
+      const start = userData.NgayVaoLam ? dayjs(userData.NgayVaoLam) : dayjs();
+      
+      if (start.isBefore(birth, 'day')) {
+        message.error('Ngày vào làm không thể trước ngày sinh.');
+        return false;
+      }
+      
+      const age = start.diff(birth, 'year');
+      if (age < 18) {
+        message.error('Nhân viên phải từ 18 tuổi trở lên tại ngày vào làm.');
+        return false;
+      }
+    }
+
+    if (!isEdit) {
+      // For new users, we don't check MaNV as it's auto-increment
+    }
+
+    // Unique checks against loaded users (phone/email/CCCD)
+    const conflictPhone = users.find(u => u.SDT === userData.SDT && String(u.MaNV) !== String(userData.MaNV));
+    if (conflictPhone) {
+      message.error('Số điện thoại đã tồn tại trong hệ thống.');
+      return false;
+    }
+    const conflictEmail = users.find(u => u.Email === userData.Email && String(u.MaNV) !== String(userData.MaNV));
+    if (conflictEmail) {
+      message.error('Email đã tồn tại trong hệ thống.');
+      return false;
+    }
+    const conflictCCCD = users.find(u => u.CCCD === userData.CCCD && String(u.MaNV) !== String(userData.MaNV));
+    if (conflictCCCD) {
+      message.error('Số CCCD đã tồn tại trong hệ thống.');
+      return false;
+    }
+    if (userData.CCCD && userData.CCCD.length !== 12) {
+      message.error('Số CCCD phải có đúng 12 chữ số.');
+      return false;
+    }
+
     return true;
   };
 
@@ -120,7 +181,6 @@ const UserManagement = () => {
           ChucVu: '',
           LuongCoBan: 0,
           PhuCap: 0,
-          MaCH: null,
           TinhTrang: 1,
         },
         isModalVisible: false,
@@ -411,9 +471,10 @@ const UserManagement = () => {
               <p className="info-label">Mã nhân viên:</p>
               <Input
                 size="small"
-                value={editingUser ? editingUser.MaNV : newUser.MaNV}
-                onChange={(e) => handleInputChange('MaNV', e.target.value)}
-                disabled={!!editingUser}
+                value={editingUser ? editingUser.MaNV : 'TỰ ĐỘNG PHÁT SINH'}
+                disabled={true}
+                placeholder="Hệ thống tự tạo"
+                style={{ backgroundColor: '#f5f5f5', color: '#8c8c8c' }}
               />
             </div>
             <div className="info-item">
@@ -431,6 +492,8 @@ const UserManagement = () => {
                 style={{ width: '100%' }}
                 value={(editingUser ? editingUser.NgaySinh : newUser.NgaySinh) ? dayjs(editingUser ? editingUser.NgaySinh : newUser.NgaySinh) : null}
                 onChange={(date, dateString) => handleInputChange('NgaySinh', dateString)}
+                disabledDate={(current) => current && current > dayjs().subtract(18, 'year')}
+                placeholder="Phải đủ 18 tuổi"
               />
             </div>
             <div className="info-item">
@@ -440,6 +503,11 @@ const UserManagement = () => {
                 style={{ width: '100%' }}
                 value={(editingUser ? editingUser.NgayVaoLam : newUser.NgayVaoLam) ? dayjs(editingUser ? editingUser.NgayVaoLam : newUser.NgayVaoLam) : null}
                 onChange={(date, dateString) => handleInputChange('NgayVaoLam', dateString)}
+                disabledDate={(current) => {
+                  const birth = (editingUser ? editingUser.NgaySinh : newUser.NgaySinh);
+                  if (!birth) return current && current > dayjs();
+                  return current && (current > dayjs() || current < dayjs(birth).add(18, 'year'));
+                }}
               />
             </div>
             <div className="info-item">
@@ -486,26 +554,34 @@ const UserManagement = () => {
               <Input
                 size="small"
                 value={editingUser ? editingUser.CCCD : newUser.CCCD}
-                onChange={(e) => handleInputChange('CCCD', e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, ''); // Chỉ giữ lại số
+                  handleInputChange('CCCD', val);
+                }}
+                maxLength={12}
+                placeholder="Nhập đúng 12 chữ số"
               />
             </div>
             <div className="info-item">
               <p className="info-label">Chức vụ:</p>
-              <Input
+              <Select
                 size="small"
                 value={editingUser ? editingUser.ChucVu : newUser.ChucVu}
-                onChange={(e) => handleInputChange('ChucVu', e.target.value)}
-              />
-            </div>
-            <div className="info-item">
-              <p className="info-label">Mã cửa hàng:</p>
-              <InputNumber
-                size="small"
+                onChange={(value, option) => {
+                  handleInputChange('ChucVu', value);
+                  // also store MaNQ when role selected (if available)
+                  const role = state.roles.find(r => r.TenNQ === value || r.MaNQ === value);
+                  if (role) handleInputChange('MaNQ', role.MaNQ);
+                }}
                 style={{ width: '100%' }}
-                value={editingUser ? editingUser.MaCH : newUser.MaCH}
-                onChange={(value) => handleInputChange('MaCH', value)}
-              />
+              >
+                <Option value="">Chọn chức vụ</Option>
+                {state.roles && state.roles.map(r => (
+                  <Option key={r.MaNQ} value={r.TenNQ}>{r.TenNQ}</Option>
+                ))}
+              </Select>
             </div>
+
             <div className="info-item">
               <p className="info-label">Lương cơ bản:</p>
               <InputNumber
@@ -513,6 +589,7 @@ const UserManagement = () => {
                 style={{ width: '100%' }}
                 value={editingUser ? editingUser.LuongCoBan : newUser.LuongCoBan}
                 onChange={(value) => handleInputChange('LuongCoBan', value)}
+                min={0}
               />
             </div>
             <div className="info-item">

@@ -7,6 +7,27 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
+// ========================= MULTER: Author Images =========================
+const authorStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = path.resolve('uploads/tacgia');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        const unique = Date.now() + '-' + Math.round(Math.random() * 1e4);
+        cb(null, `author-${unique}${path.extname(file.originalname)}`);
+    }
+});
+const uploadAuthor = multer({
+    storage: authorStorage,
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const ok = /jpeg|jpg|png|gif|webp/.test(path.extname(file.originalname).toLowerCase());
+        cb(ok ? null : new Error('Chỉ chấp nhận file ảnh'), ok);
+    }
+});
+
 const router = express.Router();
 
 // ========================= MULTER: Product Images =========================
@@ -83,10 +104,12 @@ router.get('/stores', warehouseController.getStores);
 
 router.post('/authors',
     checkPermission(FEATURES.AUTHORS, PERMISSIONS.CREATE),
+    uploadAuthor.single('AnhTG'),
     warehouseController.addAuthor
 );
 router.put('/authors/:id',
     checkPermission(FEATURES.AUTHORS, PERMISSIONS.UPDATE),
+    uploadAuthor.single('AnhTG'),
     warehouseController.updateAuthor
 );
 router.delete('/authors/:id',
@@ -179,6 +202,10 @@ router.get('/inventory-checks/:id',
 router.post('/inventory-checks',
     checkPermission(FEATURES.INVENTORY_CHECK, PERMISSIONS.CREATE),
     warehouseController.createInventoryCheck
+);
+router.put('/inventory-checks/:id',
+    checkPermission(FEATURES.INVENTORY_CHECK, PERMISSIONS.UPDATE),
+    warehouseController.updateInventoryCheck
 );
 router.put('/inventory-checks/:id/complete',
     checkPermission(FEATURES.INVENTORY_CHECK, PERMISSIONS.UPDATE),

@@ -91,6 +91,82 @@ const AuthorManagement = () => {
     fetchAuthors();
   }, [fetchAuthors]);
 
+  // ========================= VALIDATION =========================
+  const validateAuthorForm = (data) => {
+    const tenTG = (data.TenTG || '').trim();
+    const quocTich = (data.QuocTich || '').trim();
+    const tieuSu = (data.TieuSu || '').trim();
+
+    // Tên tác giả
+    if (!tenTG) {
+      message.error('Tên tác giả không được để trống!');
+      return false;
+    }
+    if (tenTG.length < 2) {
+      message.error('Tên tác giả phải có ít nhất 2 ký tự!');
+      return false;
+    }
+    if (tenTG.length > 100) {
+      message.error('Tên tác giả không được vượt quá 100 ký tự!');
+      return false;
+    }
+    // Chỉ cho phép chữ cái (bao gồm tiếng Việt), khoảng trắng và dấu chấm/gạch ngang
+    if (!/^[\p{L}\s.'-]+$/u.test(tenTG)) {
+      message.error('Tên tác giả không được chứa số hoặc ký tự đặc biệt!');
+      return false;
+    }
+    // Không cho nhập toàn khoảng trắng hoặc lặp ký tự vô nghĩa (vd: "aaaaaaa")
+    if (/^(.)\1{4,}$/.test(tenTG.replace(/\s/g, ''))) {
+      message.error('Tên tác giả không hợp lệ (lặp ký tự)!');
+      return false;
+    }
+
+    // Quốc tịch
+    if (quocTich) {
+      if (quocTich.length > 100) {
+        message.error('Quốc tịch không được vượt quá 100 ký tự!');
+        return false;
+      }
+      if (!/^[\p{L}\s.'-]+$/u.test(quocTich)) {
+        message.error('Quốc tịch không được chứa số hoặc ký tự đặc biệt!');
+        return false;
+      }
+    }
+
+    // Ngày sinh
+    if (data.NgaySinh) {
+      const date = new Date(data.NgaySinh);
+      const now = new Date();
+      const minYear = 1000;
+      if (isNaN(date.getTime())) {
+        message.error('Ngày sinh không hợp lệ!');
+        return false;
+      }
+      if (date > now) {
+        message.error('Ngày sinh không được là ngày trong tương lai!');
+        return false;
+      }
+      if (date.getFullYear() < minYear) {
+        message.error(`Năm sinh phải từ ${minYear} trở lên!`);
+        return false;
+      }
+      // Tác giả ít nhất phải đủ 10 tuổi mới có thể là tác giả :)
+      const age = now.getFullYear() - date.getFullYear();
+      if (age < 10) {
+        message.error('Ngày sinh không hợp lệ (tác giả phải ít nhất 10 tuổi)!');
+        return false;
+      }
+    }
+
+    // Tiểu sử
+    if (tieuSu && tieuSu.length > 1000) {
+      message.error('Tiểu sử không được vượt quá 1000 ký tự!');
+      return false;
+    }
+
+    return true;
+  };
+
   const handleFileChange = (e, isEditing = false) => {
     const file = e.target.files[0];
     if (file) {
@@ -115,24 +191,9 @@ const AuthorManagement = () => {
       message.error('Bạn không có quyền thêm tác giả!');
       return;
     }
+    if (!validateAuthorForm(newAuthor)) return;
 
     const tenTG = newAuthor.TenTG.trim();
-    if (!tenTG) {
-      message.error('Tên tác giả là bắt buộc!');
-      return;
-    }
-    if (newAuthor.QuocTich && newAuthor.QuocTich.length > 100) {
-      message.error('Quốc tịch không được vượt quá 100 ký tự!');
-      return;
-    }
-    if (newAuthor.NgaySinh) {
-      const date = new Date(newAuthor.NgaySinh);
-      if (isNaN(date.getTime()) || date > new Date()) {
-        message.error('Ngày sinh không hợp lệ!');
-        return;
-      }
-    }
-
     try {
       const formData = new FormData();
       formData.append('TenTG', tenTG);
@@ -176,24 +237,9 @@ const AuthorManagement = () => {
       message.error('Bạn không có quyền sửa tác giả!');
       return;
     }
+    if (!validateAuthorForm(editingAuthor)) return;
 
     const tenTG = editingAuthor.TenTG.trim();
-    if (!tenTG) {
-      message.error('Tên tác giả là bắt buộc!');
-      return;
-    }
-    if (editingAuthor.QuocTich && editingAuthor.QuocTich.length > 100) {
-      message.error('Quốc tịch không được vượt quá 100 ký tự!');
-      return;
-    }
-    if (editingAuthor.NgaySinh) {
-      const date = new Date(editingAuthor.NgaySinh);
-      if (isNaN(date.getTime()) || date > new Date()) {
-        message.error('Ngày sinh không hợp lệ!');
-        return;
-      }
-    }
-
     try {
       const formData = new FormData();
       formData.append('TenTG', tenTG);

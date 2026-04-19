@@ -541,7 +541,7 @@ const warehouseController = {
             // 1. Tạo phiếu nhập (lưu store ID, không warehouse ID)
             const [pnResult] = await conn.query(`
                 INSERT INTO phieunhap (MaNCC, MaCH, MaTK, TongTien, DaThanhToan, ConNo, TrangThai, GhiChu)
-                VALUES (?, ?, ?, ?, ?, ?, 'Hoan_thanh', ?)
+                VALUES (?, ?, ?, ?, ?, ?, 'Cho_thanh_toan', ?)
             `, [MaNCC, MaCHStore, req.user.MaTK, tongTien, Number(DaThanhToan), conNo, GhiChu || null]);
 
             const MaPN = pnResult.insertId;
@@ -550,118 +550,7 @@ const warehouseController = {
             const detailValues = ChiTiet.map(item => [MaPN, item.MaSP, Number(item.DonGiaNhap), Number(item.SoLuong)]);
             await conn.query('INSERT INTO chitietphieunhap (MaPN, MaSP, DonGiaNhap, SoLuong) VALUES ?', [detailValues]);
 
-            // 3. Cập nhật tồn kho + phân bổ kho con
-            const allocationLogs = [];
-            let totalUnallocated = 0;  // ✅ Track hàng không phân bổ được
-
-            // ✅ FIX N+1: Query tất cả warehouses + stock CHỈ MỘT LẦN (tránh N+1 query)
-            const productMaSPs = ChiTiet.map(item => Number(item.MaSP));
-            const [allWarehouseData] = await conn.query(`
-                SELECT kc.MaKho, kc.TenKho, kc.Priority, kc.Capacity,
-                       tkct.MaSP, COALESCE(tkct.SoLuongTon, 0) AS TonHienTai
-                FROM kho_con kc
-                LEFT JOIN ton_kho_chi_tiet tkct ON tkct.MaKho = kc.MaKho AND tkct.MaSP IN (?)
-                WHERE kc.MaCH = ? AND kc.TinhTrang = 1
-                ORDER BY kc.Priority ASC
-                FOR UPDATE
-            `, [productMaSPs, MaCHStore]);
-
-            // Map warehouses theo MaSP để tra cứu nhanh
-            const warehousesByProduct = {};
-            productMaSPs.forEach(id => { warehousesByProduct[id] = []; });
-            allWarehouseData.forEach(wh => {
-                // Nếu MaSP là null, tức là kho không có hàng → thêm vào tất cả products
-                if (wh.MaSP === null) {
-                    productMaSPs.forEach(id => {
-                        if (!warehousesByProduct[id].some(w => w.MaKho === wh.MaKho)) {
-                            warehousesByProduct[id].push({ ...wh, MaSP: id, TonHienTai: 0 });
-                        }
-                    });
-                } else {
-                    warehousesByProduct[wh.MaSP].push(wh);
-                }
-            });
-
-            for (const item of ChiTiet) {
-                const qty = Number(item.SoLuong);
-                const maSP = Number(item.MaSP);
-
-                // Cập nhật tồn kho tổng (store level)
-                await conn.query(`
-                    INSERT INTO ton_kho (MaSP, MaCH, SoLuongTon)
-                    VALUES (?, ?, ?)
-                    ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?
-                `, [maSP, MaCHStore, qty, qty]);
-
-                // Phân bổ vào warehouse cụ thể
-                if (autoDistribute) {
-                    // ✅ TỰ ĐỘNG PHÂN BỔ theo priority (Priority nhỏ → lớn, quầy trước)
-                    // Sử dụng data đã query từ trước (tránh N+1)
-                    const warehouses = warehousesByProduct[maSP] || [];
-
-                    if (warehouses.length === 0) {
-                        throw new Error(`Cửa hàng không có kho nào hoạt động`);
-                    }
-
-                    let remaining = qty;
-                    for (const wh of warehouses) {
-                        if (remaining <= 0) break;
-
-                        const space = wh.Capacity - wh.TonHienTai;
-                        const toAdd = Math.min(remaining, space);
-
-                        if (toAdd > 0) {
-                            await conn.query(`
-                                INSERT INTO ton_kho_chi_tiet (MaKho, MaSP, SoLuongTon)
-                                VALUES (?, ?, ?)
-                                ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?
-                            `, [wh.MaKho, maSP, toAdd, toAdd]);
-
-                            await conn.query(
-                                'INSERT INTO chitiet_phanbokho (MaPN, MaSP, MaKho, SoLuong) VALUES (?, ?, ?, ?)',
-                                [MaPN, maSP, wh.MaKho, toAdd]
-                            );
-
-                            allocationLogs.push({
-                                MaSP: maSP,
-                                MaKho: wh.MaKho,
-                                TenKho: wh.TenKho,
-                                Priority: wh.Priority,
-                                SoLuong: toAdd
-                            });
-
-                            remaining -= toAdd;
-                        }
-                    }
-
-                    if (remaining > 0) {
-                        totalUnallocated += remaining;
-                        console.warn(
-                            `⚠️ Sản phẩm ${maSP}: Tất cả kho đầy. ` +
-                            `Chỉ phân bổ ${qty - remaining}/${qty} sản phẩm. ` +
-                            `Còn lại: ${remaining} chưa được phân bổ`
-                        );
-                    }
-                } else {
-                    // NHẬP VÀO KHO CỤ THỂ (MaCH là warehouse ID)
-                    try {
-                        const allocation = await allocateToWarehouse(conn, MaCH, maSP, qty);
-                        allocationLogs.push({ MaSP: maSP, allocation });
-                        for (const a of allocation) {
-                            await conn.query(
-                                'INSERT INTO chitiet_phanbokho (MaPN, MaSP, MaKho, SoLuong) VALUES (?, ?, ?, ?)',
-                                [MaPN, maSP, a.MaKho, a.SoLuong]
-                            );
-                        }
-                    } catch (allocErr) {
-                        if (allocErr.code !== 'WAREHOUSE_FULL') throw allocErr;
-                        console.warn(`Kho con đầy cho SP ${maSP}:`, allocErr.message);
-                        totalUnallocated += qty;
-                    }
-                }
-            }
-
-            // 4. Cập nhật giá - ✅ FIX N+1: Batch update thay vì loop
+            // 3. Cập nhật giá sản phẩm - ✅ FIX N+1: Batch update thay vì loop
             if (ChiTiet.length > 0) {
                 const priceUpdates = ChiTiet.map(item => ({
                     MaSP: item.MaSP,
@@ -690,7 +579,7 @@ const warehouseController = {
                 `, [productIds]);
             }
 
-            // 5. Công nợ NCC
+            // 4. Công nợ NCC
             if (conNo > 0) {
                 await conn.query(
                     'INSERT INTO cong_no_ncc (MaNCC, MaPN, SoTienNo, TrangThai) VALUES (?, ?, ?, ?)',
@@ -701,27 +590,17 @@ const warehouseController = {
             await logActivity({
                 MaTK: req.user.MaTK, HanhDong: 'Them',
                 BangDuLieu: 'phieunhap', MaBanGhi: MaPN,
-                DuLieuMoi: JSON.stringify({ MaNCC, MaCH: MaCHStore, TongTien: tongTien, ConNo: conNo, autoDistribute, totalUnallocated }),
+                DuLieuMoi: JSON.stringify({ MaNCC, MaCH: MaCHStore, TongTien: tongTien, ConNo: conNo, autoDistribute }),
                 DiaChi_IP: req.ip
             });
 
             await conn.commit();
 
-            // ✅ BUG FIX 5: Kiểm tra nếu có hàng không được phân bổ
-            if (totalUnallocated > 0) {
-                res.status(201).json({
-                    success: false,
-                    message: `Phân bổ không hoàn toàn. ${totalUnallocated} sản phẩm chưa được phân bổ do kho đầy.`,
-                    warning: true,
-                    MaPN, TongTien: tongTien, ConNo: conNo, allocationLogs, autoDistribute, totalUnallocated
-                });
-            } else {
-                res.status(201).json({
-                    success: true,
-                    message: 'Tạo phiếu nhập thành công',
-                    MaPN, TongTien: tongTien, ConNo: conNo, allocationLogs, autoDistribute
-                });
-            }
+            res.status(201).json({
+                success: true,
+                message: 'Đã lập phiếu nhập (Chờ thanh toán). Hàng sẽ được cộng vào kho sau khi thanh toán đủ 100% công nợ.',
+                MaPN, TongTien: tongTien, ConNo: conNo
+            });
         } catch (error) {
             await conn.rollback();
             console.error('createPurchaseOrder:', error);
@@ -889,15 +768,18 @@ const warehouseController = {
         const { id } = req.params;
         const { TenKho, Capacity, Priority, ViTri, GhiChu, TinhTrang } = req.body;
         try {
-            const [existing] = await pool.query('SELECT * FROM kho_con WHERE MaKho = ?', [id]);
-            if (!existing.length) return res.status(404).json({ success: false, message: 'Kho con không tồn tại' });
-
-            if (TenKho && TenKho !== existing[0].TenKho) {
-                const [dupName] = await pool.query(
-                    'SELECT MaKho FROM kho_con WHERE TenKho = ? AND MaKho != ?',
-                    [TenKho, id]
+            // Logic kiểm tra sức chứa (Capacity) khi cập nhật
+            if (Capacity) {
+                const [[{ currentTotal }]] = await pool.query(
+                    'SELECT COALESCE(SUM(SoLuongTon), 0) AS currentTotal FROM ton_kho_chi_tiet WHERE MaKho = ?',
+                    [id]
                 );
-                if (dupName.length) return res.status(400).json({ success: false, message: `Tên kho "${TenKho}" đã tồn tại trong hệ thống` });
+                if (Number(Capacity) < currentTotal) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Sức chứa mới (${Capacity}) không thể nhỏ hơn lượng tồn hiện tại (${currentTotal}).`
+                    });
+                }
             }
 
             // Priority uniqueness check removed (warehouses are now independent)
@@ -1394,6 +1276,45 @@ const warehouseController = {
         }
     },
 
+    updateInventoryCheck: async (req, res) => {
+        const { id } = req.params;
+        const { items, GhiChu } = req.body;
+
+        if (!Array.isArray(items)) {
+            return res.status(400).json({ success: false, message: 'Danh sách sản phẩm không hợp lệ' });
+        }
+
+        const conn = await pool.getConnection();
+        try {
+            await conn.beginTransaction();
+
+            const [kk] = await conn.query('SELECT TrangThai FROM kiem_ke_kho WHERE MaKiemKe = ?', [id]);
+            if (!kk.length) throw new Error('Phiếu kiểm kê không tồn tại');
+            if (kk[0].TrangThai !== 'Dang_kiem') throw new Error('Chỉ có thể cập nhật phiếu đang trong trạng thái kiểm kê');
+
+            for (const item of items) {
+                // Cập nhật số lượng thực tế và lý do cho từng sản phẩm
+                await conn.query(`
+                    UPDATE chi_tiet_kiem_ke 
+                    SET SoLuongThucTe = ?, LyDo = ?
+                    WHERE MaKiemKe = ? AND MaSP = ?
+                `, [Number(item.SoLuongThucTe), item.LyDo || null, id, item.MaSP]);
+            }
+
+            if (GhiChu !== undefined) {
+                await conn.query('UPDATE kiem_ke_kho SET GhiChu = ? WHERE MaKiemKe = ?', [GhiChu, id]);
+            }
+
+            await conn.commit();
+            res.json({ success: true, message: 'Đã lưu tạm tiến độ kiểm kê' });
+        } catch (error) {
+            await conn.rollback();
+            res.status(500).json({ success: false, message: error.message });
+        } finally {
+            conn.release();
+        }
+    },
+
     completeInventoryCheck: async (req, res) => {
         const { id } = req.params;
         const { apDungChenhLech = true } = req.body;
@@ -1409,27 +1330,36 @@ const warehouseController = {
             const [items] = await conn.query('SELECT * FROM chi_tiet_kiem_ke WHERE MaKiemKe = ?', [id]);
 
             if (apDungChenhLech) {
-                // Lấy MaKho của kho quầy (Priority=1) để cập nhật chi tiết
-                const [[counterKho]] = await conn.query(
-                    'SELECT MaKho FROM kho_con WHERE MaCH = ? AND TinhTrang = 1 ORDER BY Priority ASC LIMIT 1',
-                    [kk[0].MaCH]
-                );
+                const targetMaKho = kk[0].MaCH; // Trong DB, cột MaCH của kiem_ke_kho thực chất chứa MaKho
+                
+                // Lấy MaCH (Store ID) thực sự của kho con này
+                const [[khoInfo]] = await conn.query('SELECT MaCH FROM kho_con WHERE MaKho = ?', [targetMaKho]);
+                const realMaCH = khoInfo?.MaCH;
 
                 for (const item of items) {
-                    // Cập nhật ton_kho (tổng)
+                    // 1. Cập nhật tồn kho chi tiết (đúng kho đang kiểm kê)
                     await conn.query(`
-                        INSERT INTO ton_kho (MaSP, MaCH, SoLuongTon)
+                        INSERT INTO ton_kho_chi_tiet (MaKho, MaSP, SoLuongTon)
                         VALUES (?, ?, ?)
                         ON DUPLICATE KEY UPDATE SoLuongTon = ?
-                    `, [item.MaSP, kk[0].MaCH, item.SoLuongThucTe, item.SoLuongThucTe]);
+                    `, [targetMaKho, item.MaSP, item.SoLuongThucTe, item.SoLuongThucTe]);
 
-                    // Cập nhật ton_kho_chi_tiet (kho quầy)
-                    if (counterKho) {
+                    // 2. Đồng bộ lại tổng tồn kho (ton_kho) của cửa hàng
+                    if (realMaCH) {
+                        const [[newTotalRow]] = await conn.query(`
+                            SELECT SUM(SoLuongTon) AS total 
+                            FROM ton_kho_chi_tiet tkct
+                            JOIN kho_con kc ON tkct.MaKho = kc.MaKho
+                            WHERE tkct.MaSP = ? AND kc.MaCH = ?
+                        `, [item.MaSP, realMaCH]);
+                        
+                        const newTotal = newTotalRow?.total || 0;
+
                         await conn.query(`
-                            INSERT INTO ton_kho_chi_tiet (MaKho, MaSP, SoLuongTon)
+                            INSERT INTO ton_kho (MaSP, MaCH, SoLuongTon)
                             VALUES (?, ?, ?)
                             ON DUPLICATE KEY UPDATE SoLuongTon = ?
-                        `, [counterKho.MaKho, item.MaSP, item.SoLuongThucTe, item.SoLuongThucTe]);
+                        `, [item.MaSP, realMaCH, newTotal, newTotal]);
                     }
                 }
 
@@ -1438,7 +1368,7 @@ const warehouseController = {
                     HanhDong: 'KiemKe',
                     BangDuLieu: 'ton_kho',
                     MaBanGhi: id,
-                    DuLieuMoi: { MaCH: kk[0].MaCH, soSanPham: items.length },
+                    DuLieuMoi: { MaKho: targetMaKho, soSanPham: items.length },
                     DiaChi_IP: req.ip
                 });
             }
@@ -1492,12 +1422,18 @@ const warehouseController = {
     },
 
     addAuthor: async (req, res) => {
-        const { TenTG, NgaySinh, QuocTich, MoTa, HinhAnh } = req.body;
+        // Frontend gửi: TenTG, NgaySinh, QuocTich, TieuSu (=MoTa), AnhTG (file qua multer)
+        const { TenTG, NgaySinh, QuocTich, TieuSu, MoTa, HinhAnh } = req.body;
+        const moTa = TieuSu || MoTa || null;
+        const hinhAnh = req.file
+            ? `/uploads/tacgia/${req.file.filename}`
+            : (HinhAnh || null);
+
         if (!TenTG) return res.status(400).json({ success: false, message: 'TenTG là bắt buộc' });
         try {
             const [result] = await pool.query(
                 'INSERT INTO tacgia (TenTG, NgaySinh, QuocTich, MoTa, HinhAnh) VALUES (?, ?, ?, ?, ?)',
-                [TenTG, NgaySinh || null, QuocTich || null, MoTa || null, HinhAnh || null]
+                [TenTG, NgaySinh || null, QuocTich || null, moTa, hinhAnh]
             );
             await logActivity({
                 MaTK: req.user.MaTK,
@@ -1509,20 +1445,35 @@ const warehouseController = {
             });
             res.status(201).json({ success: true, message: 'Thêm tác giả thành công', MaTG: result.insertId });
         } catch (error) {
+            console.error('addAuthor:', error);
             res.status(500).json({ success: false, message: error.message });
         }
     },
 
     updateAuthor: async (req, res) => {
         const { id } = req.params;
-        const { TenTG, NgaySinh, QuocTich, MoTa, HinhAnh } = req.body;
+        // Frontend gửi: TenTG, NgaySinh, QuocTich, TieuSu (=MoTa), AnhTG (file qua multer hoặc đường dẫn cũ)
+        const { TenTG, NgaySinh, QuocTich, TieuSu, MoTa, HinhAnh, AnhTG } = req.body;
+        const moTa = TieuSu || MoTa || null;
         try {
             const [oldTG] = await pool.query('SELECT * FROM tacgia WHERE MaTG = ?', [id]);
             if (oldTG.length === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy tác giả' });
 
+            // Xử lý ảnh: ưu tiên file upload mới, rồi đến đường dẫn cũ từ body, cuối cùng giữ ảnh cũ trong DB
+            let hinhAnh = oldTG[0].HinhAnh;
+            if (req.file) {
+                hinhAnh = `/uploads/tacgia/${req.file.filename}`;
+            } else if (HinhAnh || AnhTG) {
+                const rawPath = HinhAnh || AnhTG;
+                // Strip base URL nếu frontend gửi full URL
+                hinhAnh = rawPath.replace(/^https?:\/\/[^/]+/, '');
+            }
+
+            if (!TenTG?.trim()) return res.status(400).json({ success: false, message: 'Tên tác giả là bắt buộc' });
+
             await pool.query(
                 'UPDATE tacgia SET TenTG = ?, NgaySinh = ?, QuocTich = ?, MoTa = ?, HinhAnh = ? WHERE MaTG = ?',
-                [TenTG, NgaySinh || null, QuocTich || null, MoTa || null, HinhAnh || null, id]
+                [TenTG.trim(), NgaySinh || null, QuocTich || null, moTa, hinhAnh, id]
             );
 
             await logActivity({
@@ -1531,11 +1482,12 @@ const warehouseController = {
                 BangDuLieu: 'tacgia',
                 MaBanGhi: id,
                 DuLieuCu: oldTG[0],
-                DuLieuMoi: { TenTG, QuocTich },
+                DuLieuMoi: { TenTG, QuocTich, MoTa: moTa },
                 DiaChi_IP: req.ip
             });
             res.json({ success: true, message: 'Cập nhật tác giả thành công' });
         } catch (error) {
+            console.error('updateAuthor:', error);
             res.status(500).json({ success: false, message: error.message });
         }
     },
@@ -1584,13 +1536,31 @@ const warehouseController = {
 
     createCategory: async (req, res) => {
         const { TenTL, MoTa } = req.body;
-        if (!TenTL?.trim()) return res.status(400).json({ success: false, message: 'Tên thể loại là bắt buộc' });
+        const trimmedTen = (TenTL || '').trim();
+        const trimmedMoTa = (MoTa || '').trim();
+
+        // Validation
+        if (!trimmedTen) {
+            return res.status(400).json({ success: false, message: 'Tên thể loại không được để trống' });
+        }
+        if (trimmedTen.length < 2 || trimmedTen.length > 50) {
+            return res.status(400).json({ success: false, message: 'Tên thể loại phải từ 2 đến 50 ký tự' });
+        }
+        // Chỉ cho phép chữ cái, số, khoảng trắng và một số ký tự cơ bản
+        if (!/^[\p{L}\d\s&.'-]+$/u.test(trimmedTen)) {
+            return res.status(400).json({ success: false, message: 'Tên thể loại chứa ký tự không hợp lệ' });
+        }
+        if (trimmedMoTa.length > 500) {
+            return res.status(400).json({ success: false, message: 'Mô tả không được vượt quá 500 ký tự' });
+        }
+
         try {
-            const [dup] = await pool.query('SELECT MaTL FROM theloai WHERE TenTL = ?', [TenTL.trim()]);
+            const [dup] = await pool.query('SELECT MaTL FROM theloai WHERE TenTL = ?', [trimmedTen]);
             if (dup.length > 0) return res.status(400).json({ success: false, message: 'Thể loại này đã tồn tại' });
+            
             const [result] = await pool.query(
                 'INSERT INTO theloai (TenTL, MoTa, TinhTrang) VALUES (?, ?, 1)',
-                [TenTL.trim(), MoTa || null]
+                [trimmedTen, trimmedMoTa || null]
             );
             await logActivity({
                 MaTK: req.user.MaTK,
@@ -1610,14 +1580,31 @@ const warehouseController = {
     updateCategory: async (req, res) => {
         const { id } = req.params;
         const { TenTL, MoTa, TinhTrang } = req.body;
-        if (!TenTL?.trim()) return res.status(400).json({ success: false, message: 'Tên thể loại là bắt buộc' });
+        const trimmedTen = (TenTL || '').trim();
+        const trimmedMoTa = (MoTa || '').trim();
+
+        // Validation
+        if (!trimmedTen) {
+            return res.status(400).json({ success: false, message: 'Tên thể loại không được để trống' });
+        }
+        if (trimmedTen.length < 2 || trimmedTen.length > 50) {
+            return res.status(400).json({ success: false, message: 'Tên thể loại phải từ 2 đến 50 ký tự' });
+        }
+        if (!/^[\p{L}\d\s&.'-]+$/u.test(trimmedTen)) {
+            return res.status(400).json({ success: false, message: 'Tên thể loại chứa ký tự không hợp lệ' });
+        }
+        if (trimmedMoTa.length > 500) {
+            return res.status(400).json({ success: false, message: 'Mô tả không được vượt quá 500 ký tự' });
+        }
+
         try {
-            const [dup] = await pool.query('SELECT MaTL FROM theloai WHERE TenTL = ? AND MaTL != ?', [TenTL.trim(), id]);
+            const [dup] = await pool.query('SELECT MaTL FROM theloai WHERE TenTL = ? AND MaTL != ?', [trimmedTen, id]);
             if (dup.length > 0) return res.status(400).json({ success: false, message: 'Tên thể loại đã tồn tại' });
+            
             const [oldTL] = await pool.query('SELECT * FROM theloai WHERE MaTL = ?', [id]);
             const [result] = await pool.query(
                 'UPDATE theloai SET TenTL = ?, MoTa = ?, TinhTrang = ? WHERE MaTL = ?',
-                [TenTL.trim(), MoTa || null, TinhTrang ?? 1, id]
+                [trimmedTen, trimmedMoTa || null, TinhTrang ?? 1, id]
             );
             if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy thể loại' });
 
@@ -1731,18 +1718,25 @@ const warehouseController = {
                 });
             }
 
-            // 3. Thống kê tổng quát cửa hàng
+            // 3. Thống kê tổng quát cửa hàng (Sửa lỗi: Sử dụng Subquery để tính TongCapacity chính xác)
             const [storeStats] = await pool.query(`
                 SELECT 
                     ch.MaCH, ch.TenCH,
-                    COUNT(DISTINCT kc.MaKho) AS SoKho,
-                    SUM(kc.Capacity) AS TongCapacity,
-                    SUM(COALESCE(tkct.SoLuongTon, 0)) AS TongTonKho,
-                    COUNT(DISTINCT sp.MaSP) AS SoSanPham
+                    (SELECT COUNT(*) FROM kho_con WHERE MaCH = ch.MaCH AND TinhTrang = 1) AS SoKho,
+                    (SELECT SUM(Capacity) FROM kho_con WHERE MaCH = ch.MaCH AND TinhTrang = 1) AS TongCapacity,
+                    (
+                        SELECT SUM(tkct.SoLuongTon) 
+                        FROM ton_kho_chi_tiet tkct
+                        JOIN kho_con kc ON tkct.MaKho = kc.MaKho
+                        WHERE kc.MaCH = ch.MaCH AND kc.TinhTrang = 1
+                    ) AS TongTonKho,
+                    (
+                        SELECT COUNT(DISTINCT tkct.MaSP)
+                        FROM ton_kho_chi_tiet tkct
+                        JOIN kho_con kc ON tkct.MaKho = kc.MaKho
+                        WHERE kc.MaCH = ch.MaCH AND kc.TinhTrang = 1
+                    ) AS SoSanPham
                 FROM cua_hang ch
-                LEFT JOIN kho_con kc ON ch.MaCH = kc.MaCH AND kc.TinhTrang = 1
-                LEFT JOIN ton_kho_chi_tiet tkct ON kc.MaKho = tkct.MaKho
-                LEFT JOIN sanpham sp ON tkct.MaSP = sp.MaSP
                 ${MaCH ? 'WHERE ch.MaCH = ?' : ''}
                 GROUP BY ch.MaCH, ch.TenCH
             `, MaCH ? [MaCH] : []);

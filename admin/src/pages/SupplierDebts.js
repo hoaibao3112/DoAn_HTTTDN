@@ -166,7 +166,15 @@ const SupplierDebts = () => {
             );
 
             if (response.data.success) {
-                message.success('Ghi nhận thanh toán thành công!');
+                if (response.data.SoTienConLai === 0) {
+                    message.success({
+                        content: 'Thanh toán hoàn tất! Hàng đã được tự động cộng vào tồn kho.',
+                        duration: 5,
+                        style: { marginTop: '10vh' }
+                    });
+                } else {
+                    message.success('Ghi nhận thanh toán một phần thành công!');
+                }
                 setShowPaymentModal(false);
                 setSelectedDebt(null);
                 setPaymentAmount('');
@@ -426,20 +434,6 @@ const SupplierDebts = () => {
                 </div>
             </div>
 
-            {/* Payment Guidelines */}
-            <div className="payment-guidelines">
-                <div className="guideline-card">
-                    <span className="material-icons">info</span>
-                    <div>
-                        <h4>Nhắc nhở thanh toán</h4>
-                        <p>Có 4 nhà cung cấp sắp đến hạn thanh toán trong vòng 48 giờ tới và cần liên hệ nhà bank để thực hiện giao hạn nhận hàng nếu vẫn còn 25,400,000đ. Hãy chủ động nguyên tắc giá hạn nhưng rác</p>
-                    </div>
-                </div>
-                <button className="btn-legal">
-                    <span className="material-icons">gavel</span>
-                    Tạo phiếu chi thanh toán luật
-                </button>
-            </div>
 
             {/* Payment Modal */}
             {showPaymentModal && selectedDebt && (
@@ -473,8 +467,17 @@ const SupplierDebts = () => {
                                 <input
                                     type="number"
                                     value={paymentAmount}
-                                    onChange={(e) => setPaymentAmount(e.target.value)}
-                                    placeholder="Nhập số tiền"
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        if (val > selectedDebt.remaining) {
+                                            setPaymentAmount(selectedDebt.remaining);
+                                        } else {
+                                            setPaymentAmount(e.target.value);
+                                        }
+                                    }}
+                                    max={selectedDebt.remaining}
+                                    min={0}
+                                    placeholder={`Tối đa ${selectedDebt.remaining.toLocaleString()}đ`}
                                     className="payment-input"
                                 />
                             </div>

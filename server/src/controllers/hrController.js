@@ -265,6 +265,48 @@ const hrController = {
     addEmployee: async (req, res) => {
         const data = req.body;
         try {
+            // 1. Kiểm tra CCCD: Phải là số và có 9 hoặc 12 chữ số
+            if (data.CCCD) {
+                if (!/^\d{12}$/.test(String(data.CCCD))) {
+                    return res.status(400).json({ success: false, message: 'CCCD không hợp lệ - phải nhập đúng 12 chữ số.' });
+                }
+                const [existsCCCD] = await pool.query('SELECT MaNV FROM nhanvien WHERE CCCD = ?', [data.CCCD]);
+                if (existsCCCD && existsCCCD.length > 0) {
+                    return res.status(400).json({ success: false, message: 'CCCD đã tồn tại trên hệ thống.' });
+                }
+            }
+
+            // 2. Lương cơ bản không được âm
+            if (data.LuongCoBan !== undefined && Number(data.LuongCoBan) < 0) {
+                return res.status(400).json({ success: false, message: 'Lương cơ bản không được âm.' });
+            }
+
+            // 3. Logic ngày tháng (Sử dụng Helper cho SQL Date)
+            const toDate = (v) => { if (!v) return null; const d = new Date(v); return isNaN(d) ? null : d; };
+            const birth = toDate(data.NgaySinh);
+            const start = toDate(data.NgayVaoLam);
+
+            if (!birth) return res.status(400).json({ success: false, message: 'Ngày sinh là bắt buộc.' });
+            if (!start) return res.status(400).json({ success: false, message: 'Ngày vào làm là bắt buộc.' });
+
+            if (start < birth) {
+                return res.status(400).json({ success: false, message: 'Ngày vào làm không thể trước ngày sinh.' });
+            }
+
+            const age = start.getFullYear() - birth.getFullYear() - (start < new Date(start.getFullYear(), birth.getMonth(), birth.getDate()) ? 1 : 0);
+            if (age < 18) {
+                return res.status(400).json({ success: false, message: 'Nhân viên phải từ 18 tuổi trở lên tính đến ngày vào làm.' });
+            }
+
+            // 4. Kiểm tra trùng lặp SDT/Email
+            if (data.SDT) {
+                const [exists] = await pool.query('SELECT MaNV FROM nhanvien WHERE SDT = ?', [data.SDT]);
+                if (exists && exists.length > 0) return res.status(400).json({ success: false, message: 'Số điện thoại đã tồn tại.' });
+            }
+            if (data.Email) {
+                const [existsE] = await pool.query('SELECT MaNV FROM nhanvien WHERE Email = ?', [data.Email]);
+                if (existsE && existsE.length > 0) return res.status(400).json({ success: false, message: 'Email đã tồn tại.' });
+            }
             const [result] = await pool.query(
                 `INSERT INTO nhanvien (HoTen, Email, SDT, DiaChi, CCCD, NgaySinh, GioiTinh, ChucVu, NgayVaoLam, LuongCoBan, PhuCap, MaCH, MaTK, TinhTrang)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -339,6 +381,45 @@ const hrController = {
                 MaCH: (data.MaCH !== undefined && data.MaCH !== null && data.MaCH !== '') ? Number(data.MaCH) : null,
                 TinhTrang: (data.TinhTrang !== undefined && data.TinhTrang !== null && data.TinhTrang !== '') ? Number(data.TinhTrang) : 1
             };
+
+            // 1. Kiểm tra CCCD
+            if (normalized.CCCD) {
+                if (!/^\d{12}$/.test(String(normalized.CCCD))) {
+                    return res.status(400).json({ success: false, message: 'CCCD không hợp lệ - phải nhập đúng 12 chữ số.' });
+                }
+                const [exCCCD] = await pool.query('SELECT MaNV FROM nhanvien WHERE CCCD = ? AND MaNV != ?', [normalized.CCCD, id]);
+                if (exCCCD && exCCCD.length > 0) return res.status(400).json({ success: false, message: 'CCCD đã tồn tại cho nhân viên khác.' });
+            }
+
+            // 2. Kiểm tra lương
+            if (normalized.LuongCoBan !== undefined && Number(normalized.LuongCoBan) < 0) {
+                return res.status(400).json({ success: false, message: 'Lương cơ bản không được âm.' });
+            }
+
+            // 3. Logic ngày tháng
+            const toDateObj = (v) => { if (!v) return null; const d = new Date(v); return isNaN(d) ? null : d; };
+            const bDate = toDateObj(normalized.NgaySinh);
+            const sDate = toDateObj(normalized.NgayVaoLam);
+            
+            if (bDate && sDate) {
+                if (sDate < bDate) {
+                    return res.status(400).json({ success: false, message: 'Ngày vào làm không thể trước ngày sinh.' });
+                }
+                const ageU = sDate.getFullYear() - bDate.getFullYear() - (sDate < new Date(sDate.getFullYear(), bDate.getMonth(), bDate.getDate()) ? 1 : 0);
+                if (ageU < 18) {
+                    return res.status(400).json({ success: false, message: 'Nhân viên phải từ 18 tuổi trở lên tính đến ngày vào làm.' });
+                }
+            }
+
+            // 4. Kiểm tra trùng lặp SDT/Email
+            if (normalized.SDT) {
+                const [ex] = await pool.query('SELECT MaNV FROM nhanvien WHERE SDT = ? AND MaNV != ?', [normalized.SDT, id]);
+                if (ex && ex.length > 0) return res.status(400).json({ success: false, message: 'Số điện thoại đã tồn tại.' });
+            }
+            if (normalized.Email) {
+                const [exE] = await pool.query('SELECT MaNV FROM nhanvien WHERE Email = ? AND MaNV != ?', [normalized.Email, id]);
+                if (exE && exE.length > 0) return res.status(400).json({ success: false, message: 'Email đã tồn tại.' });
+            }
 
             // Get old data for audit log
             const [oldData] = await pool.query('SELECT * FROM nhanvien WHERE MaNV = ?', [id]);

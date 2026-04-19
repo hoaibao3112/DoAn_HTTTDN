@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Table, Button, Modal, Form, Select, Input, notification, DatePicker, Alert, Space } from 'antd';
+import { Table, Button, Modal, Form, Select, Input, notification, DatePicker, Alert, Space, Tag } from 'antd';
 import { PlusOutlined, EyeOutlined, SyncOutlined, SearchOutlined } from '@ant-design/icons';
 import '../styles/ReceiptManagement.css';
 
@@ -238,9 +238,9 @@ const NhapHang = () => {
       title: 'Ngày nhập', dataIndex: 'NgayNhap', key: 'NgayNhap', width: 180,
       render: (val) => <span style={{ color: '#64748b' }}>{new Date(val).toLocaleString('vi-VN')}</span>
     },
-    { title: 'Nhà cung cấp', dataIndex: 'TenNCC', key: 'TenNCC', minWidth: 200 },
-    { title: 'Kho nhập', dataIndex: 'TenCH', key: 'TenCH', width: 180 },
-    { title: 'Người lập', dataIndex: 'NguoiLap', key: 'NguoiLap', width: 140 },
+    { title: 'Nhà cung cấp', dataIndex: 'TenNCC', key: 'TenNCC', width: 220, ellipsis: true },
+    { title: 'Kho nhập', dataIndex: 'TenCH', key: 'TenCH', width: 160, ellipsis: true },
+    { title: 'Người lập', dataIndex: 'NguoiLap', key: 'NguoiLap', width: 120, ellipsis: true },
     {
       title: 'Tổng tiền', dataIndex: 'TongTien', key: 'TongTien', align: 'right', width: 150,
       render: (v) => <b style={{ color: '#0f172a' }}>{Number(v).toLocaleString()}đ</b>
@@ -252,6 +252,14 @@ const NhapHang = () => {
     {
       title: 'Còn nợ', dataIndex: 'ConNo', key: 'ConNo', align: 'right', width: 130,
       render: (v) => <span style={{ color: '#ef4444', fontWeight: '500' }}>{Number(v || 0).toLocaleString()}đ</span>
+    },
+    {
+      title: 'Trạng thái', dataIndex: 'TrangThai', key: 'TrangThai', width: 150, align: 'center',
+      render: (status) => {
+        let color = status === 'Hoan_thanh' ? 'green' : 'gold';
+        let text = status === 'Hoan_thanh' ? 'Đã nhập kho' : 'Chờ thanh toán';
+        return <Tag color={color}>{text.toUpperCase()}</Tag>;
+      }
     },
     {
       title: 'Thao tác',
@@ -403,9 +411,8 @@ const NhapHang = () => {
           onFinish={handleSubmit}
           layout="vertical"
           onValuesChange={(_, all) => setFormItems(all.items || [])}
-          initialValues={{ DaThanhToan: 0 }}
         >
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <Form.Item name="MaNCC" label="Nhà cung cấp" rules={[{ required: true }]}>
               <Select placeholder="Chọn NCC" showSearch optionFilterProp="children">
                 {nhaCungCap.map(ncc => (
@@ -420,10 +427,6 @@ const NhapHang = () => {
                   <Option key={b.MaCH} value={b.MaCH}>{b.TenCH}</Option>
                 ))}
               </Select>
-            </Form.Item>
-
-            <Form.Item name="DaThanhToan" label="Số tiền thanh toán ngay (vnđ)">
-              <Input type="number" min={0} placeholder="0" />
             </Form.Item>
           </div>
 

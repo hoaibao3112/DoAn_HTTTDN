@@ -262,30 +262,111 @@ const supplierController = {
                 [newPaid, newStatus, MaCongNo]
             );
 
-            // ✅ ALSO UPDATE phieunhap table if MaPN exists
+            // ✅ CẬP NHẬT PHIẾU NHẬP VÀ KHO KHI THANH TOÁN XONG
             if (debt[0].MaPN) {
-                console.log('DEBUG: Updating phieunhap for MaPN:', debt[0].MaPN, 'with newPaid:', newPaid);
-                const newPhieuPaid = newPaid;
                 const [phieu] = await conn.query(
-                    'SELECT TongTien FROM phieunhap WHERE MaPN = ?',
+                    'SELECT MaPN, MaCH, TongTien, TrangThai FROM phieunhap WHERE MaPN = ?',
                     [debt[0].MaPN]
                 );
-                console.log('DEBUG: phieu result:', phieu);
+
                 if (phieu.length > 0) {
-                    const phieuNewRemaining = Math.max(0, parseFloat(phieu[0].TongTien) - newPhieuPaid);
-                    console.log('DEBUG: Updating with DaThanhToan:', newPhieuPaid, 'ConNo:', phieuNewRemaining);
-                    const updateResult = await conn.query(
-                        `UPDATE phieunhap 
-                         SET DaThanhToan = ?, ConNo = ?
-                         WHERE MaPN = ?`,
-                        [newPhieuPaid, phieuNewRemaining, debt[0].MaPN]
+                    const MaPN = phieu[0].MaPN;
+                    const MaCHStore = phieu[0].MaCH;
+                    const isFullyPaid = newRemaining <= 0;
+
+                    // Cập nhật số tiền đã trả trên phiếu
+                    await conn.query(
+                        'UPDATE phieunhap SET DaThanhToan = ?, ConNo = ? WHERE MaPN = ?',
+                        [newPaid, newRemaining, MaPN]
                     );
-                    console.log('DEBUG: Update result:', updateResult);
-                } else {
-                    console.log('DEBUG: phieu không tìm thấy với MaPN:', debt[0].MaPN);
+
+                    // NẾU THANH TOÁN ĐỦ 100% VÀ PHIẾU CHƯA HOÀN THÀNH → CỘNG KHO
+                    if (isFullyPaid && phieu[0].TrangThai !== 'Hoan_thanh') {
+                        // 1. Lấy chi tiết phiếu nhập
+                        const [details] = await conn.query(
+                            'SELECT MaSP, SoLuong, DonGiaNhap FROM chitietphieunhap WHERE MaPN = ?',
+                            [MaPN]
+                        );
+
+                        if (details.length > 0) {
+                            const productMaSPs = details.map(d => d.MaSP);
+                            
+                            // 2. Query thông tin các kho con để phân bổ (Priority ASC)
+                            const [allWarehouseData] = await conn.query(`
+                                SELECT kc.MaKho, kc.TenKho, kc.Priority, kc.Capacity,
+                                       tkct.MaSP, COALESCE(tkct.SoLuongTon, 0) AS TonHienTai
+                                FROM kho_con kc
+                                LEFT JOIN ton_kho_chi_tiet tkct ON tkct.MaKho = kc.MaKho AND tkct.MaSP IN (?)
+                                WHERE kc.MaCH = ? AND kc.TinhTrang = 1
+                                ORDER BY kc.Priority ASC
+                                FOR UPDATE
+                            `, [productMaSPs, MaCHStore]);
+
+                            // Map warehouses theo MaSP
+                            const warehousesByProduct = {};
+                            productMaSPs.forEach(id => { warehousesByProduct[id] = []; });
+                            allWarehouseData.forEach(wh => {
+                                if (wh.MaSP === null) {
+                                    productMaSPs.forEach(id => {
+                                        if (!warehousesByProduct[id].some(w => w.MaKho === wh.MaKho)) {
+                                            warehousesByProduct[id].push({ ...wh, MaSP: id, TonHienTai: 0 });
+                                        }
+                                    });
+                                } else {
+                                    warehousesByProduct[wh.MaSP].push(wh);
+                                }
+                            });
+
+                            // 3. Thực hiện phân bổ và cộng kho
+                            for (const item of details) {
+                                const qty = Number(item.SoLuong);
+                                const maSP = Number(item.MaSP);
+
+                                // Cập nhật tồn kho tổng (store level)
+                                await conn.query(`
+                                    INSERT INTO ton_kho (MaSP, MaCH, SoLuongTon)
+                                    VALUES (?, ?, ?)
+                                    ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?
+                                `, [maSP, MaCHStore, qty, qty]);
+
+                                // Tự động phân bổ vào kho con
+                                const warehouses = warehousesByProduct[maSP] || [];
+                                let remaining = qty;
+
+                                for (const wh of warehouses) {
+                                    if (remaining <= 0) break;
+                                    const space = Math.max(0, wh.Capacity - wh.TonHienTai);
+                                    const toAdd = Math.min(remaining, space);
+
+                                    if (toAdd > 0) {
+                                        await conn.query(`
+                                            INSERT INTO ton_kho_chi_tiet (MaKho, MaSP, SoLuongTon)
+                                            VALUES (?, ?, ?)
+                                            ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?
+                                        `, [wh.MaKho, maSP, toAdd, toAdd]);
+
+                                        await conn.query(
+                                            'INSERT INTO chitiet_phanbokho (MaPN, MaSP, MaKho, SoLuong) VALUES (?, ?, ?, ?)',
+                                            [MaPN, maSP, wh.MaKho, toAdd]
+                                        );
+                                        remaining -= toAdd;
+                                    }
+                                }
+                                
+                                // Nếu kho đầy không phân bổ hết, vẫn ghi nhận vào kho chính (ton_kho) nhưng log cảnh báo
+                                if (remaining > 0) {
+                                    console.warn(`[STOCK_FULL] MaPN ${MaPN}, MaSP ${maSP} surplus: ${remaining}`);
+                                }
+                            }
+                        }
+
+                        // 4. Chuyển trạng thái phiếu nhập sang Hoàn thành
+                        await conn.query(
+                            'UPDATE phieunhap SET TrangThai = "Hoan_thanh" WHERE MaPN = ?',
+                            [MaPN]
+                        );
+                    }
                 }
-            } else {
-                console.log('DEBUG: debt[0].MaPN không có giá trị');
             }
 
             await conn.commit();
