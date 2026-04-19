@@ -101,8 +101,14 @@ const bonusPenaltyController = {
                 [MaNV, Loai, SoTien, LyDo, Thang, Nam, req.user.MaTK, GhiChu || null]
             );
 
-            await logActivity(req.user.MaTK, 'CREATE', 'thuong_phat', result.insertId, null,
-                { MaNV, Loai, SoTien, LyDo, Thang, Nam });
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Them',
+                BangDuLieu: 'thuong_phat',
+                MaBanGhi: result.insertId,
+                DuLieuMoi: { MaNV, Loai, SoTien, LyDo, Thang, Nam },
+                DiaChi_IP: req.ip
+            });
 
             res.json({ success: true, message: `Đã tạo ${Loai === 'Thuong' ? 'thưởng' : 'phạt'} thành công`, id: result.insertId });
         } catch (error) {
@@ -133,8 +139,15 @@ const bonusPenaltyController = {
                 [Loai, SoTien, LyDo, Thang, Nam, GhiChu || null, id]
             );
 
-            await logActivity(req.user.MaTK, 'UPDATE', 'thuong_phat', id, existing[0],
-                { Loai, SoTien, LyDo, Thang, Nam });
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'thuong_phat',
+                MaBanGhi: id,
+                DuLieuCu: existing[0],
+                DuLieuMoi: { Loai, SoTien, LyDo, Thang, Nam },
+                DiaChi_IP: req.ip
+            });
 
             res.json({ success: true, message: 'Cập nhật thành công' });
         } catch (error) {
@@ -159,7 +172,14 @@ const bonusPenaltyController = {
             }
 
             await pool.query('DELETE FROM thuong_phat WHERE id = ?', [id]);
-            await logActivity(req.user.MaTK, 'DELETE', 'thuong_phat', id, existing[0], null);
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Xoa',
+                BangDuLieu: 'thuong_phat',
+                MaBanGhi: id,
+                DuLieuCu: existing[0],
+                DiaChi_IP: req.ip
+            });
 
             res.json({ success: true, message: 'Đã xóa thành công' });
         } catch (error) {

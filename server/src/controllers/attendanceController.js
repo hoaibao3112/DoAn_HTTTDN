@@ -493,8 +493,8 @@ const attendanceController = {
                 HanhDong: 'Sua',
                 BangDuLieu: 'cham_cong',
                 MaBanGhi: id,
-                DuLieuCu: JSON.stringify(old),
-                DuLieuMoi: JSON.stringify({ GioVao, GioRa, TrangThai, LyDoSua }),
+                DuLieuCu: old,
+                DuLieuMoi: { GioVao, GioRa, TrangThai, LyDoSua },
                 DiaChi_IP: req.ip
             });
 
@@ -803,11 +803,14 @@ const attendanceController = {
                 });
             }
 
+            const [oldHoliday] = await pool.query('SELECT * FROM ngay_le WHERE MaNgayLe = ?', [id]);
+
             await logActivity({
                 MaTK: req.user.MaTK,
                 HanhDong: 'Sua',
                 BangDuLieu: 'ngay_le',
                 MaBanGhi: id,
+                DuLieuCu: oldHoliday[0],
                 DuLieuMoi: { TenNgayLe, Ngay, HeSoLuong },
                 DiaChi_IP: req.ip
             });

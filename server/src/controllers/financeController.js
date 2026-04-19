@@ -152,8 +152,8 @@ const financeController = {
                 HanhDong: 'Sua',
                 BangDuLieu: 'chi_phi',
                 MaBanGhi: id,
-                DuLieuCu: JSON.stringify(oldData[0]),
-                DuLieuMoi: JSON.stringify({ TenChiPhi, SoTien }),
+                DuLieuCu: oldData[0],
+                DuLieuMoi: { TenChiPhi, SoTien },
                 DiaChi_IP: req.ip
             });
 
@@ -212,6 +212,15 @@ const financeController = {
                 [TenLoai, MoTa]
             );
 
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Them',
+                BangDuLieu: 'loai_chi_phi',
+                MaBanGhi: result.insertId,
+                DuLieuMoi: { TenLoai, MoTa },
+                DiaChi_IP: req.ip
+            });
+
             res.json({ success: true, MaLoai: result.insertId, message: 'Tạo loại chi phí thành công' });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -223,10 +232,21 @@ const financeController = {
         const { TenLoai, MoTa, TinhTrang } = req.body;
 
         try {
+            const [oldCat] = await pool.query('SELECT * FROM loai_chi_phi WHERE MaLoai = ?', [id]);
             await pool.query(
                 'UPDATE loai_chi_phi SET TenLoai = ?, MoTa = ?, TinhTrang = ? WHERE MaLoai = ?',
                 [TenLoai, MoTa, TinhTrang ?? 1, id]
             );
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'loai_chi_phi',
+                MaBanGhi: id,
+                DuLieuCu: oldCat[0],
+                DuLieuMoi: { TenLoai, MoTa, TinhTrang },
+                DiaChi_IP: req.ip
+            });
 
             res.json({ success: true, message: 'Cập nhật loại chi phí thành công' });
         } catch (error) {

@@ -294,10 +294,14 @@ export const addPoints = async (req, res) => {
     await connection.commit();
 
     // Log activity
-    await logActivity(pool, {
-      MaNV: maNV,
-      HanhDong: 'CONG_DIEM',
-      ChiTiet: `Cộng ${soDiem} điểm cho khách hàng ${maKH}${maHD ? ` (Đơn hàng: ${maHD})` : ''}`
+    await logActivity({
+      MaTK: req.user.MaTK,
+      HanhDong: 'Them',
+      BangDuLieu: 'lich_su_diem',
+      MaBanGhi: maKH, // Customer level
+      DuLieuMoi: { SoDiem: soDiem, MaHD },
+      DiaChi_IP: req.ip,
+      GhiChu: `Cộng ${soDiem} điểm cho khách hàng ${maKH}${maHD ? ` (Đơn hàng: ${maHD})` : ''}`
     });
 
     res.json({
@@ -413,10 +417,14 @@ export const usePoints = async (req, res) => {
     await connection.commit();
 
     // Log activity
-    await logActivity(pool, {
-      MaNV: maNV,
-      HanhDong: 'SU_DUNG_DIEM',
-      ChiTiet: `Khách hàng ${maKH} sử dụng ${soDiem} điểm (${giaTriDiem.toLocaleString()}đ)${maHD ? ` cho đơn hàng ${maHD}` : ''}`
+    await logActivity({
+      MaTK: req.user.MaTK,
+      HanhDong: 'Sua',
+      BangDuLieu: 'khachhang',
+      MaBanGhi: maKH,
+      DuLieuMoi: { DiemGiam: soDiem, MaHD },
+      DiaChi_IP: req.ip,
+      GhiChu: `Khách hàng ${maKH} sử dụng ${soDiem} điểm (${giaTriDiem.toLocaleString()}đ)${maHD ? ` cho đơn hàng ${maHD}` : ''}`
     });
 
     res.json({
@@ -691,10 +699,15 @@ export const adjustPoints = async (req, res) => {
     await connection.commit();
 
     // Log activity
-    await logActivity(pool, {
-      MaNV: maNV,
-      HanhDong: 'DIEU_CHINH_DIEM',
-      ChiTiet: `Điều chỉnh ${soDiem > 0 ? '+' : ''}${soDiem} điểm cho KH ${maKH}. Lý do: ${lyDo}`
+    await logActivity({
+      MaTK: req.user.MaTK,
+      HanhDong: 'Sua',
+      BangDuLieu: 'khachhang',
+      MaBanGhi: maKH,
+      DuLieuCu: { Diem: diemTruoc },
+      DuLieuMoi: { Diem: diemSau, LyDo: lyDo },
+      DiaChi_IP: req.ip,
+      GhiChu: `Điều chỉnh ${soDiem > 0 ? '+' : ''}${soDiem} điểm cho KH ${maKH}. Lý do: ${lyDo}`
     });
 
     res.json({

@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/connectDatabase.js';
 import { authenticateToken } from '../utils/generateToken.js';
 import { VALID_ACTIONS } from '../constants/permissions.js';
+import { logActivity } from '../utils/auditLogger.js';
 
 const router = express.Router();
 
@@ -57,6 +58,17 @@ router.post('/', authenticateToken, async (req, res) => {
          Xoa = VALUES(Xoa), XuatFile = VALUES(XuatFile), Duyet = VALUES(Duyet)`,
       [MaNQ, MaCN, Xem || 0, Them || 0, Sua || 0, Xoa || 0, XuatFile || 0, Duyet || 0]
     );
+
+    await logActivity({
+      MaTK: req.user.MaTK,
+      HanhDong: 'Them',
+      BangDuLieu: 'phanquyen_chitiet',
+      MaBanGhi: result.insertId || MaNQ, // InsertId might be 0 on duplicate key update
+      DuLieuMoi: { MaNQ, MaCN, Xem, Them, Sua, Xoa },
+      DiaChi_IP: req.ip,
+      GhiChu: `Cập nhật quyền cho nhóm ${MaNQ}, chức năng ${MaCN}`
+    });
+
     res.status(201).json({ success: true, MaCTQ: result.insertId });
   } catch (error) {
     console.error('Error adding permission:', error.message);
@@ -69,6 +81,16 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('DELETE FROM phanquyen_chitiet WHERE MaCTQ = ?', [id]);
+    
+    await logActivity({
+      MaTK: req.user.MaTK,
+      HanhDong: 'Xoa',
+      BangDuLieu: 'phanquyen_chitiet',
+      MaBanGhi: id,
+      DiaChi_IP: req.ip,
+      GhiChu: `Xóa bản ghi quyền ID=${id}`
+    });
+
     res.status(200).json({ success: true, message: 'Xóa quyền thành công' });
   } catch (error) {
     console.error('Error deleting permission:', error.message);
@@ -87,6 +109,16 @@ router.put('/:id', authenticateToken, async (req, res) => {
        WHERE MaCTQ = ?`,
       [Xem, Them, Sua, Xoa, XuatFile, Duyet, id]
     );
+
+    await logActivity({
+      MaTK: req.user.MaTK,
+      HanhDong: 'Sua',
+      BangDuLieu: 'phanquyen_chitiet',
+      MaBanGhi: id,
+      DuLieuMoi: { Xem, Them, Sua, Xoa },
+      DiaChi_IP: req.ip
+    });
+
     res.status(200).json({ success: true, message: 'Cập nhật quyền thành công' });
   } catch (error) {
     console.error('Error updating permission:', error.message);

@@ -138,7 +138,10 @@ const AuthorManagement = () => {
       formData.append('QuocTich', newAuthor.QuocTich?.trim() || '');
       formData.append('TieuSu', newAuthor.TieuSu?.trim() || '');
       if (newAuthor.AnhTG instanceof File) {
-        formData.append('AnhTG', newAuthor.AnhTG.name);
+        formData.append('AnhTG', newAuthor.AnhTG);
+      } else if (newAuthor.AnhTG && typeof newAuthor.AnhTG === 'string') {
+        // backend may expect just the filename when not uploading a new file
+        formData.append('AnhTG', newAuthor.AnhTG.replace(IMAGE_BASE_PATH, ''));
       }
 
       const token = localStorage.getItem('authToken');
@@ -196,7 +199,7 @@ const AuthorManagement = () => {
       formData.append('QuocTich', editingAuthor.QuocTich?.trim() || '');
       formData.append('TieuSu', editingAuthor.TieuSu?.trim() || '');
       if (editingAuthor.AnhTG instanceof File) {
-        formData.append('AnhTG', editingAuthor.AnhTG.name);
+        formData.append('AnhTG', editingAuthor.AnhTG);
       } else if (editingAuthor.AnhTG) {
         formData.append('AnhTG', editingAuthor.AnhTG.replace(IMAGE_BASE_PATH, ''));
       }

@@ -56,8 +56,13 @@ const POSPage = () => {
 
     const getImageUrl = (path) => {
         if (!path) return '/placeholder-book.jpg';
-        if (path.startsWith('http')) return path;
-        return `${API_BASE_URL}${path}`;
+        if (path.startsWith('http') || path.startsWith('data:')) return path;
+        const cleaned = path.toString();
+        if (!cleaned.includes('/') && !cleaned.includes('uploads') && !cleaned.startsWith('img')) {
+            return `${API_BASE_URL}/uploads/images/${cleaned}`;
+        }
+        const normalized = cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
+        return `${API_BASE_URL}${normalized}`;
     };
 
     const checkOpenSession = async () => {

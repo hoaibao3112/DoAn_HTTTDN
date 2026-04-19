@@ -189,7 +189,11 @@ const customerController = {
             await logActivity({
                 MaTK: req.user.MaTK,
                 HanhDong: 'Them',
-                ChiTiet: `Thêm khách hàng: ${HoTen} (${SDT})`
+                BangDuLieu: 'khachhang',
+                MaBanGhi: result.insertId,
+                DuLieuMoi: { HoTen, SDT, Email },
+                DiaChi_IP: req.ip,
+                GhiChu: `Thêm khách hàng: ${HoTen} (${SDT})`
             });
 
             // Lấy thông tin khách hàng vừa tạo từ view
@@ -255,8 +259,8 @@ const customerController = {
                 HanhDong: 'Sua',
                 BangDuLieu: 'khachhang',
                 MaBanGhi: id,
-                DuLieuCu: JSON.stringify(oldData[0]),
-                DuLieuMoi: JSON.stringify({ HoTen, SDT, Email, DiaChi, TinhTrang }),
+                DuLieuCu: oldData[0],
+                DuLieuMoi: { HoTen, SDT, Email, DiaChi, TinhTrang },
                 DiaChi_IP: req.ip
             });
 

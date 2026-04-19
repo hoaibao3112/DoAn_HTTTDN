@@ -23,6 +23,16 @@ router.put('/change-password', async (req, res) => {
 
     const hashed = await bcrypt.hash(newPassword, 10);
     await pool.query('UPDATE taikhoan SET MatKhau = ? WHERE MaTK = ?', [hashed, req.user.MaTK]);
+    
+    await logActivity({
+      MaTK: req.user.MaTK,
+      HanhDong: 'Doi_Mat_Khau',
+      BangDuLieu: 'taikhoan',
+      MaBanGhi: req.user.MaTK,
+      DiaChi_IP: req.ip,
+      GhiChu: 'Người dùng tự đổi mật khẩu'
+    });
+
     res.json({ success: true, message: 'Đổi mật khẩu thành công' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -12,6 +12,17 @@ const salesController = {
                 'INSERT INTO phien_ban_hang (MaNV, MaCH, TienBanDau) VALUES (?, ?, ?)',
                 [req.user.MaTK, MaCH, TienBanDau]
             );
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Them',
+                BangDuLieu: 'phien_ban_hang',
+                MaBanGhi: result.insertId,
+                DuLieuMoi: { MaCH, TienBanDau },
+                DiaChi_IP: req.ip,
+                GhiChu: 'Mở phiên bán hàng mới'
+            });
+
             res.json({ success: true, MaPhien: result.insertId });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -32,6 +43,17 @@ const salesController = {
                 'UPDATE phien_ban_hang SET ThoiGianDong = NOW(), TienKetThuc = ?, GhiChu = ? WHERE MaPhien = ?',
                 [TienKetThuc, `Chênh lệch: ${chenhLech}`, MaPhien]
             );
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'phien_ban_hang',
+                MaBanGhi: MaPhien,
+                DuLieuCu: { TienBanDau: session[0].TienBanDau, TongTienMat: session[0].TongTienMat },
+                DuLieuMoi: { TienKetThuc, ChenhLech: chenhLech },
+                DiaChi_IP: req.ip,
+                GhiChu: 'Đóng phiên bán hàng'
+            });
 
             res.json({ success: true, chenhLech });
         } catch (error) {
@@ -346,6 +368,17 @@ const salesController = {
                 'UPDATE hoadon SET TrangThai = ?, GhiChu = ? WHERE MaHD = ?',
                 [trangthai, ghichu, id]
             );
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'hoadon',
+                MaBanGhi: id,
+                DuLieuMoi: { TrangThai: trangthai, GhiChu: ghichu },
+                DiaChi_IP: req.ip,
+                GhiChu: 'Cập nhật trạng thái hóa đơn'
+            });
+
             res.json({ success: true, message: 'Cập nhật trạng thái thành công' });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -391,6 +424,17 @@ const salesController = {
                     [hd[0].ThanhToan, hd[0].MaKH]
                 );
             }
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Xoa', // or Cancel
+                BangDuLieu: 'hoadon',
+                MaBanGhi: id,
+                DuLieuCu: { TrangThai: hd[0].TrangThai },
+                DuLieuMoi: { TrangThai: 'Da_huy', LyDo: lyDo },
+                DiaChi_IP: req.ip,
+                GhiChu: 'Hủy hóa đơn và hoàn kho'
+            });
 
             await conn.commit();
             res.json({ success: true, message: 'Hủy hóa đơn thành công và đã hoàn kho' });

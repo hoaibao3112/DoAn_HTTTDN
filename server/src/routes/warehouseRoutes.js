@@ -12,13 +12,21 @@ const router = express.Router();
 // ========================= MULTER: Product Images =========================
 const productStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const dir = path.resolve('backend/product');
+        const dir = path.resolve('uploads/images');
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         cb(null, dir);
     },
     filename: (req, file, cb) => {
-        const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        cb(null, 'product-' + unique + path.extname(file.originalname));
+        // Sanitize original name: bỏ dấu, ký tự đặc biệt, giữ lại alphanumeric và dấu gạch ngang
+        const originalName = path.parse(file.originalname).name
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]/g, '-')
+            .replace(/-+/g, '-');
+        
+        const unique = Date.now() + '-' + Math.round(Math.random() * 1e4);
+        cb(null, `${originalName}-${unique}${path.extname(file.originalname)}`);
     }
 });
 

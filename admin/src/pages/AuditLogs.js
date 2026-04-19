@@ -4,7 +4,79 @@ import { PermissionContext } from '../components/PermissionContext';
 import { FEATURES } from '../constants/permissions';
 import '../styles/AuditLogs.css';
 
-// Mock data
+// Helper to parse data that might be double-stringified or a JSON string
+const parseLogsData = (data) => {
+    if (!data) return null;
+    if (typeof data === 'object') return data;
+    try {
+        const parsed = JSON.parse(data);
+        // If the parsed result is still a string (double-stringified), try parsing again
+        if (typeof parsed === 'string') return parseLogsData(parsed);
+        return parsed;
+    } catch (e) {
+        return data; // Return as is if not valid JSON
+    }
+};
+
+const renderObjectData = (data) => {
+    const parsed = parseLogsData(data);
+    if (!parsed) return <div className="no-data">Không có dữ liệu</div>;
+    if (typeof parsed !== 'object') return <div className="raw-data">{parsed}</div>;
+
+    return (
+        <div className="data-card-grid">
+            {Object.entries(parsed).map(([key, value]) => (
+                <div key={key} className="data-card-item">
+                    <span className="data-card-key">{key}</span>
+                    <span className="data-card-value">
+                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                    </span>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+const renderComparison = (oldData, newData) => {
+    const oldParsed = parseLogsData(oldData) || {};
+    const newParsed = parseLogsData(newData) || {};
+    
+    // Get all unique keys from both objects
+    const allKeys = Array.from(new Set([...Object.keys(oldParsed), ...Object.keys(newParsed)]));
+
+    return (
+        <div className="comparison-table-wrapper">
+            <table className="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Trường dữ liệu</th>
+                        <th>Giá trị cũ</th>
+                        <th>Giá trị mới</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {allKeys.map(key => {
+                        const isChanged = JSON.stringify(oldParsed[key]) !== JSON.stringify(newParsed[key]);
+                        return (
+                            <tr key={key} className={isChanged ? 'diff-row changed' : 'diff-row'}>
+                                <td className="diff-key">{key}</td>
+                                <td className="diff-value old">
+                                    {oldParsed[key] !== undefined ? String(oldParsed[key]) : <span className="null-val">-</span>}
+                                </td>
+                                <td className="diff-value new">
+                                    {newParsed[key] !== undefined ? String(newParsed[key]) : <span className="null-val">-</span>}
+                                    {isChanged && <span className="change-icon material-icons">trending_flat</span>}
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+};
+
+// Main component
 const AuditLogs = () => {
     const { hasPermissionById } = useContext(PermissionContext);
     const [logs, setLogs] = useState([]);
@@ -12,98 +84,27 @@ const AuditLogs = () => {
     const [selectedLog, setSelectedLog] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
 
-    // Mock data
-    const mockLogs = useMemo(() => [
-        {
-            id: 1,
-            timestamp: '2024-05-20 14:32:01',
-            user: { name: 'Nguyễn Văn A', avatar: null },
-            action: 'CREATE',
-            module: 'Kho hàng',
-            ip: '192.168.1.15',
-            details: {
-                table: 'sanpham',
-                recordId: 'PROD-4402',
-                changes: {
-                    old: null,
-                    new: {
-                        id: 'PROD-4402',
-                        title: 'Đất Rừng Phương Nam',
-                        price: 125000,
-                        stock: 24,
-                        category: 'Văn học VN',
-                        status: 'active',
-                        updated_at: '2024-04-12'
-                    }
-                }
-            }
-        },
-        {
-            id: 2,
-            timestamp: '2024-05-20 14:30:45',
-            user: { name: 'Lê Thị B', avatar: null },
-            action: 'UPDATE',
-            module: 'Sản phẩm',
-            ip: '172.16.0.42',
-            details: {
-                table: 'sanpham',
-                recordId: 'BK-0124',
-                action: 'Cập nhật giá bán',
-                changes: {
-                    old: { price: 150000 },
-                    new: { price: 145000 }
-                }
-            }
-        },
-        {
-            id: 3,
-            timestamp: '2024-05-20 14:28:12',
-            user: { name: 'Trần Văn C', avatar: null },
-            action: 'DELETE',
-            module: 'Hóa đơn',
-            ip: '192.168.1.55',
-            details: {
-                table: 'hoadon',
-                recordId: 'INV-2024-05-001',
-                changes: {
-                    old: { id: 'INV-2024-05-001', amount: 250000, status: 'cancelled' },
-                    new: null
-                }
-            }
-        },
-        {
-            id: 4,
-            timestamp: '2024-05-20 14:25:30',
-            user: { name: 'Lê Thị B', avatar: null },
-            action: 'UPDATE',
-            module: 'Sản phẩm',
-            ip: '172.16.0.42',
-            details: {
-                table: 'sanpham',
-                recordId: 'BK-0892',
-                changes: {
-                    old: { stock: 50 },
-                    new: { stock: 45 }
-                }
-            }
-        },
-        {
-            id: 5,
-            timestamp: '2024-05-20 14:15:00',
-            user: { name: 'Admin System', avatar: null },
-            action: 'CREATE',
-            module: 'Nhân viên',
-            ip: '127.0.0.1',
-            details: {
-                table: 'nhanvien',
-                recordId: 'NV-2024-015',
-                changes: {
-                    old: null,
-                    new: { id: 'NV-2024-015', name: 'Phạm Thị D', role: 'Cashier' }
-                }
-            }
-        }
-    ], []);
+    // Mapping database table names to friendly names
+    const MODULE_MAP = useMemo(() => ({
+        'sanpham': { name: 'Sách', idLabel: 'Mã sách', icon: 'auto_stories' },
+        'hoadon': { name: 'Hóa đơn', idLabel: 'Mã hóa đơn', icon: 'receipt' },
+        'taikhoan': { name: 'Tài khoản', idLabel: 'ID Tài khoản', icon: 'account_circle' },
+        'nhanvien': { name: 'Nhân viên', idLabel: 'Mã nhân viên', icon: 'badge' },
+        'khachhang': { name: 'Khách hàng', idLabel: 'Mã khách hàng', icon: 'person' },
+        'nhacungcap': { name: 'Nhà cung cấp', idLabel: 'Mã nhà cung cấp', icon: 'local_shipping' },
+        'phieunhap': { name: 'Phiếu nhập', idLabel: 'Mã phiếu nhập', icon: 'input' },
+        'loai_nqi': { name: 'Nhóm quyền', idLabel: 'Mã quyền', icon: 'security' },
+        'khuyenmai': { name: 'Khuyến mãi', idLabel: 'Mã KM', icon: 'sell' },
+        'cham_cong': { name: 'Chấm công', idLabel: 'ID Chấm công', icon: 'event_available' },
+        'khen_thuong_ky_luat': { name: 'Khen thưởng/Kỷ luật', idLabel: 'ID Bản ghi', icon: 'gavel' },
+        'phieu_kiem_ke': { name: 'Kiểm kê', idLabel: 'Mã phiếu', icon: 'inventory' },
+        'website_settings': { name: 'Cài đặt hệ thống', idLabel: 'ID Cấu hình', icon: 'settings' }
+    }), []);
+
+    const [metadata, setMetadata] = useState({ users: [], modules: [] });
+
+    // Mock data - REMOVED for DB only data
+    // const mockLogs = useMemo(() => [ ... ], []);
 
     const [filters, setFilters] = useState({
         startDate: new Date().toISOString().split('T')[0],
@@ -114,9 +115,9 @@ const AuditLogs = () => {
     });
 
     const [stats, setStats] = useState({
-        total: 12842,
-        created: 156,
-        deleted: 12,
+        total: 0,
+        created: 0,
+        deleted: 0,
         warnings: 0
     });
 
@@ -152,7 +153,7 @@ const AuditLogs = () => {
                         }
                     }
                 }));
-                setLogs(transformedLogs.length > 0 ? transformedLogs : mockLogs);
+                setLogs(transformedLogs);
 
                 // Update stats if provided by backend
                 if (response.data.pagination) {
@@ -162,15 +163,33 @@ const AuditLogs = () => {
                     }));
                 }
             } else {
-                setLogs(mockLogs);
+                setLogs([]);
             }
         } catch (error) {
             console.error('Error fetching logs:', error);
-            setLogs(mockLogs);
+            setLogs([]);
         } finally {
             setLoading(false);
         }
-    }, [filters, mockLogs]);
+    }, [filters]);
+
+    const fetchMetadata = useCallback(async () => {
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await axios.get('http://localhost:5000/api/reports/audit-logs/metadata', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.data.success) {
+                setMetadata(response.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching metadata:', error);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchMetadata();
+    }, [fetchMetadata]);
 
     useEffect(() => {
         fetchLogs();
@@ -190,12 +209,17 @@ const AuditLogs = () => {
     };
 
     const getActionBadge = (action) => {
+        const normalizedAction = (action || '').toUpperCase();
         const badges = {
-            CREATE: { text: 'CREATE', class: 'action-create' },
-            UPDATE: { text: 'UPDATE', class: 'action-update' },
-            DELETE: { text: 'DELETE', class: 'action-delete' }
+            'CREATE': { text: 'THEM', class: 'action-create' },
+            'THEM': { text: 'THEM', class: 'action-create' },
+            'UPDATE': { text: 'SUA', class: 'action-update' },
+            'SUA': { text: 'SUA', class: 'action-update' },
+            'DELETE': { text: 'XOA', class: 'action-delete' },
+            'XOA': { text: 'XOA', class: 'action-delete' },
+            'KIEMKE': { text: 'KIEM KE', class: 'action-update' }
         };
-        return badges[action] || badges.CREATE;
+        return badges[normalizedAction] || { text: normalizedAction, class: 'action-update' };
     };
 
     if (!hasPermissionById(FEATURES.AUDIT_LOGS, 'xem')) {
@@ -242,9 +266,10 @@ const AuditLogs = () => {
                     <div className="filter-group">
                         <label>Người dùng</label>
                         <select value={filters.user} onChange={(e) => setFilters({ ...filters, user: e.target.value })}>
-                            <option value="all">Tất cả nhân viên</option>
-                            <option value="admin">Admin</option>
-                            <option value="staff">Nhân viên</option>
+                            <option value="all">Tất cả người dùng</option>
+                            {metadata.users.map(u => (
+                                <option key={u} value={u}>{u}</option>
+                            ))}
                         </select>
                     </div>
 
@@ -262,10 +287,11 @@ const AuditLogs = () => {
                         <label>Phần mục</label>
                         <select value={filters.module} onChange={(e) => setFilters({ ...filters, module: e.target.value })}>
                             <option value="all">Tất cả phần mục</option>
-                            <option value="product">Sản phẩm</option>
-                            <option value="invoice">Hóa đơn</option>
-                            <option value="warehouse">Kho hàng</option>
-                            <option value="employee">Nhân viên</option>
+                            {metadata.modules.map(m => (
+                                <option key={m} value={m}>
+                                    {MODULE_MAP[m]?.name || m}
+                                </option>
+                            ))}
                         </select>
                     </div>
                 </div>
@@ -349,7 +375,9 @@ const AuditLogs = () => {
                                                 {actionBadge.text}
                                             </span>
                                         </td>
-                                        <td className="module-cell">{log.module}</td>
+                                        <td className="module-cell">
+                                            {MODULE_MAP[log.module]?.name || log.module}
+                                        </td>
                                         <td className="ip-cell">{log.ip}</td>
                                     </tr>
                                 );
@@ -384,43 +412,72 @@ const AuditLogs = () => {
                         </div>
 
                         <div className="modal-body">
-                            <div className="log-id">Log ID: #{selectedLog.details?.table}-{selectedLog.id}</div>
+                            <div className="log-id">
+                                <span>Log ID: #{selectedLog.details?.table}-{selectedLog.id}</span>
+                                <span className="log-ip">IP: {selectedLog.ip}</span>
+                            </div>
 
                             <div className="info-section">
-                                <h3>THÔNG TIN CHUNG</h3>
                                 <div className="info-grid">
                                     <div className="info-item">
-                                        <span>Đối tượng:</span>
-                                        <strong>Sách "{selectedLog.details?.recordId}"</strong>
+                                        <span className="material-icons">category</span>
+                                        <div>
+                                            <p>Đối tượng</p>
+                                            <strong>{MODULE_MAP[selectedLog.module]?.name || selectedLog.module}</strong>
+                                        </div>
                                     </div>
                                     <div className="info-item">
-                                        <span>ID Sản phẩm:</span>
-                                        <strong>{selectedLog.details?.recordId}</strong>
+                                        <span className="material-icons">fingerprint</span>
+                                        <div>
+                                            <p>{MODULE_MAP[selectedLog.module]?.idLabel || 'Mã bản ghi'}</p>
+                                            <strong>{selectedLog.details?.recordId}</strong>
+                                        </div>
                                     </div>
                                     <div className="info-item">
-                                        <span>Hành động:</span>
-                                        <strong>{selectedLog.details?.action || selectedLog.action}</strong>
+                                        <span className="material-icons">bolt</span>
+                                        <div>
+                                            <p>Hành động</p>
+                                            <strong className={`text-${getActionBadge(selectedLog.details?.action || selectedLog.action).class}`}>
+                                                {getActionBadge(selectedLog.details?.action || selectedLog.action).text}
+                                            </strong>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {selectedLog.details?.changes?.old && (
-                                <div className="data-section">
-                                    <h3>🔴 DỮ LIỆU CŨ (OLD)</h3>
-                                    <pre className="json-display old">
-                                        {JSON.stringify(selectedLog.details.changes.old, null, 2)}
-                                    </pre>
-                                </div>
-                            )}
+                            <div className="changes-container">
+                                {selectedLog.action.toUpperCase() === 'SUA' || selectedLog.action.toUpperCase() === 'UPDATE' ? (
+                                    <div className="data-section full-width">
+                                        <div className="section-header">
+                                            <span className="material-icons">compare</span>
+                                            <h3>SO SÁNH THAY ĐỔI</h3>
+                                        </div>
+                                        {renderComparison(selectedLog.details.changes.old, selectedLog.details.changes.new)}
+                                    </div>
+                                ) : (
+                                    <>
+                                        {selectedLog.details?.changes?.old && (
+                                            <div className="data-section">
+                                                <div className="section-header red">
+                                                    <span className="material-icons">history</span>
+                                                    <h3>DỮ LIỆU CŨ (OLD)</h3>
+                                                </div>
+                                                {renderObjectData(selectedLog.details.changes.old)}
+                                            </div>
+                                        )}
 
-                            {selectedLog.details?.changes?.new && (
-                                <div className="data-section">
-                                    <h3>🟢 DỮ LIỆU MỚI (NEW)</h3>
-                                    <pre className="json-display new">
-                                        {JSON.stringify(selectedLog.details.changes.new, null, 2)}
-                                    </pre>
-                                </div>
-                            )}
+                                        {selectedLog.details?.changes?.new && (
+                                            <div className="data-section">
+                                                <div className="section-header green">
+                                                    <span className="material-icons">add_chart</span>
+                                                    <h3>DỮ LIỆU MỚI (NEW)</h3>
+                                                </div>
+                                                {renderObjectData(selectedLog.details.changes.new)}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

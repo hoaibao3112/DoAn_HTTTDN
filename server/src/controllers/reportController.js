@@ -299,6 +299,34 @@ const reportController = {
             res.status(500).json({ success: false, message: error.message });
         }
     },
+    // Lấy thông tin metadata cho bộ lọc Audit Logs
+    getAuditLogMetadata: async (req, res) => {
+        try {
+            // Lấy danh sách duy nhất các bảng dữ liệu đã có log
+            const [modules] = await pool.query(
+                `SELECT DISTINCT BangDuLieu FROM nhat_ky_hoat_dong WHERE BangDuLieu IS NOT NULL`
+            );
+
+            // Lấy danh sách duy nhất các người dùng đã thực hiện hành động
+            const [users] = await pool.query(
+                `SELECT DISTINCT tk.TenTK 
+                 FROM nhat_ky_hoat_dong n 
+                 JOIN taikhoan tk ON n.MaTK = tk.MaTK 
+                 WHERE tk.TenTK IS NOT NULL`
+            );
+
+            res.json({
+                success: true,
+                data: {
+                    modules: modules.map(m => m.BangDuLieu),
+                    users: users.map(u => u.TenTK)
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching audit log metadata:', error);
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
 };
 
 export default reportController;

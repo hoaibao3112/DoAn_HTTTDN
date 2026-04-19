@@ -47,6 +47,11 @@ router.post('/khachhang/khoangtg',
     reportController.getCustomerReport
 );
 
+router.get('/audit-logs/metadata',
+    checkPermission(FEATURES.AUDIT_LOGS, PERMISSIONS.VIEW),
+    reportController.getAuditLogMetadata
+);
+
 // Nhật ký hoạt động (Audit Logs)
 router.get('/audit-logs',
     checkPermission(FEATURES.AUDIT_LOGS, PERMISSIONS.VIEW),

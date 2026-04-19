@@ -145,6 +145,16 @@ const hrController = {
                 );
             }
 
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'CapNhat',
+                BangDuLieu: 'nhanvien',
+                MaBanGhi: req.user.MaTK, // Profiling uses MaTK reference usually
+                DuLieuMoi: req.file ? { Anh: req.file.filename } : { SDT, Email, DiaChi },
+                DiaChi_IP: req.ip,
+                GhiChu: 'Nhân viên tự cập nhật hồ sơ'
+            });
+
             await connection.commit();
             res.json({ success: true, message: 'Cập nhật hồ sơ thành công' });
         } catch (error) {
@@ -274,6 +284,16 @@ const hrController = {
                     data.TinhTrang !== undefined ? data.TinhTrang : 1
                 ]
             );
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Them',
+                BangDuLieu: 'nhanvien',
+                MaBanGhi: result.insertId,
+                DuLieuMoi: { HoTen: data.HoTen, ChucVu: data.ChucVu, Email: data.Email },
+                DiaChi_IP: req.ip,
+                GhiChu: `Thêm nhân viên mới: ${data.HoTen}`
+            });
+
             res.json({ success: true, MaNV: result.insertId });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -319,6 +339,9 @@ const hrController = {
                 TinhTrang: (data.TinhTrang !== undefined && data.TinhTrang !== null && data.TinhTrang !== '') ? Number(data.TinhTrang) : 1
             };
 
+            // Get old data for audit log
+            const [oldData] = await pool.query('SELECT * FROM nhanvien WHERE MaNV = ?', [id]);
+
             await pool.query(
                 `UPDATE nhanvien SET 
                     HoTen=?, Email=?, SDT=?, DiaChi=?, CCCD=?, 
@@ -343,6 +366,18 @@ const hrController = {
                     id
                 ]
             );
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'nhanvien',
+                MaBanGhi: id,
+                DuLieuCu: oldData[0],
+                DuLieuMoi: normalized,
+                DiaChi_IP: req.ip,
+                GhiChu: `Cập nhật thông tin nhân viên: ${normalized.HoTen}`
+            });
+
             res.json({ success: true, message: 'Updated successfully' });
         } catch (error) {
             console.error('Error updating employee:', { id, body: req.body, error });
@@ -418,6 +453,18 @@ const hrController = {
             await conn.query('UPDATE nhanvien SET ChucVu = ?, LuongCoBan = ? WHERE MaNV = ?', [ChucVuMoi, LuongMoi, MaNV]);
 
             await conn.commit();
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'nhanvien',
+                MaBanGhi: MaNV,
+                DuLieuCu: { ChucVu: old[0].ChucVu, LuongCoBan: old[0].LuongCoBan },
+                DuLieuMoi: { ChucVu: ChucVuMoi, LuongCoBan: LuongMoi },
+                DiaChi_IP: req.ip,
+                GhiChu: `Thay đổi chức vụ/lương cho nhân viên MaNV=${MaNV}`
+            });
+
             res.json({ success: true, message: 'Thăng chức/Đổi lương thành công' });
         } catch (error) {
             await conn.rollback();
@@ -558,6 +605,17 @@ const hrController = {
                 }
 
                 await connection.commit();
+
+                await logActivity({
+                    MaTK: req.user.MaTK,
+                    HanhDong: 'CapNhat',
+                    BangDuLieu: 'xin_nghi_phep',
+                    MaBanGhi: id,
+                    DuLieuMoi: { TrangThai, NguoiDuyet: reviewer[0]?.MaNV || null },
+                    DiaChi_IP: req.ip,
+                    GhiChu: `Duyệt đơn nghỉ phép ID=${id} trạng thái ${TrangThai}`
+                });
+
                 res.json({ success: true, message: 'Duyệt thành công' });
             } catch (error) {
                 await connection.rollback();

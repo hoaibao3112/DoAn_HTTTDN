@@ -5,9 +5,9 @@ import { EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-desi
 import { handleApiError } from '../utils/errorHandler';
 import '../styles/ProductManagement.css';
 
-const TRONG_LUONG_OPTIONS = [50,100,150,200,250,300,350,400,450,500,600,700,800,1000,1200,1500].map(v => ({ value: String(v), label: `${v} g` }));
-const KICH_THUOC_OPTIONS = ['13x19 cm','14x20.5 cm','14.5x20.5 cm','16x24 cm','17x24 cm','19x27 cm','20.5x29.7 cm','21x29.7 cm'].map(v => ({ value: v }));
-const HINH_THUC_OPTIONS = ['Bìa mềm','Bìa cứng','Bìa mềm có tay gấp','Bìa cứng mạ vàng','Bìa plastic','Bìa vải'].map(v => ({ value: v }));
+const TRONG_LUONG_OPTIONS = [50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 1000, 1200, 1500].map(v => ({ value: String(v), label: `${v} g` }));
+const KICH_THUOC_OPTIONS = ['13x19 cm', '14x20.5 cm', '14.5x20.5 cm', '16x24 cm', '17x24 cm', '19x27 cm', '20.5x29.7 cm', '21x29.7 cm'].map(v => ({ value: v }));
+const HINH_THUC_OPTIONS = ['Bìa mềm', 'Bìa cứng', 'Bìa mềm có tay gấp', 'Bìa cứng mạ vàng', 'Bìa plastic', 'Bìa vải'].map(v => ({ value: v }));
 
 const { Search } = Input;
 const { confirm } = Modal;
@@ -38,6 +38,7 @@ const ProductManagement = () => {
   const [minModalVisible, setMinModalVisible] = useState(false);
   const [minValue, setMinValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -50,8 +51,13 @@ const ProductManagement = () => {
   const getImageUrl = (path) => {
     if (!path || path === 'null') return PLACEHOLDER_IMAGE;
     if (path.startsWith('http') || path.startsWith('data:')) return path;
-    // Ensure path starts with /
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    // If backend returned only a filename (e.g. "my.jpg"), map it to uploads/images
+    // If path already contains uploads or starts with /img or /uploads or /product-images, keep it
+    const cleaned = path.toString();
+    if (!cleaned.includes('/') && !cleaned.includes('uploads') && !cleaned.startsWith('img')) {
+      return `${API_BASE_URL}/uploads/images/${cleaned}`;
+    }
+    const normalizedPath = cleaned.startsWith('/') ? cleaned : `/${cleaned}`;
     return `${API_BASE_URL}${normalizedPath}`;
   };
 
@@ -435,11 +441,12 @@ const ProductManagement = () => {
   };
 
   // Lọc sản phẩm theo tìm kiếm
-  const filteredProducts = products.filter(
-    (product) =>
-      (product.TenSP || '').toLowerCase().includes(searchTerm.toLowerCase().trim()) ||
-      (product.MaSP || '').toString().includes(searchTerm.trim())
-  );
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch = (product.TenSP || '').toLowerCase().includes(searchTerm.toLowerCase().trim()) ||
+      (product.MaSP || '').toString().includes(searchTerm.trim());
+    const matchesCategory = selectedCategoryFilter === 'all' || product.MaTL === selectedCategoryFilter || product.TenTL === selectedCategoryFilter;
+    return matchesSearch && matchesCategory;
+  });
 
   // Cột của bảng
   const columns = [
@@ -601,6 +608,26 @@ const ProductManagement = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+
+          <div style={{ marginLeft: 12 }}>
+            <Select
+              size="small"
+              value={selectedCategoryFilter}
+              onChange={(val) => setSelectedCategoryFilter(val)}
+              style={{ width: 220 }}
+              showSearch
+              placeholder="Lọc theo thể loại"
+              optionFilterProp="children"
+              filterOption={(input, option) => option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0}
+            >
+              <Select.Option key="all" value="all">Tất cả thể loại</Select.Option>
+              {categories.map((c) => (
+                <Select.Option key={c.MaTL || c.TenTL} value={c.MaTL || c.TenTL}>
+                  {c.TenTL || c.Ten}
+                </Select.Option>
+              ))}
+            </Select>
           </div>
           <Button
             type="primary"

@@ -130,11 +130,11 @@ const warehouseController = {
                 where += ' AND (sp.TenSP LIKE ? OR sp.ISBN LIKE ?)';
                 params.push(`%${search}%`, `%${search}%`);
             }
-            if (category)  { where += ' AND sp.MaTL = ?';   params.push(category); }
-            if (author)    { where += ' AND sp.MaTG = ?';   params.push(author); }
-            if (publisher) { where += ' AND sp.MaNXB = ?';  params.push(publisher); }
-            if (minPrice)  { where += ' AND sp.DonGia >= ?'; params.push(minPrice); }
-            if (maxPrice)  { where += ' AND sp.DonGia <= ?'; params.push(maxPrice); }
+            if (category) { where += ' AND sp.MaTL = ?'; params.push(category); }
+            if (author) { where += ' AND sp.MaTG = ?'; params.push(author); }
+            if (publisher) { where += ' AND sp.MaNXB = ?'; params.push(publisher); }
+            if (minPrice) { where += ' AND sp.DonGia >= ?'; params.push(minPrice); }
+            if (maxPrice) { where += ' AND sp.DonGia <= ?'; params.push(maxPrice); }
 
             const allowedSort = ['sp.MaSP', 'sp.TenSP', 'sp.DonGia', 'sp.GiaNhap', 'sp.NamXB', 'sp.NgayTao'];
             const safeSort = allowedSort.includes(sortBy) ? sortBy : 'sp.MaSP';
@@ -215,8 +215,8 @@ const warehouseController = {
             const [result] = await pool.query(`
                 INSERT INTO sanpham
                     (TenSP, MoTa, DonGia, GiaNhap, HinhAnh, MaTL, MaTG, MaNXB,
-                     NamXB, SoTrang, TrongLuong, KichThuoc, ISBN, TinhTrang, MinSoLuong)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                     NamXB, SoTrang, TrongLuong, KichThuoc, ISBN, HinhThuc, TinhTrang, MinSoLuong)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
             `, [
                 data.TenSP,
                 data.MoTa || null,
@@ -231,13 +231,21 @@ const warehouseController = {
                 data.TrongLuong || null,
                 data.KichThuoc || null,
                 data.ISBN || null,
+                data.HinhThuc || null,
                 parseInt(data.MinSoLuong) || 0
             ]);
 
             await logActivity({
-                MaTK: req.user.MaTK, HanhDong: 'Them',
-                BangDuLieu: 'sanpham', MaBanGhi: result.insertId,
-                DuLieuMoi: JSON.stringify({ TenSP: data.TenSP }),
+                MaTK: req.user.MaTK,
+                HanhDong: 'Them',
+                BangDuLieu: 'sanpham',
+                MaBanGhi: result.insertId,
+                DuLieuMoi: { 
+                    TenSP: data.TenSP, 
+                    DonGia: parseFloat(data.DonGia) || 0,
+                    MaTL: data.MaTL,
+                    MaTG: data.MaTG
+                },
                 DiaChi_IP: req.ip
             });
 
@@ -256,28 +264,39 @@ const warehouseController = {
             const [existing] = await pool.query('SELECT * FROM sanpham WHERE MaSP = ?', [id]);
             if (!existing.length) return res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' });
 
-            const hinhAnh = files?.HinhAnh?.[0]?.filename
-                ? `/uploads/images/${files.HinhAnh[0].filename}`
-                : (data.HinhAnh || existing[0].HinhAnh);
+            let hinhAnh = existing[0].HinhAnh;
+            if (files?.HinhAnh?.[0]?.filename) {
+                hinhAnh = `/uploads/images/${files.HinhAnh[0].filename}`;
+            } else if (data.HinhAnh) {
+                hinhAnh = data.HinhAnh;
+            }
 
             const fields = [];
             const values = [];
 
-            const setField = (col, val) => { if (val !== undefined) { fields.push(`${col} = ?`); values.push(val); } };
+            const setField = (col, val) => { 
+                if (val !== undefined) { 
+                    // Sanitize: convert string "null" or "undefined" back to null
+                    const sanitized = (val === 'null' || val === 'undefined') ? null : val;
+                    fields.push(`${col} = ?`); 
+                    values.push(sanitized); 
+                } 
+            };
 
             setField('TenSP', data.TenSP);
-            setField('MoTa', data.MoTa ?? null);
+            setField('MoTa', data.MoTa ?? undefined); // Chỉ update nếu có giá trị (không tự động gán null nếu undefined)
             if (data.DonGia !== undefined) setField('DonGia', parseFloat(data.DonGia) || 0);
             if (data.GiaNhap !== undefined) setField('GiaNhap', parseFloat(data.GiaNhap) || 0);
             setField('HinhAnh', hinhAnh);
-            setField('MaTL', data.MaTL || null);
-            setField('MaTG', data.MaTG || null);
-            setField('MaNXB', data.MaNXB || null);
-            setField('NamXB', data.NamXB || null);
-            setField('SoTrang', data.SoTrang || null);
-            setField('TrongLuong', data.TrongLuong || null);
-            setField('KichThuoc', data.KichThuoc || null);
-            setField('ISBN', data.ISBN || null);
+            setField('MaTL', data.MaTL || undefined);
+            setField('MaTG', data.MaTG || undefined);
+            setField('MaNXB', data.MaNXB || undefined);
+            setField('NamXB', data.NamXB || undefined);
+            setField('SoTrang', data.SoTrang || undefined);
+            setField('TrongLuong', data.TrongLuong || undefined);
+            setField('KichThuoc', data.KichThuoc || undefined);
+            setField('ISBN', data.ISBN || undefined);
+            setField('HinhThuc', data.HinhThuc || undefined);
             if (data.MinSoLuong !== undefined) setField('MinSoLuong', parseInt(data.MinSoLuong) || 0);
             if (data.TinhTrang !== undefined) setField('TinhTrang', data.TinhTrang);
 
@@ -286,10 +305,20 @@ const warehouseController = {
             values.push(id);
             await pool.query(`UPDATE sanpham SET ${fields.join(', ')} WHERE MaSP = ?`, values);
 
+            // Thu thập dữ liệu mới để ghi log
+            const changes = {};
+            fields.forEach((f, index) => {
+                const col = f.split(' =')[0];
+                changes[col] = values[index];
+            });
+
             await logActivity({
-                MaTK: req.user.MaTK, HanhDong: 'Sua',
-                BangDuLieu: 'sanpham', MaBanGhi: id,
-                DuLieuCu: JSON.stringify(existing[0]),
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'sanpham',
+                MaBanGhi: id,
+                DuLieuCu: existing[0],
+                DuLieuMoi: changes,
                 DiaChi_IP: req.ip
             });
 
@@ -308,7 +337,7 @@ const warehouseController = {
                 'SELECT TenSP FROM sanpham WHERE MaSP = ?',
                 [id]
             );
-            
+
             if (!product.length) {
                 return res.status(404).json({
                     success: false,
@@ -323,7 +352,7 @@ const warehouseController = {
                 'SELECT COALESCE(SUM(SoLuongTon), 0) AS total FROM ton_kho WHERE MaSP = ?',
                 [id]
             );
-            
+
             if (stock[0].total > 0) {
                 return res.status(400).json({
                     success: false,
@@ -346,7 +375,20 @@ const warehouseController = {
         const { id } = req.params;
         const { MinSoLuong } = req.body;
         try {
+            const [oldData] = await pool.query('SELECT MinSoLuong, TenSP FROM sanpham WHERE MaSP = ?', [id]);
             await pool.query('UPDATE sanpham SET MinSoLuong = ? WHERE MaSP = ?', [parseInt(MinSoLuong) || 0, id]);
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'sanpham',
+                MaBanGhi: id,
+                DuLieuCu: { MinSoLuong: oldData[0]?.MinSoLuong },
+                DuLieuMoi: { MinSoLuong: parseInt(MinSoLuong) },
+                DiaChi_IP: req.ip,
+                GhiChu: `Cập nhật ngưỡng tồn tối thiểu cho: ${oldData[0]?.TenSP}`
+            });
+
             res.json({ success: true, message: 'Cập nhật ngưỡng tồn thành công' });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -362,11 +404,11 @@ const warehouseController = {
         try {
             const params = [];
             let where = 'WHERE 1=1';
-            if (MaNCC)     { where += ' AND pn.MaNCC = ?';           params.push(MaNCC); }
-            if (MaCH)      { where += ' AND pn.MaCH = ?';            params.push(MaCH); }
-            if (TrangThai) { where += ' AND pn.TrangThai = ?';        params.push(TrangThai); }
-            if (startDate) { where += ' AND DATE(pn.NgayNhap) >= ?';  params.push(startDate); }
-            if (endDate)   { where += ' AND DATE(pn.NgayNhap) <= ?';  params.push(endDate); }
+            if (MaNCC) { where += ' AND pn.MaNCC = ?'; params.push(MaNCC); }
+            if (MaCH) { where += ' AND pn.MaCH = ?'; params.push(MaCH); }
+            if (TrangThai) { where += ' AND pn.TrangThai = ?'; params.push(TrangThai); }
+            if (startDate) { where += ' AND DATE(pn.NgayNhap) >= ?'; params.push(startDate); }
+            if (endDate) { where += ' AND DATE(pn.NgayNhap) <= ?'; params.push(endDate); }
 
             const [rows] = await pool.query(`
                 SELECT pn.MaPN, pn.NgayNhap, pn.TongTien, pn.DaThanhToan, pn.ConNo,
@@ -391,21 +433,21 @@ const warehouseController = {
             const total = countResults[0][0]?.total || 0;
 
             res.json({
-                success: true, 
+                success: true,
                 data: rows,
                 pagination: {
-                    page: parseInt(page), 
+                    page: parseInt(page),
                     pageSize: parseInt(pageSize),
-                    total, 
+                    total,
                     totalPages: Math.ceil(total / parseInt(pageSize))
                 }
             });
         } catch (error) {
             console.error('Error in getAllPurchaseOrders:', error);
-            res.status(500).json({ 
-                success: false, 
+            res.status(500).json({
+                success: false,
                 message: error.message,
-                details: error.stack 
+                details: error.stack
             });
         }
     },
@@ -511,7 +553,7 @@ const warehouseController = {
             // 3. Cập nhật tồn kho + phân bổ kho con
             const allocationLogs = [];
             let totalUnallocated = 0;  // ✅ Track hàng không phân bổ được
-            
+
             // ✅ FIX N+1: Query tất cả warehouses + stock CHỈ MỘT LẦN (tránh N+1 query)
             const productMaSPs = ChiTiet.map(item => Number(item.MaSP));
             const [allWarehouseData] = await conn.query(`
@@ -523,7 +565,7 @@ const warehouseController = {
                 ORDER BY kc.Priority ASC
                 FOR UPDATE
             `, [productMaSPs, MaCHStore]);
-            
+
             // Map warehouses theo MaSP để tra cứu nhanh
             const warehousesByProduct = {};
             productMaSPs.forEach(id => { warehousesByProduct[id] = []; });
@@ -539,9 +581,9 @@ const warehouseController = {
                     warehousesByProduct[wh.MaSP].push(wh);
                 }
             });
-            
+
             for (const item of ChiTiet) {
-                const qty  = Number(item.SoLuong);
+                const qty = Number(item.SoLuong);
                 const maSP = Number(item.MaSP);
 
                 // Cập nhật tồn kho tổng (store level)
@@ -624,11 +666,11 @@ const warehouseController = {
                 const priceUpdates = ChiTiet.map(item => ({
                     MaSP: item.MaSP,
                     GiaNhap: Number(item.DonGiaNhap),
-                    DonGia: TyLeLoi && Number(TyLeLoi) > 0 
+                    DonGia: TyLeLoi && Number(TyLeLoi) > 0
                         ? Math.round(Number(item.DonGiaNhap) * (1 + Number(TyLeLoi) / 100))
                         : Number(item.DonGiaNhap)
                 }));
-                
+
                 // Build CASE statements
                 let caseGiaNhap = 'CASE';
                 let caseDonGia = 'CASE';
@@ -638,7 +680,7 @@ const warehouseController = {
                 }
                 caseGiaNhap += ' ELSE GiaNhap END';
                 caseDonGia += ' ELSE DonGia END';
-                
+
                 await conn.query(`
                     UPDATE sanpham 
                     SET GiaNhap = ${caseGiaNhap}, 
@@ -664,7 +706,7 @@ const warehouseController = {
             });
 
             await conn.commit();
-            
+
             // ✅ BUG FIX 5: Kiểm tra nếu có hàng không được phân bổ
             if (totalUnallocated > 0) {
                 res.status(201).json({
@@ -675,7 +717,7 @@ const warehouseController = {
                 });
             } else {
                 res.status(201).json({
-                    success: true, 
+                    success: true,
                     message: 'Tạo phiếu nhập thành công',
                     MaPN, TongTien: tongTien, ConNo: conNo, allocationLogs, autoDistribute
                 });
@@ -698,8 +740,8 @@ const warehouseController = {
         try {
             const params = [];
             let where = 'WHERE sp.TinhTrang = 1';
-            if (MaCH)  { where += ' AND tk.MaCH = ?';  params.push(MaCH); }
-            if (MaSP)  { where += ' AND tk.MaSP = ?';  params.push(MaSP); }
+            if (MaCH) { where += ' AND tk.MaCH = ?'; params.push(MaCH); }
+            if (MaSP) { where += ' AND tk.MaSP = ?'; params.push(MaSP); }
             if (search) { where += ' AND sp.TenSP LIKE ?'; params.push(`%${search}%`); }
             if (lowStock === 'true') { where += ' AND tk.SoLuongTon <= tk.SoLuongToiThieu'; }
 
@@ -882,8 +924,8 @@ const warehouseController = {
                     TinhTrang = COALESCE(?, TinhTrang)
                 WHERE MaKho = ?
             `, [TenKho || null, Capacity ? Number(Capacity) : null,
-                Priority ? Number(Priority) : null, ViTri ?? null,
-                GhiChu ?? null, TinhTrang != null ? Number(TinhTrang) : null, id]);
+            Priority ? Number(Priority) : null, ViTri ?? null,
+            GhiChu ?? null, TinhTrang != null ? Number(TinhTrang) : null, id]);
 
             await logActivity({
                 MaTK: req.user.MaTK, HanhDong: 'Sua',
@@ -933,8 +975,8 @@ const warehouseController = {
         try {
             const params = [];
             let where = 'WHERE 1=1';
-            if (MaCH)   { where += ' AND tkct.MaKho = ?'; params.push(MaCH); } // MaCH now treated as MaKho
-            if (MaKho)  { where += ' AND tkct.MaKho = ?'; params.push(MaKho); }
+            if (MaCH) { where += ' AND tkct.MaKho = ?'; params.push(MaCH); } // MaCH now treated as MaKho
+            if (MaKho) { where += ' AND tkct.MaKho = ?'; params.push(MaKho); }
             if (search) { where += ' AND sp.TenSP LIKE ?'; params.push(`%${search}%`); }
 
             const [rows] = await pool.query(`
@@ -976,8 +1018,8 @@ const warehouseController = {
             const params = [];
             let where = 'WHERE 1=1';
             if (MaKhoNguon) { where += ' AND ck.MaKhoNguon = ?'; params.push(MaKhoNguon); }
-            if (MaKhoDich)  { where += ' AND ck.MaKhoDich = ?';  params.push(MaKhoDich); }
-            if (TrangThai)  { where += ' AND ck.TrangThai = ?';   params.push(TrangThai); }
+            if (MaKhoDich) { where += ' AND ck.MaKhoDich = ?'; params.push(MaKhoDich); }
+            if (TrangThai) { where += ' AND ck.TrangThai = ?'; params.push(TrangThai); }
 
             const [rows] = await pool.query(`
                 SELECT ck.*,
@@ -1055,9 +1097,9 @@ const warehouseController = {
 
             // Kiểm tra kho nguồn và kho đích tồn tại
             const [[khoNguon]] = await conn.query('SELECT MaKho, TenKho FROM kho_con WHERE MaKho = ? AND TinhTrang = 1', [MaKhoNguon]);
-            const [[khoDich]]  = await conn.query('SELECT MaKho, TenKho FROM kho_con WHERE MaKho = ? AND TinhTrang = 1', [MaKhoDich]);
+            const [[khoDich]] = await conn.query('SELECT MaKho, TenKho FROM kho_con WHERE MaKho = ? AND TinhTrang = 1', [MaKhoDich]);
             if (!khoNguon) throw new Error('Kho nguồn không tồn tại hoặc đã ngưng hoạt động');
-            if (!khoDich)  throw new Error('Kho đích không tồn tại hoặc đã ngưng hoạt động');
+            if (!khoDich) throw new Error('Kho đích không tồn tại hoặc đã ngưng hoạt động');
 
             const [emp] = await conn.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
             const nguoiChuyen = emp[0]?.MaNV || null;
@@ -1084,6 +1126,17 @@ const warehouseController = {
             }
 
             await conn.commit();
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Them',
+                BangDuLieu: 'chuyen_kho',
+                MaBanGhi: created[0], // Log first ID as reference
+                DuLieuMoi: { MaKhoNguon, MaKhoDich, count: created.length, items },
+                DiaChi_IP: req.ip,
+                GhiChu: `Tạo ${created.length} yêu cầu chuyển kho`
+            });
+
             res.status(201).json({
                 success: true,
                 message: `Đã tạo ${created.length} yêu cầu chuyển kho (đang chờ duyệt)`,
@@ -1125,7 +1178,7 @@ const warehouseController = {
 
             // Lấy MaCH của kho nguồn và kho đích để cập nhật ton_kho (tổng)
             const [[khoNguon]] = await conn.query('SELECT MaCH FROM kho_con WHERE MaKho = ?', [MaKhoNguon]);
-            const [[khoDich]]  = await conn.query('SELECT MaCH FROM kho_con WHERE MaKho = ?', [MaKhoDich]);
+            const [[khoDich]] = await conn.query('SELECT MaCH FROM kho_con WHERE MaKho = ?', [MaKhoDich]);
 
             // 1. Cập nhật ton_kho_chi_tiet (kho con cụ thể)
             await conn.query(
@@ -1160,6 +1213,17 @@ const warehouseController = {
             );
 
             await conn.commit();
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'chuyen_kho',
+                MaBanGhi: id,
+                DuLieuMoi: { TrangThai: 'Da_nhan', NguoiNhan: nguoiNhan },
+                DiaChi_IP: req.ip,
+                GhiChu: `Duyệt hoàn tất chuyển kho ID=${id}`
+            });
+
             res.json({ success: true, message: 'Đã duyệt và hoàn tất chuyển kho' });
         } catch (error) {
             await conn.rollback();
@@ -1184,6 +1248,16 @@ const warehouseController = {
                 [LyDo || 'Không có lý do', id]
             );
 
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'chuyen_kho',
+                MaBanGhi: id,
+                DuLieuMoi: { TrangThai: 'Huy', LyDo },
+                DiaChi_IP: req.ip,
+                GhiChu: `Hủy yêu cầu chuyển kho ID=${id}`
+            });
+
             res.json({ success: true, message: 'Đã hủy yêu cầu chuyển kho' });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -1198,8 +1272,8 @@ const warehouseController = {
         try {
             const params = [];
             let where = 'WHERE 1=1';
-            if (MaCH)      { where += ' AND kk.MaCH = ?';      params.push(MaCH); }
-            if (TrangThai) { where += ' AND kk.TrangThai = ?';  params.push(TrangThai); }
+            if (MaCH) { where += ' AND kk.MaCH = ?'; params.push(MaCH); }
+            if (TrangThai) { where += ' AND kk.TrangThai = ?'; params.push(TrangThai); }
 
             const [rows] = await pool.query(`
                 SELECT kk.*,
@@ -1299,6 +1373,17 @@ const warehouseController = {
             }
 
             await conn.commit();
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Them',
+                BangDuLieu: 'kiem_ke_kho',
+                MaBanGhi: MaKiemKe,
+                DuLieuMoi: { MaCH, NgayKiemKe: ngay, count: items.length },
+                DiaChi_IP: req.ip,
+                GhiChu: `Tạo phiếu kiểm kê kho tại MaCH=${MaCH}`
+            });
+
             res.status(201).json({ success: true, message: 'Tạo phiếu kiểm kê thành công', MaKiemKe });
         } catch (error) {
             await conn.rollback();
@@ -1349,9 +1434,11 @@ const warehouseController = {
                 }
 
                 await logActivity({
-                    MaTK: req.user.MaTK, HanhDong: 'KiemKe',
-                    BangDuLieu: 'ton_kho', MaBanGhi: id,
-                    DuLieuMoi: JSON.stringify({ MaCH: kk[0].MaCH, soSanPham: items.length }),
+                    MaTK: req.user.MaTK,
+                    HanhDong: 'KiemKe',
+                    BangDuLieu: 'ton_kho',
+                    MaBanGhi: id,
+                    DuLieuMoi: { MaCH: kk[0].MaCH, soSanPham: items.length },
                     DiaChi_IP: req.ip
                 });
             }
@@ -1413,8 +1500,12 @@ const warehouseController = {
                 [TenTG, NgaySinh || null, QuocTich || null, MoTa || null, HinhAnh || null]
             );
             await logActivity({
-                MaTK: req.user.MaTK, HanhDong: 'Them',
-                BangDuLieu: 'tacgia', MaBanGhi: result.insertId, DiaChi_IP: req.ip
+                MaTK: req.user.MaTK,
+                HanhDong: 'Them',
+                BangDuLieu: 'tacgia',
+                MaBanGhi: result.insertId,
+                DuLieuMoi: { TenTG, QuocTich },
+                DiaChi_IP: req.ip
             });
             res.status(201).json({ success: true, message: 'Thêm tác giả thành công', MaTG: result.insertId });
         } catch (error) {
@@ -1426,13 +1517,22 @@ const warehouseController = {
         const { id } = req.params;
         const { TenTG, NgaySinh, QuocTich, MoTa, HinhAnh } = req.body;
         try {
+            const [oldTG] = await pool.query('SELECT * FROM tacgia WHERE MaTG = ?', [id]);
+            if (oldTG.length === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy tác giả' });
+
             await pool.query(
                 'UPDATE tacgia SET TenTG = ?, NgaySinh = ?, QuocTich = ?, MoTa = ?, HinhAnh = ? WHERE MaTG = ?',
                 [TenTG, NgaySinh || null, QuocTich || null, MoTa || null, HinhAnh || null, id]
             );
+
             await logActivity({
-                MaTK: req.user.MaTK, HanhDong: 'Sua',
-                BangDuLieu: 'tacgia', MaBanGhi: id, DiaChi_IP: req.ip
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'tacgia',
+                MaBanGhi: id,
+                DuLieuCu: oldTG[0],
+                DuLieuMoi: { TenTG, QuocTich },
+                DiaChi_IP: req.ip
             });
             res.json({ success: true, message: 'Cập nhật tác giả thành công' });
         } catch (error) {
@@ -1443,7 +1543,8 @@ const warehouseController = {
     deleteAuthor: async (req, res) => {
         const { id } = req.params;
         try {
-            await pool.query('UPDATE tacgia SET TinhTrang = 0 WHERE MaTG = ?', [id]);
+            const [result] = await pool.query('UPDATE tacgia SET TinhTrang = 0 WHERE MaTG = ?', [id]);
+            if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy tác giả' });
             await logActivity({
                 MaTK: req.user.MaTK, HanhDong: 'Xoa',
                 BangDuLieu: 'tacgia', MaBanGhi: id, DiaChi_IP: req.ip
@@ -1491,6 +1592,15 @@ const warehouseController = {
                 'INSERT INTO theloai (TenTL, MoTa, TinhTrang) VALUES (?, ?, 1)',
                 [TenTL.trim(), MoTa || null]
             );
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Them',
+                BangDuLieu: 'theloai',
+                MaBanGhi: result.insertId,
+                DuLieuMoi: { TenTL, MoTa },
+                DiaChi_IP: req.ip
+            });
+
             res.status(201).json({ success: true, message: 'Thêm thể loại thành công', MaTL: result.insertId });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -1504,11 +1614,23 @@ const warehouseController = {
         try {
             const [dup] = await pool.query('SELECT MaTL FROM theloai WHERE TenTL = ? AND MaTL != ?', [TenTL.trim(), id]);
             if (dup.length > 0) return res.status(400).json({ success: false, message: 'Tên thể loại đã tồn tại' });
+            const [oldTL] = await pool.query('SELECT * FROM theloai WHERE MaTL = ?', [id]);
             const [result] = await pool.query(
                 'UPDATE theloai SET TenTL = ?, MoTa = ?, TinhTrang = ? WHERE MaTL = ?',
                 [TenTL.trim(), MoTa || null, TinhTrang ?? 1, id]
             );
             if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy thể loại' });
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Sua',
+                BangDuLieu: 'theloai',
+                MaBanGhi: id,
+                DuLieuCu: oldTL[0],
+                DuLieuMoi: { TenTL, MoTa, TinhTrang },
+                DiaChi_IP: req.ip
+            });
+
             res.json({ success: true, message: 'Cập nhật thành công' });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -1522,6 +1644,15 @@ const warehouseController = {
             if (used[0].cnt > 0) return res.status(400).json({ success: false, message: `Không thể xóa: có ${used[0].cnt} sản phẩm thuộc thể loại này` });
             const [result] = await pool.query('DELETE FROM theloai WHERE MaTL = ?', [id]);
             if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy thể loại' });
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Xoa',
+                BangDuLieu: 'theloai',
+                MaBanGhi: id,
+                DiaChi_IP: req.ip
+            });
+
             res.json({ success: true, message: 'Xóa thể loại thành công' });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });

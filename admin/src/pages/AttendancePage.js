@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Select from 'react-select';
 import axios from 'axios';
 import '../styles/AttendancePage.css';
@@ -13,6 +13,7 @@ const statusColors = {
   Tre: '#FF9800',
   Ve_som: '#FFC107',
   Tre_Ve_som: '#FF5722',
+  Lam_them: '#2E7D32',
   Thai_san: '#9C27B0',
   Om_dau: '#E91E63',
   Chua_cham_cong: '#B0BEC5',
@@ -25,6 +26,7 @@ const statusLabels = {
   Tre: 'Đi trễ',
   Ve_som: 'Về sớm',
   Tre_Ve_som: 'Trễ & Sớm',
+  Lam_them: 'Tăng ca',
   Thai_san: 'Thai sản',
   Om_dau: 'Ốm đau',
   Chua_cham_cong: '',
@@ -91,21 +93,16 @@ const AttendancePage = () => {
   const token = localStorage.getItem('authToken');
 
   // Lấy dữ liệu chấm công theo tháng/năm
-  useEffect(() => {
-    if (activeTab === 'calendar') {
-      fetchAttendanceData();
-      fetchCalendarHolidays();
-    }
-  }, [month, year, activeTab]);
-
-  const fetchAttendanceData = async () => {
+  const fetchAttendanceData = useCallback(async () => {
     try {
+      const token = localStorage.getItem('authToken');
       const res = await axios.get(
         `${API_BASE}/monthly?month=${month}&year=${year}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setEmployees(res.data);
-      if (res.data.length > 0) setSelectedEmployee(res.data[0]);
+      const list = (res.data && res.data.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
+      setEmployees(list);
+      if (list.length > 0) setSelectedEmployee(list[0]);
       setPendingChanges({});
     } catch (err) {
       console.error('Error fetching attendance:', err);
@@ -113,15 +110,16 @@ const AttendancePage = () => {
       setSelectedEmployee(null);
       setPendingChanges({});
     }
-  };
+  }, [month, year]);
 
-  const fetchCalendarHolidays = async () => {
+  const fetchCalendarHolidays = useCallback(async () => {
     try {
+      const token = localStorage.getItem('authToken');
       const res = await axios.get(
         `${API_BASE}/holidays?year=${year}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      const list = res.data.data || [];
+      const list = (res.data && res.data.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []);
       const map = {};
       list.forEach((h) => {
         const d = new Date(h.Ngay);
@@ -135,7 +133,14 @@ const AttendancePage = () => {
       console.error('Error fetching calendar holidays:', err);
       setCalendarHolidayMap({});
     }
-  };
+  }, [month, year]);
+
+  useEffect(() => {
+    if (activeTab === 'calendar') {
+      fetchAttendanceData();
+      fetchCalendarHolidays();
+    }
+  }, [activeTab, fetchAttendanceData, fetchCalendarHolidays]);
 
   // Fetch báo cáo bất thường
   const fetchAbnormalReport = async () => {

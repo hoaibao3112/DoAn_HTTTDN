@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useCallback } from 'react';
 import { Table, Button, Modal, Form, Input, DatePicker, message, Tag, Space, Select } from 'antd';
 import axios from 'axios';
 import moment from 'moment';
@@ -21,42 +21,49 @@ const LeavePage = () => {
   const [form] = Form.useForm();
 
   // Lấy danh sách đơn nghỉ phép
-  const fetchLeave = async () => {
+  const fetchLeave = useCallback(async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken');
       const res = await axios.get('http://localhost:5000/api/hr/leave-requests', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (res.data.success) {
+      if (res.data && res.data.success) {
         // Sắp xếp theo id giảm dần (mới nhất trên cùng)
-        const sortedData = res.data.data.sort((a, b) => b.id - a.id);
+        const sortedData = (res.data.data || []).sort((a, b) => b.id - a.id);
         setData(sortedData);
+      } else if (Array.isArray(res.data)) {
+        // tolerate APIs that return array directly
+        setData(res.data.sort((a, b) => b.id - a.id));
       }
-    } catch {
+    } catch (err) {
+      console.error('Fetch leave error', err);
       message.error('Lỗi khi tải dữ liệu nghỉ phép');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchApproved = async () => {
+  const fetchApproved = useCallback(async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken');
       const res = await axios.get('http://localhost:5000/api/hr/leave-requests/approved', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (res.data.success) {
-        const sorted = res.data.data.sort((a, b) => b.id - a.id);
+      if (res.data && res.data.success) {
+        const sorted = (res.data.data || []).sort((a, b) => b.id - a.id);
         setApprovedData(sorted);
+      } else if (Array.isArray(res.data)) {
+        setApprovedData(res.data.sort((a, b) => b.id - a.id));
       }
     } catch (err) {
+      console.error('Fetch approved error', err);
       message.error('Lỗi khi tải danh sách đã duyệt');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (hasPermission('Nghĩ Phép', 'Đọc')) {
@@ -65,14 +72,7 @@ const LeavePage = () => {
     } else {
       message.error('Bạn không có quyền xem danh sách nghỉ phép!');
     }
-  }, [hasPermission]);
-
-  useEffect(() => {
-    if (hasPermission('Nghĩ Phép', 'Đọc')) {
-      if (viewMode === 'pending') fetchLeave();
-      else fetchApproved();
-    }
-  }, [viewMode]);
+  }, [hasPermission, viewMode, fetchLeave, fetchApproved]);
 
   // Duyệt đơn nghỉ phép
   const handleApprove = async (id) => {

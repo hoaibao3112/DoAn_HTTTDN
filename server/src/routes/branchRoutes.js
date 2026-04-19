@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/connectDatabase.js';
 import { authenticateToken } from '../utils/generateToken.js';
+import { logActivity } from '../utils/auditLogger.js';
 
 const router = express.Router();
 
@@ -26,16 +27,27 @@ router.put('/:id', async (req, res) => {
     if (!TenCH) {
         return res.status(400).json({ success: false, message: 'Tên kho là bắt buộc' });
     }
-
     try {
-        const [result] = await pool.query(
+        const [current] = await pool.query('SELECT * FROM kho_con WHERE MaKho = ?', [id]);
+        if (current.length === 0) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy kho' });
+        }
+
+        await pool.query(
             'UPDATE kho_con SET TenKho = ?, ViTri = ?, TinhTrang = ? WHERE MaKho = ?',
             [TenCH, DiaChi || null, TrangThai ?? 1, id]
         );
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy kho' });
-        }
+        await logActivity({
+            MaTK: req.user.MaTK,
+            HanhDong: 'Sua',
+            BangDuLieu: 'kho_con',
+            MaBanGhi: id,
+            DuLieuCu: current[0],
+            DuLieuMoi: { TenKho: TenCH, TinhTrang: TrangThai },
+            DiaChi_IP: req.ip,
+            GhiChu: `Cập nhật thông tin kho: ${TenCH}`
+        });
 
         res.json({ success: true, message: 'Cập nhật thành công' });
     } catch (error) {

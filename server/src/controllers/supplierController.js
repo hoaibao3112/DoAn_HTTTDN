@@ -142,8 +142,8 @@ const supplierController = {
                 HanhDong: 'Sua',
                 BangDuLieu: 'nhacungcap',
                 MaBanGhi: id,
-                DuLieuCu: JSON.stringify(oldData[0]),
-                DuLieuMoi: JSON.stringify({ TenNCC, SDT, Email }),
+                DuLieuCu: oldData[0],
+                DuLieuMoi: { TenNCC, SDT, Email },
                 DiaChi_IP: req.ip
             });
 
@@ -288,6 +288,17 @@ const supplierController = {
             }
 
             await conn.commit();
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Them',
+                BangDuLieu: 'lich_su_tra_no_ncc',
+                MaBanGhi: MaCongNo,
+                DuLieuMoi: { SoTien, PhuongThuc },
+                DiaChi_IP: req.ip,
+                GhiChu: `Thanh toán công nợ NCC: ${SoTien.toLocaleString('vi-VN')}đ`
+            });
+
             res.json({ success: true, message: 'Ghi nhận thanh toán thành công', SoTienConLai: newRemaining });
         } catch (error) {
             await conn.rollback();
