@@ -16,6 +16,7 @@ import paymentRoutes from './paymentRoutes.js';
 import promotionRoutes from './promotionRoutes.js';
 import loyaltyRoutes from './loyaltyRoutes.js';
 import branchRoutes from './branchRoutes.js';
+import salary13Routes from './salary13Routes.js';
 
 export const initRoutes = (app) => {
   // Root path - Server status
@@ -87,4 +88,5 @@ export const initRoutes = (app) => {
   app.use('/api/finance', financeRoutes);
   app.use('/api/chat', chatRoutes);
   app.use('/api/payments', paymentRoutes);
+  app.use('/api/luong-thang-13', salary13Routes);
 };

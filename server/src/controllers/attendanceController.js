@@ -1,5 +1,6 @@
 import pool from '../config/connectDatabase.js';
 import { logActivity } from '../utils/auditLogger.js';
+import { autoFillMonthlyAttendance } from '../utils/attendanceSync.js';
 
 // ======================= HELPER FUNCTIONS =======================
 
@@ -846,6 +847,64 @@ const attendanceController = {
             });
 
             res.json({ success: true, message: 'Xóa ngày lễ thành công' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    // ======================= AUTO FILL MONTHLY ATTENDANCE (Admin Manual Trigger) =======================
+    autoFillMonthlyAttendanceAdmin: async (req, res) => {
+        const { month, year } = req.body;
+
+        if (!month || !year) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu tham số: month và year là bắt buộc'
+            });
+        }
+
+        const m = parseInt(month);
+        const y = parseInt(year);
+
+        if (m < 1 || m > 12 || y < 2000 || y > 2100) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tháng hoặc năm không hợp lệ'
+            });
+        }
+
+        // Không cho phép điền tháng tương lai
+        const now = new Date();
+        const requestedDate = new Date(y, m - 1, 1);
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        if (requestedDate > currentMonthStart) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không thể tự động chấm công cho tháng trong tương lai'
+            });
+        }
+
+        try {
+            const result = await autoFillMonthlyAttendance(m, y);
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'AutoFillMonthly',
+                BangDuLieu: 'cham_cong',
+                DuLieuMoi: { month: m, year: y, inserted: result.inserted, skipped: result.skipped },
+                DiaChi_IP: req.ip
+            });
+
+            res.json({
+                success: true,
+                message: `Tự động chấm công tháng ${m}/${y} hoàn thành`,
+                data: {
+                    inserted: result.inserted,
+                    skipped: result.skipped,
+                    month: m,
+                    year: y
+                }
+            });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }

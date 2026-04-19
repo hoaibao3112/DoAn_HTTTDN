@@ -8,6 +8,7 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement
 } from 'chart.js';
 import { Bar, Pie } from 'react-chartjs-2';
+import { toast } from 'react-toastify';
 import '../styles/AttendancePage.css';
 
 import { FEATURES } from '../constants/permissions';
@@ -16,6 +17,7 @@ import { PermissionContext } from '../components/PermissionContext';
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement);
 
 const API_HR = 'http://localhost:5000/api/hr';
+const API_SALARY_13 = 'http://localhost:5000/api/luong-thang-13';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0)) + 'đ';
 const fmtShort = (n) => {
@@ -35,7 +37,7 @@ const LOAI_OPTIONS = [
 
 const SalaryPage = () => {
   const { hasPermissionById } = useContext(PermissionContext);
-  const [activeTab, setActiveTab] = useState('summary'); // 'summary', 'bonus_penalty', 'stats'
+  const [activeTab, setActiveTab] = useState('summary'); // 'summary', 'bonus_penalty', 'stats', 'salary13'
   const [statsData, setStatsData] = useState({ monthlyTrend: [], composition: { base: 0, allowance: 0, bonus: 0, penalty: 0 }, topRewards: [] });
 
   // Shared state
@@ -68,6 +70,17 @@ const SalaryPage = () => {
   const [editBPRecord, setEditBPRecord] = useState(null);
   const [bpForm, setBpForm] = useState({ MaNV: '', Loai: 'Thuong', SoTien: '', LyDo: '', GhiChu: '' });
   const [bpSaving, setBpSaving] = useState(false);
+
+  // --- TAB 4: SALARY 13 STATE ---
+  const [salary13List, setSalary13List] = useState([]);
+  const [salary13Summary, setSalary13Summary] = useState({ tongNhanVien: 0, tongChiPhi: 0 });
+  const [loading13, setLoading13] = useState(false);
+  const [calculating13, setCalculating13] = useState(false);
+  const [paying13, setPaying13] = useState(null);
+  const [isPreviewMode, setIsPreviewMode] = useState(true);
+  const [detailModal13, setDetailModal13] = useState(false);
+  const [detailRow13, setDetailRow13] = useState(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
 
   const canCreateBP = hasPermissionById(FEATURES.BONUS_PENALTY, 'them');
   const canEditBP = hasPermissionById(FEATURES.BONUS_PENALTY, 'sua');
@@ -131,11 +144,43 @@ const SalaryPage = () => {
     }
   }, [year, month]);
 
+  const fetchSalary13 = React.useCallback(async () => {
+    setLoading13(true);
+    try {
+      // Đầu tiên thử lấy dữ liệu đã chốt
+      const res = await axios.get(`${API_SALARY_13}/${year}`, { headers });
+      if (res.data.success && res.data.data.length > 0) {
+        setSalary13List(res.data.data);
+        setSalary13Summary({
+          tongNhanVien: res.data.data.length,
+          tongChiPhi: res.data.data.reduce((s, r) => s + Number(r.Thuong || 0), 0)
+        });
+        setIsPreviewMode(false);
+      } else {
+        // Nếu chưa có, lấy bản xem trước
+        const previewRes = await axios.get(`${API_SALARY_13}/xem-truoc/${year}`, { headers });
+        if (previewRes.data.success) {
+          setSalary13List(previewRes.data.data || []);
+          setSalary13Summary({
+            tongNhanVien: previewRes.data.tongNhanVien,
+            tongChiPhi: previewRes.data.tongChiPhi
+          });
+          setIsPreviewMode(true);
+        }
+      }
+    } catch (err) {
+      console.error('Fetch salary 13 error:', err);
+      setSalary13List([]);
+    }
+    setLoading13(false);
+  }, [year, headers]);
+
   useEffect(() => {
     if (activeTab === 'summary') fetchSalary();
     else if (activeTab === 'bonus_penalty') fetchBPData();
     else if (activeTab === 'stats') fetchSalaryStats();
-  }, [activeTab, fetchSalary, fetchBPData, fetchSalaryStats]);
+    else if (activeTab === 'salary13') fetchSalary13();
+  }, [activeTab, fetchSalary, fetchBPData, fetchSalaryStats, fetchSalary13]);
 
   useEffect(() => {
     if (activeTab === 'bonus_penalty') fetchBPEmployees();
@@ -149,11 +194,11 @@ const SalaryPage = () => {
     try {
       const res = await axios.post(`${API_HR}/salary/calculate`, { month, year }, { headers });
       if (res.data.success) {
-        alert(res.data.message);
+        toast.success(res.data.message);
         fetchSalary();
       }
     } catch (err) {
-      alert('Lỗi tính lương: ' + (err.response?.data?.message || err.message));
+      toast.error('Lỗi tính lương: ' + (err.response?.data?.message || err.message));
     }
     setCalculating(false);
   };
@@ -166,12 +211,58 @@ const SalaryPage = () => {
       await axios.put(`${API_HR}/salary-pay`, { MaNV: row.MaNV, month, year }, { headers });
       fetchSalary();
     } catch (err) {
-      alert('Lỗi: ' + (err.response?.data?.message || err.message));
+      toast.error('Lỗi: ' + (err.response?.data?.message || err.message));
     }
     setPaying(null);
   };
 
-  
+  // --- SALARY 13 HANDLERS ---
+  const handleCalculate13 = async () => {
+    const eligibleCount = salary13List.filter(row => (row.soThangCong || row.PayableDays) >= 12).length;
+    if (eligibleCount === 0) {
+      toast.error('Không có nhân viên nào đủ điều kiện (12 tháng) để chốt lương T13 năm ' + year);
+      return;
+    }
+
+    if (!window.confirm(`Xác nhận chốt bảng lương tháng 13 năm ${year}?\nDữ liệu sẽ được lưu chính thức vào hệ thống.`)) return;
+    
+    setCalculating13(true);
+    try {
+      const res = await axios.post(`${API_SALARY_13}/tinh/${year}`, { maNVList: selectedRowKeys }, { headers });
+      if (res.data.success) {
+        toast.success(res.data.message);
+        fetchSalary13();
+      }
+    } catch (err) {
+      toast.error('Lỗi tính lương: ' + (err.response?.data?.message || err.message));
+    }
+    setCalculating13(false);
+  };
+
+  const handlePay13 = async (row) => {
+    if (!window.confirm(`Xác nhận đã chi trả thưởng tháng 13 cho ${row.HoTen}?\nSố tiền: ${fmt(row.LuongThucLinh || row.thuongT13_net)}`)) return;
+    setPaying13(row.MaNV);
+    try {
+      const res = await axios.patch(`${API_SALARY_13}/${year}/${row.MaNV}/duyet`, {}, { headers });
+      if (res.data.success) {
+        fetchSalary13();
+      }
+    } catch (err) {
+      alert('Lỗi: ' + (err.response?.data?.message || err.message));
+    }
+    setPaying13(null);
+  };
+
+  const handleDelete13 = async () => {
+    if (!window.confirm(`CẢNH BÁO: Bạn có chắc chắn muốn HỦY bộ dữ liệu thưởng T13 năm ${year}? Phải tính toán lại toàn bộ dữ liệu.`)) return;
+    try {
+      const res = await axios.delete(`${API_SALARY_13}/${year}`, { headers });
+      if (res.data.success) {
+        toast.success(res.data.message);
+        fetchSalary13();
+      }
+    } catch (err) { toast.error('Lỗi khi xóa dữ liệu: ' + (err.response?.data?.message || err.message)); }
+  };
 
   const dailyRate = (row) => {
     const base = parseFloat(row.LuongCoBan || 0);
@@ -335,6 +426,15 @@ const SalaryPage = () => {
               fontWeight: 600, cursor: 'pointer', marginBottom: -1
             }}
           >Biểu đồ Thống kê 📊</button>
+          <button
+            onClick={() => setActiveTab('salary13')}
+            style={{
+              padding: '10px 20px', border: '1px solid #ddd', borderRadius: '8px 8px 0 0',
+              background: activeTab === 'salary13' ? '#fff' : '#f5f5f5',
+              borderBottom: activeTab === 'salary13' ? '2px solid #fff' : '1px solid #ddd',
+              fontWeight: 600, cursor: 'pointer', marginBottom: -1
+            }}
+          >Lương tháng 13</button>
         </div>
       </div>
 
@@ -461,6 +561,24 @@ const SalaryPage = () => {
                 <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
                   <button onClick={handleExportExcel} style={{ background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}><i className="fas fa-file-excel"></i> Excel</button>
                   <button onClick={handleExportPDF} style={{ background: '#c62828', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}><i className="fas fa-file-pdf"></i> PDF</button>
+                </div>
+              )}
+            </>
+          ) : activeTab === 'salary13' ? (
+            <>
+              {isPreviewMode && (
+                <button
+                  onClick={handleCalculate13}
+                  disabled={calculating13 || salary13List.length === 0}
+                  className="btn-salary"
+                  style={{ background: '#e65100', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  <i className={`fas ${calculating13 ? 'fa-spinner fa-spin' : 'fa-check-double'}`}></i> {calculating13 ? 'Đang lưu...' : 'Chốt bảng lương T13'}
+                </button>
+              )}
+              {!isPreviewMode && (
+                <div style={{ padding: '8px 16px', background: '#e8f5e9', color: '#2e7d32', borderRadius: 6, fontWeight: 700 }}>
+                  <i className="fas fa-lock"></i> Đã chốt số liệu năm {year}
                 </div>
               )}
             </>
@@ -624,6 +742,101 @@ const SalaryPage = () => {
             )}
           </>
         )}
+
+        {/* TAB 4: SALARY 13 */}
+        {activeTab === 'salary13' && (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
+              <SummaryCard icon="fa-user-graduate" label="Nhân viên đủ điều kiện" value={`${salary13Summary.tongNhanVien} người`} color="#e65100" bg="#fff3e0" />
+              <SummaryCard icon="fa-gift" label="Tổng quỹ thưởng T13" value={fmtShort(salary13Summary.tongChiPhi)} sub={fmt(salary13Summary.tongChiPhi)} color="#c62828" bg="#ffebee" />
+              <SummaryCard icon="fa-info-circle" label="Trạng thái" value={isPreviewMode ? 'Bản xem trước' : 'Đã chốt sổ'} color={isPreviewMode ? '#1976d2' : '#2e7d32'} bg={isPreviewMode ? '#e3f2fd' : '#e8f5e9'} />
+            </div>
+
+            {/* Quy chuẩn trừ thưởng */}
+            <div style={{ background: '#fff9c4', padding: '10px 15px', borderRadius: 8, fontSize: 13, color: '#f57f17', border: '1px solid #fff176', marginBottom: 20 }}>
+              <i className="fas fa-exclamation-circle"></i> <strong>Quy tắc trừ thâm niên:</strong> 0-10 lần (Nhận 100%), 11-20 (-10%), 21-30 (-20%), 31-50 (-30%), >50 (Mất thưởng).
+            </div>
+
+            {loading13 ? <div style={{ textAlign: 'center', padding: 40 }}><i className="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</div> : (
+              salary13List.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 40, background: '#f5f5f5', borderRadius: 10 }}>
+                  Không có dữ liệu thưởng tháng 13 cho năm {year}.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: isPreviewMode ? '#555' : '#c62828', color: '#fff' }}>
+                        <th style={th}>STT</th>
+                        <th style={{ ...th, textAlign: 'left' }}>Nhân viên</th>
+                        <th style={th}>Thâm niên (Tháng)</th>
+                        <th style={th}>Vi phạm (Lần)</th>
+                        <th style={th}>Thưởng Gross</th>
+                        <th style={th}>Thuế TNCN</th>
+                        <th style={th}>Thưởng Net</th>
+                        <th style={th}>Ghi chú</th>
+                        {!isPreviewMode && <th style={th}>Trạng thái</th>}
+                        {!isPreviewMode && <th style={th}>Thao tác</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {salary13List.map((row, idx) => (
+                        <tr key={row.MaNV} style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={td}>{idx + 1}</td>
+                          <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>{row.HoTen}</td>
+                          <td style={td}>{row.soThangCong || row.PayableDays} tháng</td>
+                          <td style={{ ...td, color: row.soViPham > 10 ? '#c62828' : '#555', fontWeight: row.soViPham > 10 ? 700 : 400 }}>
+                            {row.soViPham || 0} lần
+                          </td>
+                          <td style={tdRight}>{fmt(row.thuongT13_gross || row.Thuong)}</td>
+                          <td style={{ ...tdRight, color: '#c62828' }}>-{fmt(row.thueTNCN || row.ThueTNCN)}</td>
+                          <td style={{ ...tdRight, fontWeight: 700, color: '#2e7d32' }}>{fmt(row.thuongT13_net || row.LuongThucLinh)}</td>
+                          <td style={{ ...td, textAlign: 'left', fontSize: 11, color: '#666' }}>{row.ghiChu || row.GhiChu}</td>
+                          {!isPreviewMode && (
+                            <td style={td}>
+                              <span style={{
+                                fontSize: 11, padding: '2px 8px', borderRadius: 10,
+                                background: row.TrangThai === 'Da_chi_tra' ? '#e8f5e9' : '#fff3e0',
+                                color: row.TrangThai === 'Da_chi_tra' ? '#2e7d32' : '#e65100'
+                              }}>
+                                {row.TrangThai === 'Da_chi_tra' ? 'Đã chi trả' : 'Đợi duyệt'}
+                              </span>
+                            </td>
+                          )}
+                          {!isPreviewMode && (
+                            <td style={td}>
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                                <button
+                                  onClick={() => { setDetailRow13(row); setDetailModal13(true); }}
+                                  style={{
+                                    padding: '6px 12px', border: 'none', background: '#1976d2', color: '#fff', borderRadius: 4, cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 12
+                                  }}>
+                                  <i className="fas fa-eye"></i> Chi tiết
+                                </button>
+                                {row.TrangThai !== 'Da_chi_tra' && (
+                                  <button
+                                    onClick={() => handlePay13(row)}
+                                    disabled={paying13 === row.MaNV}
+                                    style={{
+                                      padding: '6px 12px', border: 'none', background: '#388e3c', color: '#fff', borderRadius: 4, cursor: 'pointer',
+                                      display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 12
+                                    }}>
+                                    <i className={`fas ${paying13 === row.MaNV ? 'fa-spinner fa-spin' : 'fa-check'}`}></i> {paying13 === row.MaNV ? '...' : 'Chi trả'}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+          </>
+        )}
       </div>
 
       {/* SALARY DETAIL MODAL */}
@@ -642,6 +855,81 @@ const SalaryPage = () => {
               <div style={{ ...mRow, fontWeight: 700, fontSize: 18, color: '#1976d2' }}><span>Tổng nhận:</span> <span>{fmt(detailRow.TongLuong)}</span></div>
             </div>
             <button onClick={() => setDetailModal(false)} style={{ marginTop: 20, width: '100%', padding: 10, border: 'none', background: '#eee', borderRadius: 6, cursor: 'pointer' }}>Đóng</button>
+          </div>
+        </div>
+      )}
+
+      {/* SALARY 13 DETAIL MODAL */}
+      {detailModal13 && detailRow13 && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 10, width: 550, padding: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0 }}>Chi tiết Thưởng T13 - {year}</h3>
+              <span style={{ fontSize: 24, cursor: 'pointer' }} onClick={() => setDetailModal13(false)}>&times;</span>
+            </div>
+            
+            <div style={{ padding: '16px', background: '#f8f9fa', borderRadius: 8, marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{detailRow13.HoTen}</div>
+              <div style={{ color: '#666', fontSize: 14 }}>{detailRow13.ChucVu}</div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={mRow}>
+                <span>Lương cơ bản (đóng BH):</span> 
+                <span style={{ fontWeight: 600 }}>{fmt(detailRow13.LuongCoBan || detailRow13.LuongCoBanThucTe)}</span>
+              </div>
+              <div style={mRow}>
+                <span>Thời gian công tác trong năm:</span> 
+                <span style={{ fontWeight: 600 }}>{detailRow13.soThangCong || detailRow13.PayableDays} / 12 tháng</span>
+              </div>
+              <div style={mRow}>
+                <span>Tổng vi phạm (Trễ/Nghỉ KP):</span> 
+                <span style={{ fontWeight: 700, color: detailRow13.soViPham > 10 ? '#c62828' : '#2e7d32' }}>{detailRow13.soViPham || 0} lần</span>
+              </div>
+              <div style={mRow}>
+                <span>Tỉ lệ khấu trừ:</span> 
+                <span style={{ fontWeight: 700, color: '#c62828' }}>
+                  {detailRow13.tyLeKhauTru ? `-${detailRow13.tyLeKhauTru * 100}%` : 'Không trừ'}
+                </span>
+              </div>
+              <div style={{ ...mRow, fontSize: 13, color: '#666', fontStyle: 'italic' }}>
+                <span>Cách tính:</span>
+                <span>(Lương CB * số tháng) / 12</span>
+              </div>
+              <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '8px 0' }} />
+              
+              <div style={mRow}>
+                <span>Tổng thưởng (Gross):</span>
+                <span style={{ fontWeight: 700 }}>{fmt(detailRow13.thuongT13_gross || detailRow13.Thuong)}</span>
+              </div>
+              <div style={{ ...mRow, color: '#c62828' }}>
+                <span>Thuế TNCN tạm tính:</span>
+                <span>-{fmt(detailRow13.thueTNCN || detailRow13.ThueTNCN)}</span>
+              </div>
+              
+              <div style={{ 
+                marginTop: 10, padding: '16px', background: '#e8f5e9', borderRadius: 8, 
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+              }}>
+                <span style={{ fontWeight: 700, fontSize: 18, color: '#2e7d32' }}>Thực lĩnh (Net):</span>
+                <span style={{ fontWeight: 800, fontSize: 22, color: '#2e7d32' }}>{fmt(detailRow13.thuongT13_net || detailRow13.LuongThucLinh)}</span>
+              </div>
+
+              {(detailRow13.ghiChu || detailRow13.GhiChu) && (
+                <div style={{ marginTop: 10, fontSize: 12, color: '#888' }}>
+                  <strong>Ghi chú:</strong> {detailRow13.ghiChu || detailRow13.GhiChu}
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={() => setDetailModal13(false)} 
+              style={{ 
+                marginTop: 24, width: '100%', padding: '12px', border: 'none', 
+                background: '#444', color: '#fff', borderRadius: 8, cursor: 'pointer', fontWeight: 600
+              }}>
+              Đóng cửa sổ
+            </button>
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import pool from '../config/connectDatabase.js';
+import { autoFillMonthlyAttendance } from './attendanceSync.js';
 
 /**
  * Cron job tự động đánh vắng mặt cho nhân viên
@@ -80,10 +81,36 @@ export const setupAttendanceCronJobs = () => {
         }
     });
 
+    // Job 4: Tự động điền chấm công cả tháng lúc 23:58 ngày cuối tháng
+    // Chạy mỗi ngày 28-31 để check xem hôm nay có phải ngày cuối tháng không
+    cron.schedule('58 23 28-31 * *', async () => {
+        try {
+            const now = new Date();
+            const today = now.getDate();
+            const month = now.getMonth() + 1;
+            const year = now.getFullYear();
+            // Kiểm tra ngày mai có phải ngày 1 không (tức hôm nay là cuối tháng)
+            const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+            const isLastDayOfMonth = tomorrow.getDate() === 1;
+
+            if (!isLastDayOfMonth) {
+                console.log(`[CRON-MonthlyFill] Ngày ${today} không phải cuối tháng, bỏ qua.`);
+                return;
+            }
+
+            console.log(`[CRON-MonthlyFill] Ngày cuối tháng ${month}/${year}, bắt đầu tự động điền chấm công...`);
+            const result = await autoFillMonthlyAttendance(month, year);
+            console.log(`[CRON-MonthlyFill] Hoàn thành: tạo ${result.inserted} bản ghi, bỏ qua ${result.skipped} đã có.`);
+        } catch (error) {
+            console.error('[CRON-MonthlyFill] Lỗi:', error.message);
+        }
+    });
+
     console.log('[CRON] Đã khởi tạo các cron jobs chấm công:');
     console.log('  - Đánh vắng mặt: 23:59 hàng ngày');
     console.log('  - Cảnh báo quên chấm ra: 18:00 hàng ngày');
     console.log('  - Báo cáo tháng: 00:01 ngày 1 hàng tháng');
+    console.log('  - Tự động điền chấm công cả tháng: 23:58 ngày cuối tháng');
 };
 
 /**

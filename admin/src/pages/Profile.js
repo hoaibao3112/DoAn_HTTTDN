@@ -5,8 +5,10 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import html2pdf from 'html2pdf.js';
+import { toast } from 'react-toastify';
 
 const API = 'http://localhost:5000/api/hr';
+const API_SALARY_13 = 'http://localhost:5000/api/luong-thang-13';
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(Math.round(n || 0)) + 'đ';
 const fmtShort = (n) => {
@@ -105,10 +107,15 @@ const Profile = () => {
   const fetchSalary = useCallback(async (m, y) => {
     setSalaryLoading(true);
     try {
-      const res = await axios.get(`${API}/my-salary`, {
-        headers, params: { thang: m, nam: y }
-      });
-      setSalary(res.data.success ? res.data.data : null);
+      if (m === 13) {
+        const res = await axios.get(`${API_SALARY_13}/ca-nhan/${y}`, { headers });
+        setSalary(res.data.success ? res.data.data : null);
+      } else {
+        const res = await axios.get(`${API}/my-salary`, {
+          headers, params: { thang: m, nam: y }
+        });
+        setSalary(res.data.success ? res.data.data : null);
+      }
     } catch { setSalary(null); }
     setSalaryLoading(false);
   }, []);
@@ -147,8 +154,13 @@ const Profile = () => {
         GioVao: dayjs().format('HH:mm:ss'),
         GhiChu: 'Vào ca'
       }, { headers });
-      if (res.data.success) { alert(res.data.message || 'Chấm công vào thành công!'); fetchToday(); }
-    } catch (e) { alert(e.response?.data?.message || 'Lỗi chấm công!'); }
+      if (res.data.success) { 
+        toast.success(res.data.message || 'Chấm công vào thành công!'); 
+        fetchToday(); 
+      }
+    } catch (e) { 
+      toast.error(e.response?.data?.message || 'Lỗi chấm công!'); 
+    }
     setAttLoading(false);
   };
 
@@ -160,8 +172,13 @@ const Profile = () => {
         GioRa: dayjs().format('HH:mm:ss'),
         GhiChu: 'Ra ca'
       }, { headers });
-      if (res.data.success) { alert(res.data.message || 'Chấm công ra thành công!'); fetchToday(); }
-    } catch (e) { alert(e.response?.data?.message || 'Lỗi chấm công!'); }
+      if (res.data.success) { 
+        toast.success(res.data.message || 'Chấm công ra thành công!'); 
+        fetchToday(); 
+      }
+    } catch (e) { 
+      toast.error(e.response?.data?.message || 'Lỗi chấm công!'); 
+    }
     setAttLoading(false);
   };
 
@@ -171,9 +188,11 @@ const Profile = () => {
       await axios.put('http://localhost:5000/api/accounts/change-password',
         { oldPassword: values.oldPassword, newPassword: values.newPassword },
         { headers });
-      alert('Đổi mật khẩu thành công!');
+      toast.success('Đổi mật khẩu thành công!');
       setShowPwd(false);
-    } catch (e) { alert(e.response?.data?.error || 'Đổi mật khẩu thất bại!'); }
+    } catch (e) { 
+      toast.error(e.response?.data?.error || 'Đổi mật khẩu thất bại!'); 
+    }
     setPwdLoading(false);
   };
 
@@ -181,8 +200,14 @@ const Profile = () => {
     setEditLoading(true);
     try {
       const res = await axios.put(`${API}/profile`, values, { headers });
-      if (res.data.success) { alert('Cập nhật thành công!'); setShowEdit(false); fetchProfile(); }
-    } catch { alert('Lỗi cập nhật!'); }
+      if (res.data.success) { 
+        toast.success('Cập nhật thành công!'); 
+        setShowEdit(false); 
+        fetchProfile(); 
+      }
+    } catch { 
+      toast.error('Lỗi cập nhật!'); 
+    }
     setEditLoading(false);
   };
 
@@ -505,6 +530,18 @@ const Profile = () => {
               T{m.value}
             </button>
           ))}
+          <button
+            onClick={() => setViewMonth(13)}
+            style={{
+              padding: '4px 12px', borderRadius: 20, fontSize: 13,
+              border: `1px solid ${viewMonth === 13 ? '#e65100' : '#ddd'}`,
+              background: viewMonth === 13 ? '#e65100' : '#fff',
+              color: viewMonth === 13 ? '#fff' : '#555',
+              cursor: 'pointer', fontWeight: viewMonth === 13 ? 700 : 400
+            }}
+          >
+            T13
+          </button>
           <select
             value={viewYear}
             onChange={e => setViewYear(Number(e.target.value))}
@@ -519,7 +556,10 @@ const Profile = () => {
 
           {/* Card: Lương tháng */}
           <div style={card}>
-            <SectionTitle icon="fa-money-bill-wave" title={`Lương tháng ${viewMonth}/${viewYear}`} />
+            <SectionTitle
+              icon={viewMonth === 13 ? "fa-gift" : "fa-money-bill-wave"}
+              title={viewMonth === 13 ? `Thưởng tháng 13 - năm ${viewYear}` : `Lương tháng ${viewMonth}/${viewYear}`}
+            />
 
             {salaryLoading && (
               <div style={{ textAlign: 'center', padding: 30, color: '#1976d2' }}>
@@ -530,8 +570,16 @@ const Profile = () => {
             {!salaryLoading && !salary && (
               <div style={{ textAlign: 'center', padding: '24px 0', color: '#aaa' }}>
                 <i className="fas fa-file-invoice-dollar" style={{ fontSize: 36, marginBottom: 8 }}></i>
-                <div style={{ fontSize: 13 }}>Chưa có dữ liệu lương tháng này.</div>
-                <div style={{ fontSize: 12, color: '#bbb', marginTop: 4 }}>Quản lý chưa tính lương cho tháng này.</div>
+                <div style={{ fontSize: 13 }}>
+                  {viewMonth === 13
+                    ? 'Bản thân chưa làm đủ 12 tháng k thể nhận luong thứ 13 dc'
+                    : 'Chưa có dữ liệu lương tháng này.'}
+                </div>
+                <div style={{ fontSize: 12, color: '#bbb', marginTop: 4 }}>
+                  {viewMonth === 13
+                    ? 'Vui lòng kiểm tra lại thâm niên công tác trong năm.'
+                    : 'Quản lý chưa tính lương cho tháng này.'}
+                </div>
               </div>
             )}
 
@@ -565,17 +613,40 @@ const Profile = () => {
 
                 {/* Breakdown */}
                 <div style={{ fontSize: 13 }}>
-                  <SalaryRow label={`Lương công (${salary.SoNgayLam} ngày × ${fmt(dailyRate)}/ngày)`} value={fmt(basePay)} color="#1976d2" />
-                  {parseFloat(salary.SoGioTangCa || 0) > 0 &&
-                    <SalaryRow label={`Tăng ca (${salary.SoGioTangCa}h × 1.5)`} value={fmt(otPay)} color="#e65100" />
-                  }
-                  <SalaryRow label="Phụ cấp" value={fmt(salary.PhuCap)} />
-                  {parseFloat(salary.Thuong || 0) > 0 &&
-                    <SalaryRow label="Thưởng chuyên cần" value={fmt(salary.Thuong)} color="#2e7d32" />
-                  }
-                  {parseFloat(salary.Phat || 0) > 0 &&
-                    <SalaryRow label="Khấu trừ (trễ/sớm)" value={`−${fmt(salary.Phat)}`} color="#c62828" />
-                  }
+                  {viewMonth === 13 ? (
+                    <>
+                      <SalaryRow
+                        label={`Thời gian công tác (${salary.PayableDays || 0} tháng)`}
+                        value={salary.GhiChu?.includes('đủ') ? 'Đủ 12/12 tháng' : 'Tính theo thâm niên'}
+                        color="#1976d2"
+                      />
+                      <SalaryRow
+                        label={`Số lần vi phạm (Trễ/Nghỉ KP)`}
+                        value={`${salary.soViPham || 0} lần`}
+                        color={salary.soViPham > 10 ? '#c62828' : '#2e7d32'}
+                      />
+                      {salary.tyLeKhauTru > 0 && (
+                        <SalaryRow label="Mức khấu trừ vi phạm" value={`-${salary.tyLeKhauTru * 100}%`} color="#c62828" />
+                      )}
+                      <SalaryRow label="Lương đóng BHXH" value={fmt(salary.LuongCoBanThucTe || salary.LuongCoBan)} />
+                      <SalaryRow label="Tổng thưởng (Gross)" value={fmt(salary.Thuong)} color="#e65100" />
+                      <SalaryRow label="Thuế TNCN (Khấu trừ)" value={`−${fmt(salary.ThueTNCN)}`} color="#c62828" />
+                    </>
+                  ) : (
+                    <>
+                      <SalaryRow label={`Lương công (${salary.SoNgayLam} ngày × ${fmt(dailyRate)}/ngày)`} value={fmt(basePay)} color="#1976d2" />
+                      {parseFloat(salary.SoGioTangCa || 0) > 0 &&
+                        <SalaryRow label={`Tăng ca (${salary.SoGioTangCa}h × 1.5)`} value={fmt(otPay)} color="#e65100" />
+                      }
+                      <SalaryRow label="Phụ cấp" value={fmt(salary.PhuCap)} />
+                      {parseFloat(salary.Thuong || 0) > 0 &&
+                        <SalaryRow label="Thưởng chuyên cần" value={fmt(salary.Thuong)} color="#2e7d32" />
+                      }
+                      {parseFloat(salary.Phat || 0) > 0 &&
+                        <SalaryRow label="Khấu trừ (trễ/sớm)" value={`−${fmt(salary.Phat)}`} color="#c62828" />
+                      }
+                    </>
+                  )}
                 </div>
 
                 <button

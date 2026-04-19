@@ -26,7 +26,7 @@ const AuthorManagement = () => {
   const [loading, setLoading] = useState(false);
 
   const API_URL = 'http://localhost:5000/api/warehouse/authors';
-  const IMAGE_BASE_PATH = '/img/authors/';
+  const IMAGE_BASE_PATH = 'http://localhost:5000';
 
   const fetchAuthors = useCallback(async () => {
     console.log('[DEBUG] Fetching authors...');
@@ -51,7 +51,11 @@ const AuthorManagement = () => {
       if (Array.isArray(response.data.data)) {
         const processedAuthors = response.data.data.map((author) => {
           const rawImage = author.HinhAnh || author.AnhTG;
-          const imageUrl = rawImage && rawImage !== 'null' ? `${IMAGE_BASE_PATH}${rawImage}` : PLACEHOLDER_IMAGE;
+          // rawImage from DB is like "/uploads/tacgia/filename.jpg"
+          // IMAGE_BASE_PATH is "http://localhost:5000"
+          const imageUrl = rawImage && rawImage !== 'null'
+            ? `${IMAGE_BASE_PATH}${rawImage.startsWith('/') ? rawImage : '/' + rawImage}`
+            : PLACEHOLDER_IMAGE;
 
           // Robust nationality and birthday fallback handling
           const rawNation = author.QuocTich || author.QuocGia || author.Quoc_tich || author.Nationality || '';
@@ -139,8 +143,8 @@ const AuthorManagement = () => {
       formData.append('TieuSu', newAuthor.TieuSu?.trim() || '');
       if (newAuthor.AnhTG instanceof File) {
         formData.append('AnhTG', newAuthor.AnhTG);
-      } else if (newAuthor.AnhTG && typeof newAuthor.AnhTG === 'string') {
-        // backend may expect just the filename when not uploading a new file
+      } else if (newAuthor.AnhTG && typeof newAuthor.AnhTG === 'string' && newAuthor.AnhTG !== PLACEHOLDER_IMAGE) {
+        // Strip base URL to send only the path e.g. /uploads/tacgia/filename.jpg
         formData.append('AnhTG', newAuthor.AnhTG.replace(IMAGE_BASE_PATH, ''));
       }
 
@@ -200,7 +204,8 @@ const AuthorManagement = () => {
       formData.append('TieuSu', editingAuthor.TieuSu?.trim() || '');
       if (editingAuthor.AnhTG instanceof File) {
         formData.append('AnhTG', editingAuthor.AnhTG);
-      } else if (editingAuthor.AnhTG) {
+      } else if (editingAuthor.AnhTG && editingAuthor.AnhTG !== PLACEHOLDER_IMAGE) {
+        // Strip base URL to send only the path e.g. /uploads/tacgia/filename.jpg
         formData.append('AnhTG', editingAuthor.AnhTG.replace(IMAGE_BASE_PATH, ''));
       }
 

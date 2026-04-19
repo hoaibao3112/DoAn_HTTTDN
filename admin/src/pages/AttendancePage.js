@@ -314,6 +314,46 @@ const AttendancePage = () => {
     }
   };
 
+  // Tự động điền chấm công cả tháng
+  const handleAutoFillMonth = async () => {
+    const now = new Date();
+    const isCurrentOrPastMonth =
+      year < now.getFullYear() ||
+      (year === now.getFullYear() && month <= now.getMonth() + 1);
+
+    if (!isCurrentOrPastMonth) {
+      alert('Không thể tự động chấm công cho tháng trong tương lai!');
+      return;
+    }
+
+    if (!window.confirm(
+      `Xác nhận tự động điền chấm công tháng ${month}/${year}?\n\n` +
+      `Hệ thống sẽ:\n` +
+      `• Quét tất cả ngày làm việc (trừ CN) trong tháng\n` +
+      `• Bỏ qua ngày đã có chấm công\n` +
+      `• Nhân viên có đơn nghỉ phép duyệt → Nghỉ phép\n` +
+      `• Nhân viên chưa chấm → Nghỉ không phép`
+    )) return;
+
+    try {
+      const res = await axios.post(
+        `${API_BASE}/attendance/auto-fill-month`,
+        { month, year },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const { inserted, skipped } = res.data.data;
+      alert(
+        `✅ Tự động chấm công tháng ${month}/${year} hoàn thành!\n\n` +
+        `• Đã tạo: ${inserted} bản ghi mới\n` +
+        `• Bỏ qua: ${skipped} bản ghi đã có`
+      );
+      fetchAttendanceData();
+    } catch (err) {
+      console.error('Error auto-fill month:', err);
+      alert('Tự động chấm công thất bại: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   // CRUD Ngày lễ
   const handleSaveHoliday = async () => {
     if (!holidayForm.TenNgayLe || !holidayForm.Ngay) {
@@ -434,47 +474,70 @@ const AttendancePage = () => {
       {/* Filters */}
       <div className="thongke-content">
         <div className="thongke-filters">
-          <div className="filter-group">
-            <label>Tháng:</label>
-            <Select
-              options={months}
-              value={months.find((m) => m.value === month)}
-              onChange={(v) => setMonth(v.value)}
-              placeholder="Chọn tháng"
-              styles={{
-                control: (base) => ({ ...base, minHeight: 32 }),
-                menu: (base) => ({ ...base, zIndex: 9999 })
-              }}
-            />
-            <label>Năm:</label>
-            <Select
-              options={years}
-              value={years.find((y) => y.value === year)}
-              onChange={(v) => setYear(v.value)}
-              placeholder="Chọn năm"
-              styles={{
-                control: (base) => ({ ...base, minHeight: 32 }),
-                menu: (base) => ({ ...base, zIndex: 9999 })
-              }}
-            />
-            {activeTab === 'calendar' && (
-              <button
-                onClick={handleManualMarkAbsent}
-                style={{
-                  marginLeft: 10,
-                  padding: '6px 12px',
-                  background: '#f44336',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
+          <div className="filter-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <label style={{ margin: 0, fontWeight: 600, whiteSpace: 'nowrap' }}>Tháng:</label>
+            <div style={{ width: 140 }}>
+              <Select
+                options={months}
+                value={months.find((m) => m.value === month)}
+                onChange={(v) => setMonth(v.value)}
+                placeholder="Chọn tháng"
+                styles={{
+                  control: (base) => ({ ...base, minHeight: 32 }),
+                  menu: (base) => ({ ...base, zIndex: 9999 })
                 }}
-              >
-                <i className="fas fa-user-times"></i> Đánh vắng hôm nay
-              </button>
+              />
+            </div>
+            <label style={{ margin: 0, fontWeight: 600, whiteSpace: 'nowrap' }}>Năm:</label>
+            <div style={{ width: 110 }}>
+              <Select
+                options={years}
+                value={years.find((y) => y.value === year)}
+                onChange={(v) => setYear(v.value)}
+                placeholder="Chọn năm"
+                styles={{
+                  control: (base) => ({ ...base, minHeight: 32 }),
+                  menu: (base) => ({ ...base, zIndex: 9999 })
+                }}
+              />
+            </div>
+            {activeTab === 'calendar' && (
+              <>
+                <button
+                  onClick={handleManualMarkAbsent}
+                  style={{
+                    padding: '6px 12px',
+                    background: '#f44336',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <i className="fas fa-user-times"></i> Đánh vắng hôm nay
+                </button>
+                <button
+                  onClick={handleAutoFillMonth}
+                  title={`Tự động điền chấm công cho tất cả ngày làm việc chưa có dữ liệu trong tháng ${month}/${year}`}
+                  style={{
+                    padding: '6px 12px',
+                    background: '#7b1fa2',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <i className="fas fa-magic"></i> Tự động chấm cả tháng
+                </button>
+              </>
             )}
           </div>
+
         </div>
 
         {/* Tab Content: Calendar */}

@@ -483,6 +483,12 @@ router.post('/attendance/mark-absent',
     attendanceController.manualMarkAbsent
 );
 
+// Auto Fill Monthly Attendance (tự động điền chấm công cả tháng cho admin)
+router.post('/attendance/auto-fill-month',
+    checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.CREATE),
+    attendanceController.autoFillMonthlyAttendanceAdmin
+);
+
 // Holiday Management (Quản lý ngày lễ)
 router.get('/holidays',
     checkPermission(FEATURES.ATTENDANCE, PERMISSIONS.VIEW),

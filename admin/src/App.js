@@ -4,6 +4,8 @@ import { message } from 'antd';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import Sidebar from './components/Sidebar';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import Login from './pages/Login';
 import ProductManagement from './pages/ProductManagement';
 import AccountManagement from './pages/AccountManagement';
@@ -28,7 +30,6 @@ import StockTransfer from './pages/StockTransfer';
 import InventoryCheck from './pages/InventoryCheck';
 import SupplierDebts from './pages/SupplierDebts';
 import AuditLogs from './pages/AuditLogs';
-import BranchManagement from './pages/BranchManagement';
 import BarcodeGeneratorPage from './pages/BarcodeGeneratorPage';
 import SubWarehouseManagement from './pages/SubWarehouseManagement';
 import { FEATURES } from './constants/permissions';
@@ -84,7 +85,8 @@ const App = () => {
   const isAuthenticated = !!localStorage.getItem('authToken');
 
   return (
-    <Routes>
+    <>
+      <Routes>
       <Route
         path="/admin/login"
         element={isAuthenticated ? <Navigate to="/admin" replace /> : <Login />}
@@ -332,7 +334,9 @@ const App = () => {
 
       <Route path="*" element={<Navigate to="/admin/login" replace />} />
     </Routes>
-  );
+    <ToastContainer position="top-right" autoClose={3000} />
+  </>
+);
 };
 
 export default App;
