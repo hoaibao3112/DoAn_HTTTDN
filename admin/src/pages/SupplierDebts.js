@@ -14,7 +14,8 @@ const SupplierDebts = () => {
     const [suppliers, setSuppliers] = useState([]);
     const [loadingsetLoading] = useState(false);
     const [filterStatus, setFilterStatus] = useState('all');
-    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+    const [selectedMonth, setSelectedMonth] = useState(''); // Rỗng là tất cả các tháng
+    const [selectedSupplier, setSelectedSupplier] = useState(''); 
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [selectedDebt, setSelectedDebt] = useState(null);
     const [paymentAmount, setPaymentAmount] = useState('');
@@ -124,11 +125,11 @@ const SupplierDebts = () => {
     const formatVND = (n) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0);
 
-    const calculateStats = () => {
-        const totalDebt = debts.reduce((sum, d) => sum + (Number(d.remaining) || 0), 0);
-        const paidThisMonth = debts.reduce((sum, d) => sum + (Number(d.paid) || 0), 0);
-        const overdue = debts.filter(d => d.status === 'overdue').reduce((sum, d) => sum + (Number(d.remaining) || 0), 0);
-        const suppliersWithDebt = new Set(debts.filter(d => (Number(d.remaining) || 0) > 0).map(d => d.supplier)).size;
+    const calculateStats = (data) => {
+        const totalDebt = data.reduce((sum, d) => sum + (Number(d.remaining) || 0), 0);
+        const paidThisMonth = data.reduce((sum, d) => sum + (Number(d.paid) || 0), 0);
+        const overdue = data.filter(d => d.status === 'overdue').reduce((sum, d) => sum + (Number(d.remaining) || 0), 0);
+        const suppliersWithDebt = new Set(data.filter(d => (Number(d.remaining) || 0) > 0).map(d => d.MaNCC)).size;
 
         return { totalDebt, paidThisMonth, overdue, suppliersWithDebt };
     };
@@ -254,11 +255,23 @@ const SupplierDebts = () => {
     };
 
     const filteredDebts = debts.filter(d => {
-        if (filterStatus === 'all') return true;
-        return d.status === filterStatus;
+        // 1. Lọc theo trạng thái
+        if (filterStatus !== 'all' && d.status !== filterStatus) return false;
+        
+        // 2. Lọc theo nhà cung cấp
+        if (selectedSupplier && Number(d.MaNCC) !== Number(selectedSupplier)) return false;
+
+        // 3. Lọc theo tháng (Dựa trên NgayPhatSinh hoặc dueDate)
+        if (selectedMonth) {
+            const date = d.NgayPhatSinh ? new Date(d.NgayPhatSinh) : (d.dueDate ? new Date(d.dueDate) : null);
+            if (date && (date.getMonth() + 1) !== Number(selectedMonth)) return false;
+            if (!date) return false;
+        }
+
+        return true;
     });
 
-    const stats = calculateStats();
+    const stats = calculateStats(filteredDebts);
 
     if (!hasPermissionById(FEATURES.SUPPLIERS, 'xem')) {
         return (
@@ -337,13 +350,28 @@ const SupplierDebts = () => {
                     <button className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`} onClick={() => setFilterStatus('all')}>
                         Tất cả trạng thái
                     </button>
+                    <select 
+                        className="filter-select" 
+                        value={selectedSupplier} 
+                        onChange={(e) => setSelectedSupplier(e.target.value)}
+                    >
+                        <option value="">Tất cả nhà cung cấp</option>
+                        {suppliers.map(ncc => (
+                            <option key={ncc.MaNCC} value={ncc.MaNCC}>{ncc.TenNCC}</option>
+                        ))}
+                    </select>
                     <select className="filter-select" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>
-                        <option value="">Tất cả thời hạn: Tháng này</option>
+                        <option value="">Tất cả thời gian</option>
                         {[...Array(12)].map((_, i) => (
                             <option key={i} value={i + 1}>Tháng {i + 1}</option>
                         ))}
                     </select>
-                    <button className="btn-icon">
+                    <button className="btn-icon" onClick={() => {
+                        setFilterStatus('all');
+                        setSelectedMonth('');
+                        setSelectedSupplier('');
+                        fetchDebts();
+                    }}>
                         <span className="material-icons">refresh</span>
                     </button>
                 </div>
