@@ -317,23 +317,25 @@ const AttendancePage = () => {
   // Tự động điền chấm công cả tháng
   const handleAutoFillMonth = async () => {
     const now = new Date();
-    const isCurrentOrPastMonth =
-      year < now.getFullYear() ||
-      (year === now.getFullYear() && month <= now.getMonth() + 1);
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const isCurrentMonth = (year === currentYear && month === currentMonth);
+    const isMonthEnded = !isCurrentMonth || now.getDate() >= daysInMonth;
 
-    if (!isCurrentOrPastMonth) {
-      alert('Không thể tự động chấm công cho tháng trong tương lai!');
+    // Tháng tương lai
+    if (year > currentYear || (year === currentYear && month > currentMonth)) {
+      alert('Tháng chưa bắt đầu, không thể chấm công!');
       return;
     }
 
-    if (!window.confirm(
-      `Xác nhận tự động điền chấm công tháng ${month}/${year}?\n\n` +
-      `Hệ thống sẽ:\n` +
-      `• Quét tất cả ngày làm việc (trừ CN) trong tháng\n` +
-      `• Bỏ qua ngày đã có chấm công\n` +
-      `• Nhân viên có đơn nghỉ phép duyệt → Nghỉ phép\n` +
-      `• Nhân viên chưa chấm → Nghỉ không phép`
-    )) return;
+    // Tháng hiện tại chưa kết thúc
+    if (!isMonthEnded) {
+      alert(`Tháng ${month}/${year} chưa kết thúc, không thể tự động chấm công!`);
+      return;
+    }
+
+    if (!window.confirm(`Tự động chấm công tháng ${month}/${year}?\n\nTiếp tục?`)) return;
 
     try {
       const res = await axios.post(
@@ -342,20 +344,17 @@ const AttendancePage = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const { inserted, skipped } = res.data.data;
-      alert(
-        `✅ Tự động chấm công tháng ${month}/${year} hoàn thành!\n\n` +
-        `• Đã tạo: ${inserted} bản ghi mới\n` +
-        `• Bỏ qua: ${skipped} bản ghi đã có`
-      );
+      alert(`✅ Hoàn thành tháng ${month}/${year}\n• Tạo mới: ${inserted} bản ghi\n• Đã có: ${skipped} bản ghi`);
       fetchAttendanceData();
     } catch (err) {
       console.error('Error auto-fill month:', err);
-      alert('Tự động chấm công thất bại: ' + (err.response?.data?.message || err.message));
+      alert('Thất bại: ' + (err.response?.data?.message || err.message));
     }
   };
 
   // CRUD Ngày lễ
   const handleSaveHoliday = async () => {
+
     if (!holidayForm.TenNgayLe || !holidayForm.Ngay) {
       alert('Vui lòng nhập đầy đủ thông tin!');
       return;
@@ -851,6 +850,8 @@ const AttendancePage = () => {
                     <th>Số lần trễ</th>
                     <th>Số lần về sớm</th>
                     <th>Quên chấm ra</th>
+                    <th>Nghỉ KP</th>
+                    <th>Nghỉ phép</th>
                     <th>Tổng giờ tăng ca</th>
                     <th>Tổng ngày chấm công</th>
                   </tr>
@@ -873,6 +874,12 @@ const AttendancePage = () => {
                         </td>
                         <td style={{ color: item.QuenChamRa > 0 ? '#F44336' : '#000', fontWeight: 'bold' }}>
                           {item.QuenChamRa}
+                        </td>
+                        <td style={{ color: item.SoNgayNghiKP > 0 ? '#F44336' : '#000', fontWeight: 'bold' }}>
+                          {item.SoNgayNghiKP || 0}
+                        </td>
+                        <td style={{ color: item.SoNgayNghiPhep > 0 ? '#2196F3' : '#000', fontWeight: 'bold' }}>
+                          {item.SoNgayNghiPhep || 0}
                         </td>
                         <td>{item.TongGioTangCa}</td>
                         <td>{item.TongNgayChamCong}</td>

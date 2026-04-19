@@ -165,6 +165,11 @@ router.post('/salary/calculate',
     hrController.calculateMonthlySalary
 );
 
+router.delete('/salary/rollback',
+    checkPermission(FEATURES.SALARY, PERMISSIONS.DELETE),
+    hrController.rollbackMonthlySalary
+);
+
 router.get('/salary/stats',
     checkPermission(FEATURES.SALARY, PERMISSIONS.VIEW),
     hrController.getSalaryStats

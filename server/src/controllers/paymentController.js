@@ -5,18 +5,36 @@ import axios from 'axios';
 import qs from 'qs';
 
 /**
- * Payment Controller for handling VNPay, MoMo, ZaloPay
+ * Helper: Sắp xếp object theo thứ tự bảng chữ cái của key và URL encode
+ * Theo yêu cầu của VNPAY 2.1.0
  */
+function sortObject(obj) {
+    let sorted = {};
+    let str = [];
+    let key;
+    for (key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            str.push(encodeURIComponent(key));
+        }
+    }
+    str.sort();
+    for (key = 0; key < str.length; key++) {
+        sorted[str[key]] = encodeURIComponent(obj[str[key]]).replace(/%20/g, "+");
+    }
+    return sorted;
+}
+
 const paymentController = {
     // ======================= VNPAY INTEGRATION =======================
     createVNPayUrl: async (req, res) => {
         try {
             const { amount, orderId, orderInfo, bankCode } = req.body;
 
-            const tmnCode = process.env.VNP_TMNCODE;
-            const secretKey = process.env.VNP_HASHSECRET;
-            let vnpUrl = process.env.VNP_URL;
+            const tmnCode = process.env.VNPAY_TMN_CODE;
+            const secretKey = process.env.VNPAY_HASH_SECRET;
+            let vnpUrl = process.env.VNPAY_URL;
             const returnUrl = process.env.VNP_RETURN_URL;
+            const hashAlgorithm = process.env.VNPAY_HASH_ALGORITHM?.toLowerCase() || 'sha512';
 
             const date = new Date();
             const createDate = dayjs(date).format('YYYYMMDDHHmmss');
@@ -43,15 +61,15 @@ const paymentController = {
                 vnp_Params['vnp_BankCode'] = bankCode;
             }
 
-            // Sort Object
-            vnp_Params = Object.keys(vnp_Params).sort().reduce((obj, key) => {
-                obj[key] = vnp_Params[key];
-                return obj;
-            }, {});
+            // Sắp xếp tham số
+            vnp_Params = sortObject(vnp_Params);
 
+            // Tạo chuỗi hash
             const signData = qs.stringify(vnp_Params, { encode: false });
-            const hmac = crypto.createHmac("sha512", secretKey);
+            const hmac = crypto.createHmac(hashAlgorithm, secretKey);
             const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest("hex");
+
+            // Build URL
             vnp_Params['vnp_SecureHash'] = signed;
             vnpUrl += '?' + qs.stringify(vnp_Params, { encode: false });
 
@@ -59,6 +77,79 @@ const paymentController = {
         } catch (error) {
             console.error('VNPay Create Error:', error);
             res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    vnpayReturn: async (req, res) => {
+        try {
+            let vnp_Params = req.query;
+            const secureHash = vnp_Params['vnp_SecureHash'];
+
+            delete vnp_Params['vnp_SecureHash'];
+            delete vnp_Params['vnp_SecureHashType'];
+
+            vnp_Params = sortObject(vnp_Params);
+
+            const secretKey = process.env.VNPAY_HASH_SECRET;
+            const hashAlgorithm = process.env.VNPAY_HASH_ALGORITHM?.toLowerCase() || 'sha512';
+            const signData = qs.stringify(vnp_Params, { encode: false });
+            const hmac = crypto.createHmac(hashAlgorithm, secretKey);
+            const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest("hex");
+
+            if (secureHash === signed) {
+                // Ký đúng -> Kiểm tra trạng thái giao dịch
+                const responseCode = vnp_Params['vnp_ResponseCode'];
+                const orderId = vnp_Params['vnp_TxnRef'];
+
+                if (responseCode === "00") {
+                    // Cập nhật trạng thái trong trường hợp IPN chưa kịp cập nhật hoặc redirect nhanh hơn
+                    await pool.query('UPDATE hoadon SET TrangThai = "Hoan_thanh" WHERE MaHD = ? AND TrangThai = "Chua_thanh_toan"', [orderId]);
+                    
+                    // Redirect về frontend với thông tin thành công
+                    return res.redirect(`${process.env.CLIENT_ADMIN_URL || 'http://localhost:3000'}/admin/pos?vnp_ResponseCode=00&vnp_TxnRef=${orderId}`);
+                } else {
+                    return res.redirect(`${process.env.CLIENT_ADMIN_URL || 'http://localhost:3000'}/admin/pos?vnp_ResponseCode=${responseCode}&vnp_TxnRef=${orderId}`);
+                }
+            } else {
+                res.status(400).send("<h1>Lỗi chữ ký!</h1><p>Dữ liệu phản hồi không hợp lệ.</p>");
+            }
+        } catch (error) {
+            res.status(500).send("Internal Server Error");
+        }
+    },
+
+    vnpayIpn: async (req, res) => {
+        // IPN handles background update (highly recommended for reliability)
+        try {
+            let vnp_Params = req.query;
+            const secureHash = vnp_Params['vnp_SecureHash'];
+            delete vnp_Params['vnp_SecureHash'];
+            delete vnp_Params['vnp_SecureHashType'];
+
+            vnp_Params = sortObject(vnp_Params);
+            const secretKey = process.env.VNPAY_HASH_SECRET;
+            const signData = qs.stringify(vnp_Params, { encode: false });
+            const hmac = crypto.createHmac("sha512", secretKey);
+            const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest("hex");
+
+            if (secureHash === signed) {
+                const orderId = vnp_Params['vnp_TxnRef'];
+                const responseCode = vnp_Params['vnp_ResponseCode'];
+                
+                if (responseCode === "00") {
+                    // Cập nhật Database: Đã thanh toán
+                    await pool.query('UPDATE hoadon SET TrangThai = "Hoan_thanh" WHERE MaHD = ?', [orderId]);
+                    console.log(`[VNPAY IPN] Payment success for order ${orderId}`);
+                } else {
+                    // Có thể cập nhật là đã hủy hoặc lỗi nếu muốn
+                    console.log(`[VNPAY IPN] Payment failed for order ${orderId}, Code: ${responseCode}`);
+                }
+                res.status(200).json({ RspCode: '00', Message: 'Confirm Success' });
+            } else {
+                res.status(200).json({ RspCode: '97', Message: 'Invalid Checksum' });
+            }
+        } catch (error) {
+            res.status(200).json({ RspCode: '99', Message: 'Unknown Error' });
         }
     },
 

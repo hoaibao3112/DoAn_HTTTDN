@@ -56,7 +56,7 @@ const SalaryPage = () => {
   const [loadingSalary, setLoadingSalary] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [paying, setPaying] = useState(null);
-  
+
   const [detailModal, setDetailModal] = useState(false);
   const [detailRow, setDetailRow] = useState(null);
 
@@ -189,6 +189,15 @@ const SalaryPage = () => {
 
   // --- SALARY HANDLERS ---
   const handleCalculate = async () => {
+    const now = new Date();
+    const curMonth = now.getMonth() + 1;
+    const curYear = now.getFullYear();
+
+    if (year > curYear || (year === curYear && month >= curMonth)) {
+      toast.warning(`Chưa kết thúc tháng ${month}/${year}. Bạn chỉ có thể tính lương khi tháng này đã trôi qua.`);
+      return;
+    }
+
     if (!window.confirm(`Tính lương tháng ${month}/${year} cho toàn bộ nhân viên?\nNếu đã tính trước đó, dữ liệu sẽ được cập nhật lại.`)) return;
     setCalculating(true);
     try {
@@ -225,7 +234,7 @@ const SalaryPage = () => {
     }
 
     if (!window.confirm(`Xác nhận chốt bảng lương tháng 13 năm ${year}?\nDữ liệu sẽ được lưu chính thức vào hệ thống.`)) return;
-    
+
     setCalculating13(true);
     try {
       const res = await axios.post(`${API_SALARY_13}/tinh/${year}`, { maNVList: selectedRowKeys }, { headers });
@@ -282,25 +291,25 @@ const SalaryPage = () => {
 
   const handleExportExcel = () => {
     if (salaryList.length === 0) { alert('Chưa có dữ liệu để xuất!'); return; }
-      const rows = salaryList.map((row, idx) => ({
+    const rows = salaryList.map((row, idx) => ({
       STT: idx + 1,
       MaNV: row.MaNV,
       HoTen: row.HoTen,
       ChucVu: row.ChucVu || '',
-        LuongCoBan: parseFloat(row.LuongCoBan || 0),
-        SoNgayCong: parseFloat(row.PayableDays || row.SoNgayLam || 0),
-        SoNgayLamViecThang: parseInt(row.SoNgayLamViecThang || row.SoNgayLamViec || 0),
-        LuongCoBanThucTe: parseFloat(row.LuongCoBanThucTe || 0),
-        LuongCong: Math.round(basePay(row)),
-        GioTangCa: parseFloat(row.SoGioTangCa || 0),
-        LuongTangCa: Math.round(otPay(row)),
-        PhuCapChiuThue: parseFloat(row.PhuCapChiuThue || row.PhuCap || 0),
-        PhuCapKhongChiuThue: parseFloat(row.PhuCapKhongChiuThue || 0),
+      LuongCoBan: parseFloat(row.LuongCoBan || 0),
+      SoNgayCong: parseFloat(row.PayableDays || row.SoNgayLam || 0),
+      SoNgayLamViecThang: parseInt(row.SoNgayLamViecThang || row.SoNgayLamViec || 0),
+      LuongCoBanThucTe: parseFloat(row.LuongCoBanThucTe || 0),
+      LuongCong: Math.round(basePay(row)),
+      GioTangCa: parseFloat(row.SoGioTangCa || 0),
+      LuongTangCa: Math.round(otPay(row)),
+      PhuCapChiuThue: parseFloat(row.PhuCapChiuThue || row.PhuCap || 0),
+      PhuCapKhongChiuThue: parseFloat(row.PhuCapKhongChiuThue || 0),
       Thuong: parseFloat(row.Thuong || 0),
       Phat: parseFloat(row.Phat || 0),
-        BhxhSickPay: parseFloat(row.BhxhSickPay || 0),
-        MaternityPay: parseFloat(row.MaternityPay || 0),
-        TongThuNhap: parseFloat(row.TongLuong || 0),
+      BhxhSickPay: parseFloat(row.BhxhSickPay || 0),
+      MaternityPay: parseFloat(row.MaternityPay || 0),
+      TongThuNhap: parseFloat(row.TongLuong || 0),
       TrangThai: row.TrangThai === 'Da_chi_tra' ? 'Đã chi trả' : 'Chưa chi trả',
     }));
 
@@ -390,7 +399,7 @@ const SalaryPage = () => {
   };
 
   const bpSummaryData = bpSummary?.summary || {};
-  
+
 
   return (
     <div className="thongke-page">
@@ -439,6 +448,65 @@ const SalaryPage = () => {
       </div>
 
       <div className="thongke-content">
+        {/* FILTERS moved to top */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 24 }}>
+          {activeTab !== 'salary13' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label style={{ fontWeight: 600 }}>Tháng:</label>
+              <Select options={months} value={months.find(m => m.value === month)} onChange={v => setMonth(v.value)} styles={{ control: b => ({ ...b, minWidth: 120 }) }} />
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ fontWeight: 600 }}>Năm:</label>
+            <Select options={years} value={years.find(y => y.value === year)} onChange={v => setYear(v.value)} styles={{ control: b => ({ ...b, minWidth: 100 }) }} />
+          </div>
+
+          {activeTab === 'summary' ? (
+            <>
+              <button onClick={handleCalculate} disabled={calculating} className="btn-salary" style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}>
+                <i className={`fas ${calculating ? 'fa-spinner fa-spin' : 'fa-calculator'}`}></i> {calculating ? 'Đang tính...' : 'Tính lương'}
+              </button>
+              {salaryList.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                  <button onClick={handleExportExcel} style={{ background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}><i className="fas fa-file-excel"></i> Excel</button>
+                  <button onClick={handleExportPDF} style={{ background: '#c62828', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}><i className="fas fa-file-pdf"></i> PDF</button>
+                </div>
+              )}
+            </>
+          ) : activeTab === 'salary13' ? (
+            <>
+              {isPreviewMode && (
+                <button
+                  onClick={handleCalculate13}
+                  disabled={calculating13 || salary13List.length === 0}
+                  className="btn-salary"
+                  style={{ background: '#e65100', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  <i className={`fas ${calculating13 ? 'fa-spinner fa-spin' : 'fa-check-double'}`}></i> {calculating13 ? 'Đang lưu...' : 'Chốt bảng lương T13'}
+                </button>
+              )}
+              {!isPreviewMode && (
+                <div style={{ padding: '8px 16px', background: '#e8f5e9', color: '#2e7d32', borderRadius: 6, fontWeight: 700 }}>
+                  <i className="fas fa-lock"></i> Đã chốt số liệu năm {year}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label style={{ fontWeight: 600 }}>Loại:</label>
+                <Select options={[{ value: '', label: 'Tất cả' }, ...LOAI_OPTIONS]} value={[{ value: '', label: 'Tất cả' }, ...LOAI_OPTIONS].find(o => o.value === bpFilterLoai)} onChange={v => setBpFilterLoai(v.value)} styles={{ control: b => ({ ...b, minWidth: 120 }) }} />
+              </div>
+              {/* Nút Thêm chỉ hiện khi ở tab Thưởng/Phạt, không hiện ở tab Biểu đồ */}
+              {activeTab === 'bonus_penalty' && canCreateBP && (
+                <button onClick={openBPCreate} style={{ marginLeft: 'auto', background: '#1976d2', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}>
+                  <i className="fas fa-plus"></i> Thêm thưởng/phạt
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
         {/* ANALYTICS TAB CONTENT */}
         {activeTab === 'stats' && (
           <div style={{ padding: 20, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
@@ -541,61 +609,7 @@ const SalaryPage = () => {
             </div>
           </div>
         )}
-        {/* FILTERS */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={{ fontWeight: 600 }}>Tháng:</label>
-            <Select options={months} value={months.find(m => m.value === month)} onChange={v => setMonth(v.value)} styles={{ control: b => ({ ...b, minWidth: 120 }) }} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={{ fontWeight: 600 }}>Năm:</label>
-            <Select options={years} value={years.find(y => y.value === year)} onChange={v => setYear(v.value)} styles={{ control: b => ({ ...b, minWidth: 100 }) }} />
-          </div>
 
-          {activeTab === 'summary' ? (
-            <>
-              <button onClick={handleCalculate} disabled={calculating} className="btn-salary" style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}>
-                <i className={`fas ${calculating ? 'fa-spinner fa-spin' : 'fa-calculator'}`}></i> {calculating ? 'Đang tính...' : 'Tính lương'}
-              </button>
-              {salaryList.length > 0 && (
-                <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-                  <button onClick={handleExportExcel} style={{ background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}><i className="fas fa-file-excel"></i> Excel</button>
-                  <button onClick={handleExportPDF} style={{ background: '#c62828', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}><i className="fas fa-file-pdf"></i> PDF</button>
-                </div>
-              )}
-            </>
-          ) : activeTab === 'salary13' ? (
-            <>
-              {isPreviewMode && (
-                <button
-                  onClick={handleCalculate13}
-                  disabled={calculating13 || salary13List.length === 0}
-                  className="btn-salary"
-                  style={{ background: '#e65100', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}
-                >
-                  <i className={`fas ${calculating13 ? 'fa-spinner fa-spin' : 'fa-check-double'}`}></i> {calculating13 ? 'Đang lưu...' : 'Chốt bảng lương T13'}
-                </button>
-              )}
-              {!isPreviewMode && (
-                <div style={{ padding: '8px 16px', background: '#e8f5e9', color: '#2e7d32', borderRadius: 6, fontWeight: 700 }}>
-                  <i className="fas fa-lock"></i> Đã chốt số liệu năm {year}
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <label style={{ fontWeight: 600 }}>Loại:</label>
-                <Select options={[{ value: '', label: 'Tất cả' }, ...LOAI_OPTIONS]} value={[{ value: '', label: 'Tất cả' }, ...LOAI_OPTIONS].find(o => o.value === bpFilterLoai)} onChange={v => setBpFilterLoai(v.value)} styles={{ control: b => ({ ...b, minWidth: 120 }) }} />
-              </div>
-              {canCreateBP && (
-                <button onClick={openBPCreate} style={{ marginLeft: 'auto', background: '#1976d2', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}>
-                  <i className="fas fa-plus"></i> Thêm thưởng/phạt
-                </button>
-              )}
-            </>
-          )}
-        </div>
 
         {/* TAB 1: SALARY */}
         {activeTab === 'summary' && (
@@ -754,7 +768,7 @@ const SalaryPage = () => {
 
             {/* Quy chuẩn trừ thưởng */}
             <div style={{ background: '#fff9c4', padding: '10px 15px', borderRadius: 8, fontSize: 13, color: '#f57f17', border: '1px solid #fff176', marginBottom: 20 }}>
-              <i className="fas fa-exclamation-circle"></i> <strong>Quy tắc trừ thâm niên:</strong> 0-10 lần (Nhận 100%), 11-20 (-10%), 21-30 (-20%), 31-50 (-30%), >50 (Mất thưởng).
+              <i className="fas fa-exclamation-circle"></i> <strong>Quy tắc trừ thâm niên:</strong> 0-10 lần (Nhận 100%), 11-20 (-10%), 21-30 (-20%), 31-50 (-30%), 50 (Mất thưởng).
             </div>
 
             {loading13 ? <div style={{ textAlign: 'center', padding: 40 }}><i className="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</div> : (
@@ -867,7 +881,7 @@ const SalaryPage = () => {
               <h3 style={{ margin: 0 }}>Chi tiết Thưởng T13 - {year}</h3>
               <span style={{ fontSize: 24, cursor: 'pointer' }} onClick={() => setDetailModal13(false)}>&times;</span>
             </div>
-            
+
             <div style={{ padding: '16px', background: '#f8f9fa', borderRadius: 8, marginBottom: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>{detailRow13.HoTen}</div>
               <div style={{ color: '#666', fontSize: 14 }}>{detailRow13.ChucVu}</div>
@@ -875,19 +889,19 @@ const SalaryPage = () => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={mRow}>
-                <span>Lương cơ bản (đóng BH):</span> 
+                <span>Lương cơ bản (đóng BH):</span>
                 <span style={{ fontWeight: 600 }}>{fmt(detailRow13.LuongCoBan || detailRow13.LuongCoBanThucTe)}</span>
               </div>
               <div style={mRow}>
-                <span>Thời gian công tác trong năm:</span> 
+                <span>Thời gian công tác trong năm:</span>
                 <span style={{ fontWeight: 600 }}>{detailRow13.soThangCong || detailRow13.PayableDays} / 12 tháng</span>
               </div>
               <div style={mRow}>
-                <span>Tổng vi phạm (Trễ/Nghỉ KP):</span> 
+                <span>Tổng vi phạm (Trễ/Nghỉ KP):</span>
                 <span style={{ fontWeight: 700, color: detailRow13.soViPham > 10 ? '#c62828' : '#2e7d32' }}>{detailRow13.soViPham || 0} lần</span>
               </div>
               <div style={mRow}>
-                <span>Tỉ lệ khấu trừ:</span> 
+                <span>Tỉ lệ khấu trừ:</span>
                 <span style={{ fontWeight: 700, color: '#c62828' }}>
                   {detailRow13.tyLeKhauTru ? `-${detailRow13.tyLeKhauTru * 100}%` : 'Không trừ'}
                 </span>
@@ -897,7 +911,7 @@ const SalaryPage = () => {
                 <span>(Lương CB * số tháng) / 12</span>
               </div>
               <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '8px 0' }} />
-              
+
               <div style={mRow}>
                 <span>Tổng thưởng (Gross):</span>
                 <span style={{ fontWeight: 700 }}>{fmt(detailRow13.thuongT13_gross || detailRow13.Thuong)}</span>
@@ -906,9 +920,9 @@ const SalaryPage = () => {
                 <span>Thuế TNCN tạm tính:</span>
                 <span>-{fmt(detailRow13.thueTNCN || detailRow13.ThueTNCN)}</span>
               </div>
-              
-              <div style={{ 
-                marginTop: 10, padding: '16px', background: '#e8f5e9', borderRadius: 8, 
+
+              <div style={{
+                marginTop: 10, padding: '16px', background: '#e8f5e9', borderRadius: 8,
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center'
               }}>
                 <span style={{ fontWeight: 700, fontSize: 18, color: '#2e7d32' }}>Thực lĩnh (Net):</span>
@@ -922,10 +936,10 @@ const SalaryPage = () => {
               )}
             </div>
 
-            <button 
-              onClick={() => setDetailModal13(false)} 
-              style={{ 
-                marginTop: 24, width: '100%', padding: '12px', border: 'none', 
+            <button
+              onClick={() => setDetailModal13(false)}
+              style={{
+                marginTop: 24, width: '100%', padding: '12px', border: 'none',
                 background: '#444', color: '#fff', borderRadius: 8, cursor: 'pointer', fontWeight: 600
               }}>
               Đóng cửa sổ

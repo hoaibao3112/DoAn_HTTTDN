@@ -661,20 +661,36 @@ const attendanceController = {
             const params = [];
 
             if (year) {
-                whereClause += ' AND Nam = ?';
+                whereClause += ' AND YEAR(cc.Ngay) = ?';
                 params.push(year);
             }
             if (month) {
-                whereClause += ' AND Thang = ?';
+                whereClause += ' AND MONTH(cc.Ngay) = ?';
                 params.push(month);
             }
             if (MaNV) {
-                whereClause += ' AND MaNV = ?';
+                whereClause += ' AND cc.MaNV = ?';
                 params.push(MaNV);
             }
 
             const [report] = await pool.query(
-                `SELECT * FROM v_cham_cong_bat_thuong ${whereClause} ORDER BY MaNV`,
+                `SELECT 
+                    nv.MaNV,
+                    nv.HoTen,
+                    YEAR(cc.Ngay) AS Nam,
+                    MONTH(cc.Ngay) AS Thang,
+                    SUM(CASE WHEN cc.TrangThai = 'Tre' THEN 1 ELSE 0 END) AS SoLanTre,
+                    SUM(CASE WHEN cc.TrangThai = 'Ve_som' THEN 1 ELSE 0 END) AS SoLanVeSom,
+                    SUM(CASE WHEN cc.GioRa IS NULL AND cc.GioVao IS NOT NULL THEN 1 ELSE 0 END) AS QuenChamRa,
+                    SUM(CASE WHEN cc.TrangThai = 'Nghi_khong_phep' THEN 1 ELSE 0 END) AS SoNgayNghiKP,
+                    SUM(CASE WHEN cc.TrangThai = 'Nghi_phep' THEN 1 ELSE 0 END) AS SoNgayNghiPhep,
+                    SUM(cc.SoGioTangCa) AS TongGioTangCa,
+                    COUNT(cc.MaCC) AS TongNgayChamCong
+                FROM cham_cong cc 
+                JOIN nhanvien nv ON cc.MaNV = nv.MaNV
+                ${whereClause}
+                GROUP BY nv.MaNV, nv.HoTen, YEAR(cc.Ngay), MONTH(cc.Ngay)
+                ORDER BY nv.MaNV`,
                 params
             );
 

@@ -6,12 +6,19 @@ const reportController = {
         try {
             const query = `
                 SELECT 
-                    YEAR(NgayBan) as Nam,
-                    SUM(ThanhToan) as TongDoanhThu,
-                    COUNT(*) as SoHoaDon
-                FROM hoadon
-                WHERE TrangThai = 'Hoan_thanh'
-                GROUP BY YEAR(NgayBan)
+                    YEAR(hd.NgayBan) as Nam,
+                    SUM(hd.ThanhToan) as DoanhThu,
+                    COUNT(DISTINCT hd.MaHD) as SoHoaDon,
+                    SUM(cost_table.TotalCost) as Von
+                FROM hoadon hd
+                LEFT JOIN (
+                    SELECT ct.MaHD, SUM(ct.SoLuong * sp.GiaNhap) as TotalCost
+                    FROM chitiethoadon ct
+                    JOIN sanpham sp ON ct.MaSP = sp.MaSP
+                    GROUP BY ct.MaHD
+                ) as cost_table ON hd.MaHD = cost_table.MaHD
+                WHERE hd.TrangThai = 'Hoan_thanh'
+                GROUP BY YEAR(hd.NgayBan)
                 ORDER BY Nam DESC
             `;
             const [results] = await pool.query(query);
@@ -28,12 +35,19 @@ const reportController = {
             const { year } = req.params;
             const query = `
                 SELECT 
-                    MONTH(NgayBan) as Thang,
-                    SUM(ThanhToan) as TongDoanhThu,
-                    COUNT(*) as SoHoaDon
-                FROM hoadon
-                WHERE YEAR(NgayBan) = ? AND TrangThai = 'Hoan_thanh'
-                GROUP BY MONTH(NgayBan)
+                    MONTH(hd.NgayBan) as Thang,
+                    SUM(hd.ThanhToan) as DoanhThu,
+                    COUNT(DISTINCT hd.MaHD) as SoHoaDon,
+                    SUM(cost_table.TotalCost) as Von
+                FROM hoadon hd
+                LEFT JOIN (
+                    SELECT ct.MaHD, SUM(ct.SoLuong * sp.GiaNhap) as TotalCost
+                    FROM chitiethoadon ct
+                    JOIN sanpham sp ON ct.MaSP = sp.MaSP
+                    GROUP BY ct.MaHD
+                ) as cost_table ON hd.MaHD = cost_table.MaHD
+                WHERE YEAR(hd.NgayBan) = ? AND hd.TrangThai = 'Hoan_thanh'
+                GROUP BY MONTH(hd.NgayBan)
                 ORDER BY Thang
             `;
             const [results] = await pool.query(query, [year]);
@@ -50,12 +64,19 @@ const reportController = {
             const { year, month } = req.params;
             const query = `
                 SELECT 
-                    DAY(NgayBan) as Ngay,
-                    SUM(ThanhToan) as TongDoanhThu,
-                    COUNT(*) as SoHoaDon
-                FROM hoadon
-                WHERE YEAR(NgayBan) = ? AND MONTH(NgayBan) = ? AND TrangThai = 'Hoan_thanh'
-                GROUP BY DAY(NgayBan)
+                    DAY(hd.NgayBan) as Ngay,
+                    SUM(hd.ThanhToan) as DoanhThu,
+                    COUNT(DISTINCT hd.MaHD) as SoHoaDon,
+                    SUM(cost_table.TotalCost) as Von
+                FROM hoadon hd
+                LEFT JOIN (
+                    SELECT ct.MaHD, SUM(ct.SoLuong * sp.GiaNhap) as TotalCost
+                    FROM chitiethoadon ct
+                    JOIN sanpham sp ON ct.MaSP = sp.MaSP
+                    GROUP BY ct.MaHD
+                ) as cost_table ON hd.MaHD = cost_table.MaHD
+                WHERE YEAR(hd.NgayBan) = ? AND MONTH(hd.NgayBan) = ? AND hd.TrangThai = 'Hoan_thanh'
+                GROUP BY DAY(hd.NgayBan)
                 ORDER BY Ngay
             `;
             const [results] = await pool.query(query, [year, month]);
@@ -72,12 +93,19 @@ const reportController = {
             const { tuNgay, denNgay } = req.body;
             const query = `
                 SELECT 
-                    DATE(NgayBan) as Ngay,
-                    SUM(ThanhToan) as TongDoanhThu,
-                    COUNT(*) as SoHoaDon
-                FROM hoadon
-                WHERE DATE(NgayBan) BETWEEN ? AND ? AND TrangThai = 'Hoan_thanh'
-                GROUP BY DATE(NgayBan)
+                    DATE(hd.NgayBan) as Ngay,
+                    SUM(hd.ThanhToan) as DoanhThu,
+                    COUNT(DISTINCT hd.MaHD) as SoHoaDon,
+                    SUM(cost_table.TotalCost) as Von
+                FROM hoadon hd
+                LEFT JOIN (
+                    SELECT ct.MaHD, SUM(ct.SoLuong * sp.GiaNhap) as TotalCost
+                    FROM chitiethoadon ct
+                    JOIN sanpham sp ON ct.MaSP = sp.MaSP
+                    GROUP BY ct.MaHD
+                ) as cost_table ON hd.MaHD = cost_table.MaHD
+                WHERE DATE(hd.NgayBan) BETWEEN ? AND ? AND hd.TrangThai = 'Hoan_thanh'
+                GROUP BY DATE(hd.NgayBan)
                 ORDER BY Ngay
             `;
             const [results] = await pool.query(query, [tuNgay, denNgay]);
@@ -105,8 +133,7 @@ const reportController = {
         try {
             const { timePeriod = 'month', tuNgay, denNgay } = req.body;
             const timeWhere = reportController._buildTimeWhere(timePeriod, tuNgay, denNgay);
-            // FIX Bug 8: Calculate revenue by distributing ThanhToan proportionally to each item
-            // Revenue = (Item subtotal / Total TongTien) * ThanhToan for each invoice
+            
             const [results] = await pool.query(`
                 SELECT 
                     sp.MaSP,
@@ -117,7 +144,7 @@ const reportController = {
                         (ct.SoLuong * ct.DonGia - IFNULL(ct.GiamGia,0)) * 
                         hd.ThanhToan / NULLIF(hd.TongTien, 1)
                     ) AS DoanhThu,
-                    COUNT(DISTINCT hd.MaHD) AS SoHoaDon
+                    COUNT(DISTINCT hd.MaHD) AS SoLuongDon
                 FROM chitiethoadon ct
                 JOIN hoadon hd ON ct.MaHD = hd.MaHD
                 JOIN sanpham sp ON ct.MaSP = sp.MaSP
@@ -137,17 +164,16 @@ const reportController = {
         try {
             const { timePeriod = 'month', tuNgay, denNgay } = req.body;
             const timeWhere = reportController._buildTimeWhere(timePeriod, tuNgay, denNgay);
-            // FIX Bug 9: Calculate revenue by distributing ThanhToan proportionally to each item
-            // Revenue = (Item subtotal / Total TongTien) * ThanhToan for each invoice
+
             const [results] = await pool.query(`
                 SELECT 
-                    tl.MaTL,
-                    tl.TenTL,
-                    SUM(ct.SoLuong) AS SoLuongBan,
+                    tl.TenTL AS TheLoai,
+                    SUM(ct.SoLuong) AS TongSoLuong,
                     SUM(
                         (ct.SoLuong * ct.DonGia - IFNULL(ct.GiamGia,0)) * 
                         hd.ThanhToan / NULLIF(hd.TongTien, 1)
                     ) AS DoanhThu,
+                    COUNT(DISTINCT hd.MaHD) AS TongDon,
                     COUNT(DISTINCT sp.MaSP) AS SoSanPham
                 FROM chitiethoadon ct
                 JOIN hoadon hd ON ct.MaHD = hd.MaHD
@@ -155,7 +181,7 @@ const reportController = {
                 JOIN theloai tl ON sp.MaTL = tl.MaTL
                 WHERE hd.TrangThai = 'Hoan_thanh' AND ${timeWhere}
                 GROUP BY tl.MaTL, tl.TenTL
-                ORDER BY SoLuongBan DESC
+                ORDER BY TongSoLuong DESC
             `);
             res.json({ success: true, data: results });
         } catch (error) {
@@ -163,31 +189,65 @@ const reportController = {
         }
     },
 
-    // Thống kê khách hàng
+    // Thống kê khách hàng (Tổng quát & Chi tiết)
     getCustomerReport: async (req, res) => {
         try {
             const { timePeriod = 'month', tuNgay, denNgay } = req.body;
             const timeWhere = reportController._buildTimeWhere(timePeriod, tuNgay, denNgay);
-            const [results] = await pool.query(`
+
+            // 1. Thống kê tổng quát (Summary)
+            const [summaryResults] = await pool.query(`
                 SELECT 
-                    kh.MaKH,
-                    kh.HoTen,
-                    kh.SDT,
-                    kh.Email,
-                    kh.DiemTichLuy,
-                    kh.TongChiTieu,
-                    COUNT(hd.MaHD) AS SoHoaDon,
-                    SUM(hd.ThanhToan) AS TongMua,
-                    MAX(hd.NgayBan) AS LanMuaGanNhat
-                FROM khachhang kh
-                JOIN hoadon hd ON kh.MaKH = hd.MaKH
-                WHERE hd.TrangThai = 'Hoan_thanh' AND ${timeWhere}
-                GROUP BY kh.MaKH, kh.HoTen, kh.SDT, kh.Email, kh.DiemTichLuy, kh.TongChiTieu
-                ORDER BY TongMua DESC
-                LIMIT 100
+                    COUNT(*) as TotalCustomers,
+                    SUM(CASE WHEN NgayThamGia >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN 1 ELSE 0 END) as NewCustomersThisMonth,
+                    SUM(CASE WHEN HangTV IN ('Vang', 'Kim_cuong') THEN 1 ELSE 0 END) as VipCount,
+                    AVG(TongChiTieu) as AvgSpent
+                FROM khachhang
+                WHERE TinhTrang = 1
             `);
-            res.json({ success: true, data: results });
+
+            // 2. Phân bố theo hạng (Tiers)
+            const [tierResults] = await pool.query(`
+                SELECT HangTV as name, COUNT(*) as value
+                FROM khachhang
+                WHERE TinhTrang = 1
+                GROUP BY HangTV
+            `);
+
+            // 3. Top khách hàng chi tiêu (VIPs)
+            const [vipResults] = await pool.query(`
+                SELECT HoTen, SDT, HangTV, TongChiTieu, DiemTichLuy
+                FROM khachhang
+                WHERE TinhTrang = 1
+                ORDER BY TongChiTieu DESC
+                LIMIT 10
+            `);
+
+            // 4. Xu hướng giao dịch (Trends - existing logic)
+            const [trendResults] = await pool.query(`
+                SELECT 
+                    DATE(hd.NgayBan) AS ThoiGian,
+                    COUNT(DISTINCT hd.MaHD) AS SoLuongDon,
+                    COUNT(DISTINCT hd.MaKH) AS SoLuongKhachHang,
+                    COUNT(DISTINCT ct.MaSP) AS SoLoaiSanPham
+                FROM hoadon hd
+                JOIN chitiethoadon ct ON hd.MaHD = ct.MaHD
+                WHERE hd.TrangThai = 'Hoan_thanh' AND ${timeWhere}
+                GROUP BY DATE(hd.NgayBan)
+                ORDER BY ThoiGian DESC
+            `);
+
+            res.json({ 
+                success: true, 
+                data: {
+                    summary: summaryResults[0],
+                    tiers: tierResults,
+                    vips: vipResults,
+                    trends: trendResults
+                }
+            });
         } catch (error) {
+            console.error('Error fetching customer report:', error);
             res.status(500).json({ success: false, message: error.message });
         }
     },

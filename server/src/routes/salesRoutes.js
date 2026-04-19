@@ -49,7 +49,26 @@ router.get('/hoadon/export-latest',
     checkPermission(FEATURES.INVOICES, PERMISSIONS.VIEW),
     salesController.exportLatestInvoices
 );
-router.get('/hoadon/:id', checkPermission(FEATURES.INVOICES, PERMISSIONS.VIEW), salesController.getInvoiceById);
+router.get('/hoadon/:id', async (req, res, next) => {
+    // Allow both INVOICES view permission AND POS view permission (for receipt printing)
+    try {
+        const { MaNQ } = req.user;
+        const query = `
+            SELECT MaCN FROM phanquyen_chitiet 
+            WHERE MaNQ = ? AND MaCN IN (?, ?) AND Xem = 1
+        `;
+        const [rows] = await pool.query(query, [MaNQ, FEATURES.INVOICES, FEATURES.POS]);
+        if (rows.length > 0) {
+            return next();
+        }
+        return res.status(403).json({
+            success: false,
+            message: 'Bạn không có quyền xem hóa đơn này'
+        });
+    } catch (error) {
+        next(error);
+    }
+}, salesController.getInvoiceById);
 router.put('/hoadon/:id/trangthai', checkPermission(FEATURES.INVOICES, PERMISSIONS.UPDATE), salesController.updateInvoiceStatus);
 router.put('/hoadon/:id/huy', checkPermission(FEATURES.INVOICES, PERMISSIONS.UPDATE), salesController.cancelInvoice);
 

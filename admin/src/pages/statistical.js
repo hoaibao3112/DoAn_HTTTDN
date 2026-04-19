@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { message, DatePicker } from 'antd';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { message, DatePicker, Card, Row, Col, Statistic, Table, Tag } from 'antd';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
@@ -58,9 +58,12 @@ const [selectedSalaryMonth, setSelectedSalaryMonth] = useState(null);
   const [productDateRange, setProductDateRange] = useState([null, null]);
   const [sortBy, setSortBy] = useState('bestseller');
 const [salaryData, setSalaryData] = useState([]);
+const token = localStorage.getItem('authToken');
+const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 const [salaryYear, setSalaryYear] = useState(new Date().getFullYear());
   const [customerFilter, setCustomerFilter] = useState('today');
   const [customerDateRange, setCustomerDateRange] = useState([null, null]);
+  const [customerData, setCustomerData] = useState({ summary: {}, tiers: [], vips: [], trends: [] });
 
   // ==================== API CALLS ====================
   const fetchDoanhThuData = useCallback(async () => {
@@ -85,13 +88,13 @@ const [salaryYear, setSalaryYear] = useState(new Date().getFullYear());
         const response = await axios.post(url, {
           tuNgay: dateRange[0].format('YYYY-MM-DD'),
           denNgay: dateRange[1].format('YYYY-MM-DD')
-        });
+        }, { headers });
         setData(response.data.data || []);
         setLoading(false);
         return;
       }
 
-      const response = await axios.get(url);
+      const response = await axios.get(url, { headers });
       setData(response.data.data || []);
     } catch (error) {
       console.error('Lỗi fetch doanh thu:', error);
@@ -99,7 +102,7 @@ const [salaryYear, setSalaryYear] = useState(new Date().getFullYear());
     } finally {
       setLoading(false);
     }
-  }, [subTab, selectedYear, selectedMonth, dateRange]);
+  }, [subTab, selectedYear, selectedMonth, dateRange, headers]);
 // ...existing code continues
 
 // ...existing code...
@@ -108,7 +111,7 @@ const fetchSalaryDetails = useCallback(async (month) => {
   if (!month) return;
   setLoading(true);
   try {
-    const res = await axios.get(`http://localhost:5000/api/salary/per-month/${salaryYear}/${month}`);
+    const res = await axios.get(`http://localhost:5000/api/salary/per-month/${salaryYear}/${month}`, { headers });
     const payload = res.data?.data ?? [];
     const records = Array.isArray(payload) ? payload : [payload];
     const normalized = records
@@ -173,7 +176,7 @@ useEffect(() => {
         payload.denNgay = productDateRange[1].format('YYYY-MM-DD');
       }
 
-      const response = await axios.post(url, payload);
+      const response = await axios.post(url, payload, { headers });
       setData(response.data.data || []);
     } catch (error) {
       console.error('Lỗi fetch bán hàng:', error);
@@ -181,7 +184,7 @@ useEffect(() => {
     } finally {
       setLoading(false);
     }
-  }, [productTab, productFilter, productDateRange]);
+  }, [productTab, productFilter, productDateRange, headers]);
 
   const fetchKhachHangData = useCallback(async () => {
     setLoading(true);
@@ -195,15 +198,17 @@ useEffect(() => {
         payload.denNgay = customerDateRange[1].format('YYYY-MM-DD');
       }
 
-      const response = await axios.post('http://localhost:5000/api/reports/khachhang/khoangtg', payload);
-      setData(response.data.data || []);
+      const response = await axios.post('http://localhost:5000/api/reports/khachhang/khoangtg', payload, { headers });
+      setCustomerData(response.data.data || { summary: {}, tiers: [], vips: [], trends: [] });
+      // Also update shared data for Export PDF/Excel compatibility if they rely on it
+      setData(response.data.data.trends || []);
     } catch (error) {
       console.error('Lỗi fetch khách hàng:', error);
       message.error('Không thể tải dữ liệu khách hàng');
     } finally {
       setLoading(false);
     }
-  }, [customerFilter, customerDateRange]);
+  }, [customerFilter, customerDateRange, headers]);
 
   // ==================== EFFECTS ====================
   useEffect(() => {
@@ -232,7 +237,7 @@ useEffect(() => {
 const fetchLuongData = useCallback(async () => {
   setLoading(true);
   try {
-    const res = await axios.get(`http://localhost:5000/api/salary/monthly/${salaryYear}`);
+    const res = await axios.get(`http://localhost:5000/api/salary/monthly/${salaryYear}`, { headers });
     let payload = res.data;
     if (payload && payload.success && payload.data) payload = payload.data;
     if (payload && payload.data && Array.isArray(payload.data)) payload = payload.data;
@@ -430,24 +435,57 @@ const getLuongMonthChartData = () => {
   };
 
   const getKhachHangChartData = () => {
-    if (!data || data.length === 0) return null;
+    const trends = customerData.trends || [];
+    if (trends.length === 0) return null;
 
     return {
-      labels: data.map(item => dayjs(item.ThoiGian).format('DD/MM')),
+      labels: trends.map(item => dayjs(item.ThoiGian).format('DD/MM')),
       datasets: [
         {
-          label: 'Số lượng khách hàng',
-          data: data.map(item => item.SoLuongKhachHang),
-          backgroundColor: 'rgba(54, 162, 235, 0.8)',
-          borderColor: 'rgb(54, 162, 235)',
-          borderWidth: 1,
-        },
-        {
           label: 'Số lượng đơn',
-          data: data.map(item => item.SoLuongDon),
+          data: trends.map(item => item.SoLuongDon),
           backgroundColor: 'rgba(255, 99, 132, 0.8)',
           borderColor: 'rgb(255, 99, 132)',
-          borderWidth: 1,
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true
+        },
+        {
+          label: 'Khách hàng tương tác',
+          data: trends.map(item => item.SoLuongKhachHang),
+          backgroundColor: 'rgba(54, 162, 235, 0.8)',
+          borderColor: 'rgb(54, 162, 235)',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true
+        }
+      ]
+    };
+  };
+
+  const getTierChartData = () => {
+    const tiers = customerData.tiers || [];
+    if (tiers.length === 0) return null;
+
+    const tierLabels = {
+      'Dong': 'Hạng Đồng',
+      'Bac': 'Hạng Bạc',
+      'Vang': 'Hạng Vàng',
+      'Kim_cuong': 'Kim Cương'
+    };
+
+    return {
+      labels: tiers.map(t => tierLabels[t.name] || t.name),
+      datasets: [
+        {
+          data: tiers.map(t => t.value),
+          backgroundColor: [
+            '#cd7f32', // Bronze
+            '#c0c0c0', // Silver
+            '#ffd700', // Gold
+            '#b9f2ff'  // Diamond
+          ],
+          borderWidth: 0
         }
       ]
     };
@@ -1252,473 +1290,567 @@ const renderChart = () => {
       </div>
     </div>
   );
-const renderLuongTab = () => {
-  // ---- Tổng hợp số liệu ----
-  const yearTotal = Array.isArray(salaryMonthly)
-    ? salaryMonthly.reduce((s, r) => s + Number(r.total ?? r.TongLuong ?? 0), 0)
-    : 0;
-  const monthTotal = salaryDetails.reduce((s, r) => s + Number(r.tong_luong ?? 0), 0);
-  const monthNV = salaryDetails.length;
-  const monthPaid = salaryDetails.filter(r => r.trang_thai === 'Da_tra' || r.trang_thai === 'Da_chi_tra').length;
+  const renderLuongTab = () => {
+    // ---- Tổng hợp số liệu ----
+    const yearTotal = Array.isArray(salaryMonthly)
+      ? salaryMonthly.reduce((s, r) => s + Number(r.total ?? r.TongLuong ?? 0), 0)
+      : 0;
+    const monthTotal = salaryDetails.reduce((s, r) => s + Number(r.tong_luong ?? 0), 0);
+    const monthNV = salaryDetails.length;
+    const monthPaidCount = salaryDetails.filter(r => r.trang_thai === 'Da_tra' || r.trang_thai === 'Da_chi_tra').length;
+    const monthPaidAmount = salaryDetails.filter(r => r.trang_thai === 'Da_tra' || r.trang_thai === 'Da_chi_tra').reduce((s, r) => s + Number(r.tong_luong ?? 0), 0);
+    const monthUnpaidAmount = monthTotal - monthPaidAmount;
 
-  const yearChartData = getLuongYearChartData();
-  const monthChartData = getLuongMonthChartData();
+    const yearChartData = getLuongYearChartData();
+    const monthChartData = getLuongMonthChartData();
 
-  const yearChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend: { position: 'top' },
-      title: { display: true, text: `Tổng lương theo tháng - Năm ${salaryYear}` },
-      tooltip: {
-        callbacks: {
-          label: (ctx) => {
-            if (ctx.datasetIndex === 0) return ` ${formatCurrency(ctx.raw)}`;
-            return ` ${ctx.raw} người`;
+    const summaryColumns = [
+      { 
+        title: 'Tháng', 
+        dataIndex: 'month', 
+        key: 'month', 
+        align: 'center', 
+        render: (m, record) => {
+          const actualMonth = record.month ?? record.Thang;
+          return <strong>Tháng {actualMonth}</strong>;
+        } 
+      },
+      { 
+        title: 'Tổng quỹ lương', 
+        dataIndex: 'total', 
+        key: 'total', 
+        align: 'right', 
+        render: (val, record) => {
+          const actualTotal = record.total ?? record.TongLuong ?? 0;
+          return <span style={{ color: '#1890ff', fontWeight: 600 }}>{formatCurrency(actualTotal)}</span>;
+        } 
+      },
+      { 
+        title: 'Số nhân viên', 
+        dataIndex: 'so_nv', 
+        key: 'so_nv', 
+        align: 'right', 
+        render: (val) => `${val || 0} người` 
+      },
+      { 
+        title: 'Trung bình/NV', 
+        key: 'avg', 
+        align: 'right', 
+        render: (_, record) => {
+          const total = record.total ?? record.TongLuong ?? 0;
+          const nv = record.so_nv ?? 0;
+          return nv > 0 ? formatCurrency(Math.round(total / nv)) : '—';
+        }
+      },
+    ];
+
+    const detailColumns = [
+      { title: 'Mã NV', dataIndex: 'MaNV', key: 'MaNV', width: 100 },
+      { title: 'Tên nhân viên', dataIndex: 'TenNV', key: 'TenNV', render: text => <strong>{text}</strong> },
+      { title: 'Chức vụ', dataIndex: 'ChucVu', key: 'ChucVu' },
+      { title: 'Lương CB', dataIndex: 'luong_co_ban', key: 'luong_co_ban', align: 'right', render: val => formatCurrency(val) },
+      { title: 'Phụ cấp', dataIndex: 'phu_cap', key: 'phu_cap', align: 'right', render: val => formatCurrency(val) },
+      { title: 'Tăng ca', dataIndex: 'tang_ca', key: 'tang_ca', align: 'center', render: val => `${val}h` },
+      { title: 'Thưởng', dataIndex: 'thuong', key: 'thuong', align: 'right', render: val => <span style={{ color: '#52c41a' }}>{formatCurrency(val)}</span> },
+      { title: 'Phạt', dataIndex: 'phat', key: 'phat', align: 'right', render: val => <span style={{ color: '#ff4d4f' }}>{formatCurrency(val)}</span> },
+      { title: 'Tổng nhận', dataIndex: 'tong_luong', key: 'tong_luong', align: 'right', render: val => <span style={{ color: '#1890ff', fontWeight: 'bold' }}>{formatCurrency(val)}</span> },
+      { 
+        title: 'Trạng thái', 
+        dataIndex: 'trang_thai', 
+        key: 'trang_thai', 
+        align: 'center',
+        render: (status) => {
+          const isPaid = status === 'Da_tra' || status === 'Da_chi_tra';
+          return <Tag color={isPaid ? 'success' : 'warning'} icon={isPaid ? <i className="fas fa-check-circle" /> : <i className="fas fa-clock" />}>
+            {isPaid ? ' Đã trả' : ' Chưa trả'}
+          </Tag>;
+        }
+      },
+    ];
+
+    const yearChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        title: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ctx.datasetIndex === 0 ? ` ${formatCurrency(ctx.raw)}` : ` ${ctx.raw} người`,
           },
         },
       },
-    },
-    scales: {
-      y: { type: 'linear', position: 'left', ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(0)+'M' : v) } },
-      y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { stepSize: 1 } },
-    },
-  };
+      scales: {
+        y: { type: 'linear', position: 'left', ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(0)+'M' : v) } },
+        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { stepSize: 1 } },
+      },
+    };
 
-  const monthChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    indexAxis: 'y',
-    plugins: {
-      legend: { display: false },
-      title: { display: true, text: `Chi tiết lương nhân viên - Tháng ${selectedSalaryMonth}/${salaryYear}` },
-      tooltip: { callbacks: { label: (ctx) => ` ${formatCurrency(ctx.raw)}` } },
-    },
-    scales: {
-      x: { ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(0)+'M' : v) } },
-    },
-  };
+    const monthChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        title: { display: false },
+        tooltip: { callbacks: { label: (ctx) => ` ${formatCurrency(ctx.raw)}` } },
+      },
+      scales: {
+        x: { ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(0)+'M' : v) } },
+      },
+    };
 
-  return (
-    <div id="luong-export-area" className="thongke-content">
-      {/* ---- BỘ LỌC ---- */}
-      <div className="thongke-filters">
-        <div className="filter-group">
-          <label>Năm:</label>
-          <select value={salaryYear} onChange={(e) => { setSalaryYear(Number(e.target.value)); setSelectedSalaryMonth(null); setSalaryDetails([]); }}>
-            {Array.from({length: new Date().getFullYear() - 2022}, (_, i) => 2023 + i).map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+    return (
+      <div className="tab-content salary-stats-premium" id="luong-export-area">
+        {/* ---- BỘ LỌC ---- */}
+        <div className="thongke-filters" style={{ marginBottom: '24px' }}>
+          <div className="filter-group">
+            <label>Năm báo cáo</label>
+            <select value={salaryYear} onChange={(e) => { setSalaryYear(Number(e.target.value)); setSelectedSalaryMonth(null); setSalaryDetails([]); }}>
+              {Array.from({length: new Date().getFullYear() - 2022}, (_, i) => 2023 + i).map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Tháng</label>
+            <select value={selectedSalaryMonth || ''} onChange={(e) => setSelectedSalaryMonth(e.target.value ? Number(e.target.value) : null)}>
+              <option value="">-- Cả năm --</option>
+              {Array.from({length: 12}, (_, i) => i+1).map(m => <option key={m} value={m}>Tháng {m}</option>)}
+            </select>
+          </div>
+          <div className="filter-actions">
+            <button className="btn-refresh" onClick={() => { fetchLuongData(); selectedSalaryMonth && fetchSalaryDetails(selectedSalaryMonth); }}>
+              <i className="fas fa-sync-alt"></i> Làm mới
+            </button>
+            <button className="btn-pdf" onClick={handleExportPDF}>
+              <i className="fas fa-file-pdf"></i> PDF
+            </button>
+            <button className="btn-excel" onClick={handleExportExcel}>
+              <i className="fas fa-file-excel"></i> Excel
+            </button>
+          </div>
         </div>
-        <div className="filter-group">
-          <label>Tháng:</label>
-          <select value={selectedSalaryMonth || ''} onChange={(e) => setSelectedSalaryMonth(e.target.value ? Number(e.target.value) : null)}>
-            <option value="">-- Tổng năm --</option>
-            {Array.from({length: 12}, (_, i) => i+1).map(m => <option key={m} value={m}>Tháng {m}</option>)}
-          </select>
-        </div>
-        <div className="filter-actions">
-          <button className="btn-refresh" onClick={() => { fetchLuongData(); selectedSalaryMonth && fetchSalaryDetails(selectedSalaryMonth); }}>
-            <i className="fas fa-sync-alt"></i> Tải lại
-          </button>
-          <button className="btn-pdf" onClick={handleExportPDF}>
-            <i className="fas fa-file-pdf"></i> Xuất PDF
-          </button>
-          <button className="btn-excel" onClick={handleExportExcel}>
-            <i className="fas fa-file-excel"></i> Xuất Excel
-          </button>
-        </div>
-      </div>
 
-      {/* ---- SUMMARY CARDS ---- */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 200, background: 'linear-gradient(135deg,#1890ff,#096dd9)', color: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 2px 8px rgba(24,144,255,0.3)' }}>
-          <div style={{ fontSize: 13, opacity: 0.85 }}>Tổng lương năm {salaryYear}</div>
-          <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>{formatCurrency(yearTotal)}</div>
-          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>{salaryMonthly.length} tháng có dữ liệu</div>
-        </div>
-        <div style={{ flex: 1, minWidth: 200, background: 'linear-gradient(135deg,#52c41a,#389e0d)', color: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 2px 8px rgba(82,196,26,0.3)' }}>
-          <div style={{ fontSize: 13, opacity: 0.85 }}>
-            {selectedSalaryMonth ? `Tổng lương T${selectedSalaryMonth}/${salaryYear}` : 'Tổng lương tháng'}
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
-            {selectedSalaryMonth ? formatCurrency(monthTotal) : <span style={{fontSize:14}}>Chọn tháng để xem</span>}
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>{monthNV > 0 ? `${monthNV} nhân viên` : ''}</div>
-        </div>
-        <div style={{ flex: 1, minWidth: 200, background: 'linear-gradient(135deg,#faad14,#d48806)', color: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 2px 8px rgba(250,173,20,0.3)' }}>
-          <div style={{ fontSize: 13, opacity: 0.85 }}>Đã chi trả {selectedSalaryMonth ? `T${selectedSalaryMonth}` : ''}</div>
-          <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
-            {selectedSalaryMonth ? formatCurrency(salaryDetails.filter(r => r.trang_thai === 'Da_tra' || r.trang_thai === 'Da_chi_tra').reduce((s,r) => s + r.tong_luong, 0)) : '—'}
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
-            {selectedSalaryMonth && monthNV > 0 ? `${monthPaid}/${monthNV} người đã nhận` : ''}
-          </div>
-        </div>
-        <div style={{ flex: 1, minWidth: 200, background: 'linear-gradient(135deg,#ff4d4f,#cf1322)', color: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 2px 8px rgba(255,77,79,0.3)' }}>
-          <div style={{ fontSize: 13, opacity: 0.85 }}>Chưa chi trả {selectedSalaryMonth ? `T${selectedSalaryMonth}` : ''}</div>
-          <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
-            {selectedSalaryMonth ? formatCurrency(salaryDetails.filter(r => r.trang_thai !== 'Da_tra' && r.trang_thai !== 'Da_chi_tra').reduce((s,r) => s + r.tong_luong, 0)) : '—'}
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
-            {selectedSalaryMonth && monthNV > 0 ? `${monthNV - monthPaid}/${monthNV} người chưa nhận` : ''}
-          </div>
-        </div>
-      </div>
+        {/* ---- SUMMARY CARDS ---- */}
+        <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="stat-card total-payroll" bordered={false}>
+              <Statistic
+                title={`Tổng lương năm ${salaryYear}`}
+                value={yearTotal}
+                formatter={val => formatCurrency(val)}
+                prefix={<i className="fas fa-wallet" style={{ color: '#1890ff' }} />}
+              />
+              <div className="payroll-progress">
+                <div className="progress-text">
+                  <span>Dữ liệu: {salaryMonthly.length}/12 tháng</span>
+                </div>
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="stat-card month-payroll" bordered={false}>
+              <Statistic
+                title={selectedSalaryMonth ? `Quỹ lương Tháng ${selectedSalaryMonth}` : "Lương trung bình tháng"}
+                value={selectedSalaryMonth ? monthTotal : (salaryMonthly.length > 0 ? (yearTotal / salaryMonthly.length) : 0)}
+                formatter={val => formatCurrency(val)}
+                prefix={<i className="fas fa-money-check-alt" style={{ color: '#52c41a' }} />}
+              />
+              <div className="payroll-progress">
+                <div className="progress-text">
+                  <span>Số nhân viên: {monthNV > 0 ? monthNV : '—'}</span>
+                </div>
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="stat-card paid-status" bordered={false}>
+              <Statistic
+                title="Đã chi trả"
+                value={selectedSalaryMonth ? monthPaidAmount : "—"}
+                formatter={val => typeof val === 'number' ? formatCurrency(val) : val}
+                prefix={<i className="fas fa-hand-holding-usd" style={{ color: '#faad14' }} />}
+              />
+              <div className="payroll-progress">
+                <div className="progress-text">
+                  <span>Thanh toán: {selectedSalaryMonth ? `${monthPaidCount}/${monthNV}` : '—'} NV</span>
+                </div>
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card className="stat-card unpaid-status" bordered={false}>
+              <Statistic
+                title="Còn nợ lương"
+                value={selectedSalaryMonth ? monthUnpaidAmount : "—"}
+                formatter={val => typeof val === 'number' ? formatCurrency(val) : val}
+                prefix={<i className="fas fa-exclamation-circle" style={{ color: '#ff4d4f' }} />}
+              />
+              <div className="payroll-progress">
+                <div className="progress-text">
+                  <span>Cần chi trả: {selectedSalaryMonth ? (monthNV - monthPaidCount) : '—'} NV</span>
+                </div>
+              </div>
+            </Card>
+          </Col>
+        </Row>
 
-      {/* ---- BIỂU ĐỒ NĂM ---- */}
-      {salaryMonthly.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <div style={{ height: 280 }}>
-            <Bar data={yearChartData} options={yearChartOptions} />
-          </div>
-        </div>
-      )}
+        {/* ---- CHARTS & SUMMARY TABLE ---- */}
+        <Row gutter={[24, 24]} className="chart-row">
+          <Col xs={24} lg={14}>
+            <Card title={<span><i className="fas fa-chart-line" /> Xu hướng quỹ lương năm {salaryYear}</span>} className="chart-card" bordered={false}>
+              <div style={{ height: '350px' }}>
+                {salaryMonthly.length > 0 ? (
+                  <Bar data={yearChartData} options={yearChartOptions} />
+                ) : (
+                  <div className="no-data" style={{ padding: '100px 0' }}>Không có dữ liệu biểu đồ</div>
+                )}
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} lg={10}>
+            <Card title={<span><i className="fas fa-table" /> Tổng hợp 12 tháng</span>} className="chart-card" bordered={false}>
+              <Table
+                columns={summaryColumns}
+                dataSource={Array.from({length: 12}, (_, i) => {
+                  const m = i + 1;
+                  const row = salaryMonthly.find(r => Number(r.month ?? r.Thang) === m);
+                  return {
+                    key: m,
+                    month: m,
+                    total: row ? (row.total ?? row.TongLuong ?? 0) : 0,
+                    so_nv: row ? (row.so_nv ?? 0) : 0,
+                  };
+                })}
+                pagination={false}
+                size="small"
+                scroll={{ y: 300 }}
+                onRow={(record) => ({
+                  onClick: () => setSelectedSalaryMonth(record.month),
+                  className: selectedSalaryMonth === record.month ? 'selected-month-row' : ''
+                })}
+              />
+            </Card>
+          </Col>
+        </Row>
 
-      {/* ---- BẢNG TỔNG HỢP 12 THÁNG ---- */}
-      <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-        <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>Tổng hợp lương theo tháng - Năm {salaryYear}</h3>
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 20 }}><i className="fas fa-spinner fa-spin"></i> Đang tải...</div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr style={{ background: '#f0f5ff' }}>
-                {['Tháng','Tổng quỹ lương','Số nhân viên','Trung bình/NV'].map(h => (
-                  <th key={h} style={{ padding: '10px 12px', textAlign: h === 'Tháng' ? 'center' : 'right', borderBottom: '2px solid #d6e4ff', fontWeight: 600 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({length: 12}, (_, i) => i+1).map(m => {
-                const row = salaryMonthly.find(r => Number(r.month ?? r.Thang) === m);
-                const total = row ? Number(row.total ?? row.TongLuong ?? 0) : 0;
-                const nv = row ? Number(row.so_nv ?? 0) : 0;
-                const isSelected = selectedSalaryMonth === m;
-                return (
-                  <tr
-                    key={m}
-                    onClick={() => setSelectedSalaryMonth(m)}
-                    style={{ cursor: 'pointer', background: isSelected ? '#e6f7ff' : (m % 2 === 0 ? '#fafafa' : '#fff'), transition: 'background 0.15s' }}
-                  >
-                    <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: isSelected ? 700 : 400, color: isSelected ? '#1890ff' : undefined }}>
-                      Tháng {m}
-                    </td>
-                    <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: total > 0 ? 600 : 400, color: total > 0 ? '#1890ff' : '#bbb' }}>
-                      {total > 0 ? formatCurrency(total) : '—'}
-                    </td>
-                    <td style={{ padding: '9px 12px', textAlign: 'right', color: nv > 0 ? '#333' : '#bbb' }}>
-                      {nv > 0 ? `${nv} người` : '—'}
-                    </td>
-                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#555' }}>
-                      {nv > 0 && total > 0 ? formatCurrency(Math.round(total / nv)) : '—'}
-                    </td>
-                  </tr>
-                );
-              })}
-              {/* Tổng năm */}
-              <tr style={{ background: '#1890ff', color: '#fff', fontWeight: 700 }}>
-                <td style={{ padding: '10px 12px', textAlign: 'center' }}>Cả năm {salaryYear}</td>
-                <td style={{ padding: '10px 12px', textAlign: 'right' }}>{formatCurrency(yearTotal)}</td>
-                <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                  {salaryMonthly.reduce((s, r) => { const nv = Number(r.so_nv ?? 0); return s + nv; }, 0)} lượt NV
-                </td>
-                <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                  {salaryMonthly.length > 0 ? formatCurrency(Math.round(yearTotal / salaryMonthly.length)) : '—'}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        {/* ---- MONTHLY DETAIL SECTION ---- */}
+        {selectedSalaryMonth && (
+          <div className="section-card detail-table-section">
+            <div className="section-title" style={{ padding: '16px 24px', borderBottom: '1px solid #f0f0f0' }}>
+              <i className="fas fa-users-cog" /> Biến động lương nhân viên - Tháng {selectedSalaryMonth}/{salaryYear}
+            </div>
+            
+            <div style={{ padding: '24px' }}>
+              {salaryDetails.length > 0 && (
+                <div style={{ height: Math.min(400, Math.max(200, salaryDetails.length * 40)), marginBottom: '32px' }}>
+                  <Bar data={monthChartData} options={monthChartOptions} />
+                </div>
+              )}
+
+              <Table
+                columns={detailColumns}
+                dataSource={salaryDetails.map((item, idx) => ({ ...item, key: item.id || idx }))}
+                loading={loading}
+                pagination={{ pageSize: 10 }}
+                summary={(pageData) => {
+                  if (pageData.length === 0) return null;
+                  return (
+                    <Table.Summary fixed>
+                      <Table.Summary.Row style={{ background: '#fafafa', fontWeight: 'bold' }}>
+                        <Table.Summary.Cell index={0} colSpan={3} align="right">TỔNG CỘNG:</Table.Summary.Cell>
+                        <Table.Summary.Cell index={1} align="right">{formatCurrency(salaryDetails.reduce((s, r) => s + Number(r.luong_co_ban || 0), 0))}</Table.Summary.Cell>
+                        <Table.Summary.Cell index={2} align="right">{formatCurrency(salaryDetails.reduce((s, r) => s + Number(r.phu_cap || 0), 0))}</Table.Summary.Cell>
+                        <Table.Summary.Cell index={3} align="center">—</Table.Summary.Cell>
+                        <Table.Summary.Cell index={4} align="right" style={{ color: '#52c41a' }}>{formatCurrency(salaryDetails.reduce((s, r) => s + Number(r.thuong || 0), 0))}</Table.Summary.Cell>
+                        <Table.Summary.Cell index={5} align="right" style={{ color: '#ff4d4f' }}>{formatCurrency(salaryDetails.reduce((s, r) => s + Number(r.phat || 0), 0))}</Table.Summary.Cell>
+                        <Table.Summary.Cell index={6} align="right" style={{ color: '#1890ff' }}>{formatCurrency(monthTotal)}</Table.Summary.Cell>
+                        <Table.Summary.Cell index={7} align="center">—</Table.Summary.Cell>
+                      </Table.Summary.Row>
+                    </Table.Summary>
+                  );
+                }}
+              />
+            </div>
+          </div>
         )}
       </div>
+    );
+  };
 
-      {/* ---- CHI TIẾT THÁNG ---- */}
-      {selectedSalaryMonth && (
-        <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>Chi tiết lương - Tháng {selectedSalaryMonth}/{salaryYear}</h3>
+  const renderBanHangTab = () => {
+    return (
+      <div className="tab-content">
+        <div className="thongke-subtabs">
+          <button className={productTab === 'sanpham' ? 'active' : ''} onClick={() => setProductTab('sanpham')}>
+            Sản phẩm
+          </button>
+          <button className={productTab === 'theloai' ? 'active' : ''} onClick={() => setProductTab('theloai')}>
+            Thể loại
+          </button>
+        </div>
 
-          {/* Biểu đồ theo nhân viên */}
-          {monthChartData && salaryDetails.length > 0 && (
-            <div style={{ height: Math.max(200, salaryDetails.length * 32), marginBottom: 20 }}>
-              <Bar data={monthChartData} options={monthChartOptions} />
+        <div className="thongke-filters">
+          <div className="filter-group">
+            <label>Khoảng thời gian</label>
+            <select value={productFilter} onChange={(e) => setProductFilter(e.target.value)}>
+              <option value="today">Hôm nay</option>
+              <option value="week">7 ngày qua</option>
+              <option value="month">Tháng này</option>
+              <option value="year">Năm nay</option>
+              <option value="custom">Tùy chỉnh</option>
+            </select>
+          </div>
+
+          {productFilter === 'custom' && (
+            <div className="filter-group">
+              <RangePicker
+                value={productDateRange}
+                onChange={setProductDateRange}
+                format="DD/MM/YYYY"
+                placeholder={['Từ ngày', 'Đến ngày']}
+              />
             </div>
           )}
 
-          {/* Bảng chi tiết */}
-          <div className="thongke-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>STT</th>
-                  <th>Mã NV</th>
-                  <th>Tên nhân viên</th>
-                  <th>Chức vụ</th>
-                  <th>Lương CB</th>
-                  <th>Phụ cấp</th>
-                  <th>Tăng ca (h)</th>
-                  <th>Thưởng</th>
-                  <th>Phạt</th>
-                  <th>Tổng nhận</th>
-                  <th>Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan="11" style={{ textAlign: 'center', padding: 30 }}>
-                    <i className="fas fa-spinner fa-spin"></i> Đang tải...
-                  </td></tr>
-                ) : salaryDetails.length > 0 ? (
-                  salaryDetails.map((item, idx) => (
-                    <tr key={item.id || idx}>
-                      <td>{idx + 1}</td>
-                      <td>{item.MaNV}</td>
-                      <td>{item.TenNV}</td>
-                      <td>{item.ChucVu}</td>
-                      <td>{formatCurrency(item.luong_co_ban)}</td>
-                      <td>{formatCurrency(item.phu_cap)}</td>
-                      <td style={{ textAlign: 'center' }}>{item.tang_ca}</td>
-                      <td style={{ color: '#52c41a' }}>{formatCurrency(item.thuong)}</td>
-                      <td style={{ color: '#ff4d4f' }}>{formatCurrency(item.phat)}</td>
-                      <td style={{ color: '#1890ff', fontWeight: 700 }}>{formatCurrency(item.tong_luong)}</td>
-                      <td>
-                        <span style={{
-                          display: 'inline-block', padding: '2px 10px', borderRadius: 12, fontSize: 12,
-                          background: (item.trang_thai === 'Da_tra' || item.trang_thai === 'Da_chi_tra') ? '#f6ffed' : '#fff7e6',
-                          color: (item.trang_thai === 'Da_tra' || item.trang_thai === 'Da_chi_tra') ? '#52c41a' : '#fa8c16',
-                          border: `1px solid ${(item.trang_thai === 'Da_tra' || item.trang_thai === 'Da_chi_tra') ? '#b7eb8f' : '#ffd591'}`,
-                        }}>
-                          {(item.trang_thai === 'Da_tra' || item.trang_thai === 'Da_chi_tra') ? '✓ Đã trả' : '⏳ Chưa trả'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr><td colSpan="11" style={{ textAlign: 'center', padding: 30, color: '#888' }}>
-                    Chưa có dữ liệu lương tháng {selectedSalaryMonth}/{salaryYear}. Vui lòng tính lương trước.
-                  </td></tr>
-                )}
-                {salaryDetails.length > 0 && (
-                  <tr style={{ background: '#e6f7ff', fontWeight: 700 }}>
-                    <td colSpan="4" style={{ textAlign: 'right', padding: '10px 12px' }}>TỔNG CỘNG:</td>
-                    <td>{formatCurrency(salaryDetails.reduce((s,r)=>s+r.luong_co_ban,0))}</td>
-                    <td>{formatCurrency(salaryDetails.reduce((s,r)=>s+r.phu_cap,0))}</td>
-                    <td style={{ textAlign: 'center' }}>{salaryDetails.reduce((s,r)=>s+r.tang_ca,0)}</td>
-                    <td style={{ color:'#52c41a' }}>{formatCurrency(salaryDetails.reduce((s,r)=>s+r.thuong,0))}</td>
-                    <td style={{ color:'#ff4d4f' }}>{formatCurrency(salaryDetails.reduce((s,r)=>s+r.phat,0))}</td>
-                    <td style={{ color:'#1890ff' }}>{formatCurrency(monthTotal)}</td>
-                    <td></td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          {productTab === 'sanpham' && (
+            <div className="filter-group">
+              <label>Lọc</label>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                <option value="bestseller">Sản phẩm bán chạy</option>
+                <option value="all">Tất cả</option>
+              </select>
+            </div>
+          )}
+
+          <div className="filter-actions">
+            <button className={`btn-chart ${showChart ? 'active' : ''}`} onClick={() => setShowChart(!showChart)}>
+              <i className={`fas fa-chart-${productTab === 'sanpham' ? 'bar' : 'pie'}`}></i> 
+              {showChart ? 'Ẩn biểu đồ' : 'Hiện biểu đồ'}
+            </button>
+
+            <button className="btn-pdf" onClick={handleExportPDF}>
+              <i className="fas fa-file-pdf"></i> Xuất PDF
+            </button>
+
+            <button className="btn-excel" onClick={handleExportExcel}>
+              <i className="fas fa-file-excel"></i> Xuất Excel
+            </button>
           </div>
         </div>
-      )}
-    </div>
-  );
-};
-  const renderBanHangTab = () => (
-    <div className="thongke-content">
-      <div className="thongke-subtabs">
-        <button className={productTab === 'sanpham' ? 'active' : ''} onClick={() => setProductTab('sanpham')}>
-          Sản phẩm
-        </button>
-        <button className={productTab === 'theloai' ? 'active' : ''} onClick={() => setProductTab('theloai')}>
-          Thể loại
-        </button>
-      </div>
 
-      <div className="thongke-filters">
-        <div className="filter-group">
-          <label>Khoảng thời gian</label>
-          <select value={productFilter} onChange={(e) => setProductFilter(e.target.value)}>
-            <option value="today">Hôm nay</option>
-            <option value="custom">Tùy chỉnh</option>
-          </select>
-        </div>
-
-        {productFilter === 'custom' && (
-          <div className="filter-group">
-            <RangePicker
-              value={productDateRange}
-              onChange={setProductDateRange}
-              format="DD/MM/YYYY"
-              placeholder={['Từ ngày', 'Đến ngày']}
-            />
+        {showChart && (
+          <div className="chart-container" style={{ height: '400px', marginBottom: '30px' }}>
+            {getBanHangChartData() ? (
+              productTab === 'sanpham' ? (
+                <Bar data={getBanHangChartData()} options={chartOptions} />
+              ) : (
+                <Pie data={getBanHangChartData()} options={chartOptions} />
+              )
+            ) : (
+              <div className="no-data">Không có dữ liệu cho biểu đồ</div>
+            )}
           </div>
         )}
 
-        {productTab === 'sanpham' && (
+        <div className="thongke-table">
+          <table>
+            <thead>
+              <tr>
+                <th>STT</th>
+                {productTab === 'sanpham' ? (
+                  <>
+                    <th>MaSP</th>
+                    <th>TenSP</th>
+                    <th>SL bán</th>
+                    <th>SL đơn bán</th>
+                  </>
+                ) : (
+                  <>
+                    <th>Thể loại</th>
+                    <th>Tổng SL</th>
+                    <th>Tổng đơn</th>
+                    <th>Số SP</th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan="5" style={{ textAlign: 'center', padding: '30px' }}>
+                    <i className="fas fa-spinner fa-spin"></i> Đang tải...
+                  </td>
+                </tr>
+              ) : data.length > 0 ? (
+                data.map((item, index) => (
+                  <tr key={index}>
+                    <td>{index + 1}</td>
+                    {productTab === 'sanpham' ? (
+                      <>
+                        <td>{item.MaSP}</td>
+                        <td>{item.TenSP}</td>
+                        <td style={{ color: '#1890ff', fontWeight: 'bold' }}>{item.SoLuongBan}</td>
+                        <td>{item.SoLuongDon}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td>{item.TheLoai}</td>
+                        <td style={{ color: '#1890ff', fontWeight: 'bold' }}>{item.TongSoLuong}</td>
+                        <td>{item.TongDon}</td>
+                        <td>{item.SoSanPham}</td>
+                      </>
+                    )}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" style={{ textAlign: 'center', padding: '30px' }}>Không có dữ liệu</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderKhachHangTab = () => {
+    const { summary = {}, vips = [] } = customerData;
+    
+    const vipColumns = [
+      { title: 'Tên khách hàng', dataIndex: 'HoTen', key: 'HoTen', render: text => <strong>{text}</strong> },
+      { title: 'Số điện thoại', dataIndex: 'SDT', key: 'SDT' },
+      { 
+        title: 'Hạng', 
+        dataIndex: 'HangTV', 
+        key: 'HangTV',
+        render: (tier) => {
+          let color = 'default';
+          let label = tier;
+          if (tier === 'Dong') { color = 'orange'; label = 'Đồng'; }
+          if (tier === 'Bac') { color = 'gray'; label = 'Bạc'; }
+          if (tier === 'Vang') { color = 'gold'; label = 'Vàng'; }
+          if (tier === 'Kim_cuong') { color = 'cyan'; label = 'Kim Cương'; }
+          return <Tag color={color}>{label}</Tag>;
+        }
+      },
+      { 
+        title: 'Tổng chi tiêu', 
+        dataIndex: 'TongChiTieu', 
+        key: 'TongChiTieu',
+        render: val => <span style={{ color: '#52c41a', fontWeight: 'bold' }}>{formatCurrency(val)}</span>
+      },
+      { title: 'Điểm tích lũy', dataIndex: 'DiemTichLuy', key: 'DiemTichLuy', render: val => <span>{val} điểm</span> },
+    ];
+
+    return (
+      <div className="tab-content customer-stats-premium">
+        {/* Overview Cards */}
+        <Row gutter={[16, 16]} className="stats-overview-cards">
+          <Col xs={24} sm={12} lg={6}>
+            <Card bordered={false} className="stat-card total-customers">
+              <Statistic
+                title="Tổng khách hàng"
+                value={summary.TotalCustomers || 0}
+                suffix="thành viên"
+                prefix={<i className="fas fa-users"></i>}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card bordered={false} className="stat-card new-customers">
+              <Statistic
+                title="Khách hàng mới (Tháng này)"
+                value={summary.NewCustomersThisMonth || 0}
+                valueStyle={{ color: '#3f8600' }}
+                prefix={<i className="fas fa-user-plus"></i>}
+                suffix="+"
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card bordered={false} className="stat-card vip-customers">
+              <Statistic
+                title="Hội viên VIP"
+                value={summary.VipCount || 0}
+                prefix={<i className="fas fa-crown" style={{ color: '#ffd700' }}></i>}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} lg={6}>
+            <Card bordered={false} className="stat-card avg-spent">
+              <Statistic
+                title="Chi tiêu TB / Khách"
+                value={summary.AvgSpent || 0}
+                formatter={(val) => formatCurrency(val)}
+                prefix={<i className="fas fa-hand-holding-usd"></i>}
+              />
+            </Card>
+          </Col>
+        </Row>
+
+        <div className="thongke-filters">
           <div className="filter-group">
-            <label>Lọc</label>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-              <option value="bestseller">Sản phẩm bán chạy</option>
-              <option value="all">Tất cả</option>
+            <label>Thời gian</label>
+            <select value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)}>
+              <option value="today">Hôm nay</option>
+              <option value="week">7 ngày qua</option>
+              <option value="month">Tháng này</option>
+              <option value="year">Năm nay</option>
+              <option value="custom">Tùy chọn</option>
             </select>
           </div>
-        )}
 
-        <div className="filter-actions">
-          <button className={`btn-chart ${showChart ? 'active' : ''}`} onClick={() => setShowChart(!showChart)}>
-            <i className={`fas fa-chart-${productTab === 'sanpham' ? 'bar' : 'pie'}`}></i> 
-            {showChart ? 'Ẩn biểu đồ' : 'Hiện biểu đồ'}
-          </button>
-
-          <button className="btn-pdf" onClick={handleExportPDF}>
-            <i className="fas fa-file-pdf"></i> Xuất PDF
-          </button>
-
-          <button className="btn-excel" onClick={handleExportExcel}>
-            <i className="fas fa-file-excel"></i> Xuất Excel
-          </button>
-        </div>
-      </div>
-
-      {renderChart()}
-
-      <div className="thongke-table">
-        <table>
-          <thead>
-            <tr>
-              <th>STT</th>
-              {productTab === 'sanpham' ? (
-                <>
-                  <th>MaSP</th>
-                  <th>TenSP</th>
-                  <th>SL bán</th>
-                  <th>SL đơn bán</th>
-                </>
-              ) : (
-                <>
-                  <th>Thể loại</th>
-                  <th>Tổng SL</th>
-                  <th>Tổng đơn</th>
-                  <th>Số SP</th>
-                </>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={productTab === 'sanpham' ? 5 : 5} style={{ textAlign: 'center', padding: '30px' }}>
-                  <i className="fas fa-spinner fa-spin"></i> Đang tải...
-                </td>
-              </tr>
-            ) : data.length > 0 ? (
-              data.map((item, index) => (
-                <tr key={index}>
-                  <td>{index + 1}</td>
-                  {productTab === 'sanpham' ? (
-                    <>
-                      <td>{item.MaSP}</td>
-                      <td>{item.TenSP}</td>
-                      <td style={{ color: '#1890ff', fontWeight: 'bold' }}>{item.SoLuongBan}</td>
-                      <td>{item.SoLuongDon}</td>
-                    </>
-                  ) : (
-                    <>
-                      <td>{item.TheLoai}</td>
-                      <td style={{ color: '#1890ff', fontWeight: 'bold' }}>{item.TongSoLuong}</td>
-                      <td>{item.TongDon}</td>
-                      <td>{item.SoSanPham}</td>
-                    </>
-                  )}
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={productTab === 'sanpham' ? 5 : 5} style={{ textAlign: 'center', padding: '30px' }}>
-                  Không có dữ liệu
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  const renderKhachHangTab = () => (
-    <div className="thongke-content">
-      <div className="thongke-filters">
-        <div className="filter-group">
-          <label>Khoảng thời gian</label>
-          <select value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)}>
-            <option value="today">Hôm nay</option>
-            <option value="custom">Tùy chỉnh</option>
-          </select>
+          {customerFilter === 'custom' && (
+            <div className="filter-group">
+              <RangePicker
+                value={customerDateRange}
+                onChange={setCustomerDateRange}
+                format="DD/MM/YYYY"
+              />
+            </div>
+          )}
         </div>
 
-        {customerFilter === 'custom' && (
-          <div className="filter-group">
-            <RangePicker
-              value={customerDateRange}
-              onChange={setCustomerDateRange}
-              format="DD/MM/YYYY"
-              placeholder={['Từ ngày', 'Đến ngày']}
+        <Row gutter={[24, 24]} className="customer-charts-row">
+          <Col xs={24} lg={16}>
+            <Card title="📈 Xu hướng mua sắm" bordered={false} className="chart-card">
+              <div className="chart-container" style={{ height: '350px' }}>
+                {getKhachHangChartData() ? (
+                  <Line data={getKhachHangChartData()} options={chartOptions} />
+                ) : (
+                  <div className="no-data">Không có dữ liệu xu hướng</div>
+                )}
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} lg={8}>
+            <Card title="💎 Phân bổ hạng thành viên" bordered={false} className="chart-card">
+              <div className="chart-container" style={{ height: '350px' }}>
+                {getTierChartData() ? (
+                  <Pie data={getTierChartData()} options={{ ...chartOptions, title: { display: false } }} />
+                ) : (
+                  <div className="no-data">Không có dữ liệu phân hạng</div>
+                )}
+              </div>
+            </Card>
+          </Col>
+        </Row>
+
+        <div className="vip-ranking-section" style={{ marginTop: '24px' }}>
+          <Card title={<span><i className="fas fa-trophy" style={{ color: '#ffd700', marginRight: '8px' }}></i> Top 10 khách hàng chi tiêu nhiều nhất</span>} bordered={false}>
+            <Table 
+              columns={vipColumns} 
+              dataSource={vips.map((v, i) => ({ ...v, key: i }))} 
+              pagination={false} 
+              loading={loading}
+              className="vip-table"
             />
-          </div>
-        )}
-
-        <div className="filter-actions">
-          <button className={`btn-chart ${showChart ? 'active' : ''}`} onClick={() => setShowChart(!showChart)}>
-            <i className="fas fa-chart-bar"></i> 
-            {showChart ? 'Ẩn biểu đồ' : 'Hiện biểu đồ'}
-          </button>
-
-          <button className="btn-pdf" onClick={handleExportPDF}>
-            <i className="fas fa-file-pdf"></i> Xuất PDF
-          </button>
-
-          <button className="btn-excel" onClick={handleExportExcel}>
-            <i className="fas fa-file-excel"></i> Xuất Excel
-          </button>
+          </Card>
         </div>
       </div>
-
-      {renderChart()}
-
-      <div className="thongke-table">
-        <table>
-          <thead>
-            <tr>
-              <th>STT</th>
-              <th>Thời gian</th>
-              <th>Số lượng đơn</th>
-              <th>Số lượng SP</th>
-              <th>Số loại SP</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '30px' }}>
-                  <i className="fas fa-spinner fa-spin"></i> Đang tải...
-                </td>
-              </tr>
-            ) : data.length > 0 ? (
-              data.map((item, index) => (
-                <tr key={index}>
-                  <td>{index + 1}</td>
-                  <td>{dayjs(item.ThoiGian).format('DD/MM/YYYY')}</td>
-                  <td style={{ color: '#1890ff', fontWeight: 'bold' }}>{item.SoLuongDon}</td>
-                  <td>{item.SoLuongKhachHang}</td>
-                  <td>{item.SoLoaiSanPham}</td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '30px' }}>
-                  Không có dữ liệu
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+    );
+  };
 
   // ==================== MAIN RENDER ====================
   return (

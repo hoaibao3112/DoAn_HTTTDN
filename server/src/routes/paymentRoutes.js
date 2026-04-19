@@ -4,7 +4,11 @@ import { authenticateToken } from '../utils/generateToken.js';
 
 const router = express.Router();
 
-// All payment routes require authentication (for staff/POS)
+// Public VNPAY callback routes (MUST be before authenticateToken)
+router.get('/vnpay/callback', paymentController.vnpayReturn);
+router.get('/vnpay/ipn', paymentController.vnpayIpn);
+
+// All other payment routes require authentication (for staff/POS)
 router.use(authenticateToken);
 
 // VNPay

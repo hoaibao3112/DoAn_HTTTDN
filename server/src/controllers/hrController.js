@@ -630,10 +630,23 @@ const hrController = {
 
     calculateMonthlySalary: async (req, res) => {
         // Đọc từ req.body (khi gọi từ form) HOẶC req.params (khi gọi từ /compute/:year/:month)
-        const month = req.body?.month ?? req.params?.month;
-        const year = req.body?.year ?? req.params?.year;
+        const month = parseInt(req.body?.month ?? req.params?.month);
+        const year = parseInt(req.body?.year ?? req.params?.year);
+
         if (!month || !year) {
             return res.status(400).json({ success: false, message: 'Vui lòng cung cấp tháng và năm' });
+        }
+
+        // Kiểm tra: Phải kết thúc tháng mới cho tính lương
+        const now = new Date();
+        const curMonth = now.getMonth() + 1;
+        const curYear = now.getFullYear();
+
+        if (year > curYear || (year === curYear && month >= curMonth)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: `Bạn chỉ có thể tính lương cho các tháng đã kết thúc hoàn toàn (Tháng ${month}/${year} hiện chưa kết thúc).` 
+            });
         }
 
         try {
@@ -956,6 +969,49 @@ const hrController = {
                     composition,
                     topRewards
                 }
+            });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    rollbackMonthlySalary: async (req, res) => {
+        const { month, year } = req.body;
+        if (!month || !year) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp tháng và năm để hủy' });
+        }
+
+        try {
+            // Kiểm tra xem có bản ghi nào đã chi trả chưa
+            const [paidCheck] = await pool.query(
+                "SELECT COUNT(*) as count FROM luong WHERE Thang = ? AND Nam = ? AND TrangThai = 'Da_chi_tra'",
+                [month, year]
+            );
+
+            if (paidCheck[0].count > 0) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: `Không thể hủy bảng lương tháng ${month}/${year} vì đã có ${paidCheck[0].count} nhân viên được chi trả lương.`
+                });
+            }
+
+            const [result] = await pool.query(
+                "DELETE FROM luong WHERE Thang = ? AND Nam = ?",
+                [month, year]
+            );
+
+            await logActivity({
+                MaTK: req.user.MaTK,
+                HanhDong: 'Xoa',
+                BangDuLieu: 'luong',
+                MaBanGhi: `${month}/${year}`,
+                DiaChi_IP: req.ip,
+                GhiChu: `Hủy bảng lương tháng ${month}/${year}. Số bản ghi bị xóa: ${result.affectedRows}`
+            });
+
+            res.json({ 
+                success: true, 
+                message: `Đã hủy thành công bảng lương tháng ${month}/${year}. Bạn có thể tính toán lại nếu cần.` 
             });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });

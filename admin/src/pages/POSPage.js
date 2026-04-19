@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext, useRef, useCallback } from 'rea
 import axios from 'axios';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import html2pdf from 'html2pdf.js';
-import { Dropdown, Modal, Input } from 'antd';
+import { Dropdown, Modal, Input, message } from 'antd';
 import { PermissionContext } from '../components/PermissionContext';
 import { FEATURES } from '../constants/permissions';
 import '../styles/POSPage.css';
@@ -49,10 +49,10 @@ const POSPage = () => {
     const [showSuccessNotification, setShowSuccessNotification] = useState(false);
 
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-    const cashierName = userInfo.HoTen || 'Nguyễn Văn A';
+    const cashierName = userInfo.HoTen || 'Nguyễn Văn Bảo';
     const API_BASE_URL = 'http://localhost:5000';
 
-    
+
 
     const getImageUrl = (path) => {
         if (!path) return '/placeholder-book.jpg';
@@ -227,7 +227,59 @@ const POSPage = () => {
         }
     }, [cart, checkAvailablePromotions]);
 
-    // =============== BARCODE SCANNER ===============
+    // =============== XỬ LÝ REDIRECT TỪ VNPAY / THANH TOÁN ONLINE ===============
+    useEffect(() => {
+        const queryParams = new URLSearchParams(window.location.search);
+        const vnpResponseCode = queryParams.get('vnp_ResponseCode');
+        const vnpTxnRef = queryParams.get('vnp_TxnRef');
+
+        if (vnpResponseCode && vnpTxnRef) {
+            if (vnpResponseCode === '00') {
+                // Thanh toán thành công -> Lấy thông tin hóa đơn để hiển thị
+                const fetchCompletedInvoice = async () => {
+                    try {
+                        const token = localStorage.getItem('authToken');
+                        const res = await axios.get(`http://localhost:5000/api/orders/hoadon/${vnpTxnRef}`, {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+
+                        if (res.data.success) {
+                            const data = res.data.data;
+                            const invoiceDetails = {
+                                MaHD: data.MaHD,
+                                NgayBan: new Date(data.NgayBan).toLocaleString('vi-VN'),
+                                NhanVien: data.TenNV || cashierName,
+                                KhachHang: data.TenKH || 'Khách lẻ',
+                                SDT: data.SDTKH || '',
+                                items: (data.ChiTiet || []).map(item => ({
+                                    TenSP: item.TenSP,
+                                    SoLuong: item.SoLuong,
+                                    DonGia: item.DonGia,
+                                    ThanhTien: item.DonGia * item.SoLuong
+                                })),
+                                TongTien: data.TongTien,
+                                GiamGia: data.GiamGia,
+                                ThanhToan: data.ThanhToan,
+                                PhuongThucTT: data.PhuongThucTT,
+                                TienKhachDua: data.ThanhToan,
+                                TienThua: 0
+                            };
+                            setCompletedInvoice(invoiceDetails);
+                            setShowInvoiceReceipt(true);
+                            message.success('Thanh toán VNPAY thành công!');
+                        }
+                    } catch (err) {
+                        console.error('Lỗi khi tải hóa đơn sau thanh toán:', err);
+                    }
+                };
+                fetchCompletedInvoice();
+            } else {
+                alert(`Thanh toán không thành công. Mã lỗi: ${vnpResponseCode}`);
+            }
+            // Xóa query params sau khi xử lý để tránh trigger lại khi F5
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, [cashierName]);
 
     const searchProductByISBN = async (isbn) => {
         try {
@@ -271,12 +323,12 @@ const POSPage = () => {
                     return true;
                 }
             }
-            
+
             // Xử lý nết thất bại
             setScannerStatus(`✗ Không tìm thấy sản phẩm với ISBN: ${isbn}`);
             alert(`Không tìm thấy sách nào có mã số: ${isbn}`);
             return false;
-            
+
         } catch (error) {
             console.error('Error searching product by ISBN:', error);
             setScannerStatus(`✗ Lỗi tìm kiếm: ${error.message}`);
@@ -318,7 +370,7 @@ const POSPage = () => {
             if (scannerRef.current && !html5QrcodeScannerRef.current) {
                 try {
                     const scanner = new Html5Qrcode("barcode-reader");
-                    
+
                     // Tự động start camera khi mở modal
                     await scanner.start(
                         { facingMode: "environment" }, // Camera sau
@@ -566,35 +618,53 @@ const POSPage = () => {
 
         setLoading(true);
 
-        // Handle Online Payment first
+        // Handle Online Payment first (NEW FLOW)
         if (['vnpay', 'momo', 'zalopay'].includes(paymentMethod)) {
             try {
                 const token = localStorage.getItem('authToken');
-                const total = calculateTotal();
-                const tempOrderId = `POS_${Date.now()}`;
 
-                const res = await axios.post(`http://localhost:5000/api/payments/${paymentMethod}/create`, {
-                    amount: total,
-                    orderId: tempOrderId,
-                    orderInfo: `Thanh toán đơn hàng POS ${tempOrderId}`
+                // 1. Tạo hóa đơn nháp (Chua_thanh_toan) trước để lấy MaHD thật
+                const invoiceData = {
+                    MaKH: customer?.MaKH || null,
+                    MaCH: session?.MaCH || 1,
+                    MaPhien: session?.MaPhien || null,
+                    ChiTiet: cart.map(item => ({
+                        MaSP: item.MaSP,
+                        SoLuong: item.quantity,
+                        DonGia: item.DonGia,
+                        GiamGia: 0
+                    })),
+                    GiamGia: promotionDiscount || 0,
+                    DiemSuDung: 0,
+                    PhuongThucTT: paymentMethod === 'vnpay' ? 'VNPay' :
+                        paymentMethod === 'momo' ? 'MoMo' : 'ZaloPay',
+                    TienKhachDua: calculateTotal()
+                };
+
+                const invRes = await axios.post(
+                    'http://localhost:5000/api/sales/invoices',
+                    invoiceData,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+
+                if (!invRes.data.success) throw new Error(invRes.data.message || 'Lỗi tạo hóa đơn tạm');
+                const realMaHD = invRes.data.MaHD;
+
+                // 2. Tạo link thanh toán với MaHD thật
+                const payRes = await axios.post(`http://localhost:5000/api/payments/${paymentMethod}/create`, {
+                    amount: calculateTotal(),
+                    orderId: realMaHD,
+                    orderInfo: `Thanh toán hóa đơn POS #${realMaHD}`
                 }, { headers: { Authorization: `Bearer ${token}` } });
 
-                if (res.data.success && res.data.paymentUrl) {
-                    // Open payment window
-                    window.open(res.data.paymentUrl, '_blank');
-
-                    // In a real system, you'd wait for a socket event or poll for completion.
-                    // For this demo, we'll ask the user if they've paid.
-                    if (window.confirm("Hãy xác nhận sau khi khách hàng đã thanh toán thành công qua ứng dụng?")) {
-                        // Proceed to create invoice as 'Online'
-                    } else {
-                        setLoading(false);
-                        return;
-                    }
+                if (payRes.data.success && payRes.data.paymentUrl) {
+                    // Cửa sổ hiện tại chuyển sang link thanh toán
+                    window.location.href = payRes.data.paymentUrl;
+                    return; // Dừng xử lý tiếp, chờ redirect quay lại
                 }
             } catch (error) {
                 console.error(`Error creating ${paymentMethod} payment:`, error);
-                alert(`Lỗi khởi tạo ${paymentMethod}: ` + (error.response?.data?.message || error.message));
+                alert(`Lỗi khởi tạo thanh toán: ` + (error.response?.data?.message || error.message));
                 setLoading(false);
                 return;
             }
@@ -674,8 +744,8 @@ const POSPage = () => {
                     ThanhToan: calculateTotal(),
                     PhuongThucTT: paymentMethod === 'cash' ? 'Tiền mặt' :
                         paymentMethod === 'vnpay' ? 'VNPay' :
-                        paymentMethod === 'momo' ? 'MoMo' :
-                        paymentMethod === 'zalopay' ? 'ZaloPay' : 'Thẻ',
+                            paymentMethod === 'momo' ? 'MoMo' :
+                                paymentMethod === 'zalopay' ? 'ZaloPay' : 'Thẻ',
                     TienKhachDua: parseFloat(customerGiven) || calculateTotal(),
                     TienThua: paymentMethod === 'cash' ? calculateChange() : 0
                 };
@@ -822,15 +892,15 @@ const POSPage = () => {
                                     onChange={(e) => setCustomerSearch(e.target.value)}
                                     onKeyPress={(e) => e.key === 'Enter' && searchCustomer()}
                                 />
-                                <button 
+                                <button
                                     className="btn-search-customer"
                                     onClick={searchCustomer}
                                     title="Tìm kiếm khách hàng"
                                 >
                                     <span className="material-icons">search</span>
                                 </button>
-                                <button 
-                                    className="btn-add-mini" 
+                                <button
+                                    className="btn-add-mini"
                                     onClick={() => setShowCustomerForm(!showCustomerForm)}
                                     title="Tạo khách hàng mới"
                                 >
@@ -848,28 +918,28 @@ const POSPage = () => {
 
                             {showCustomerForm && (
                                 <div className="quick-customer-form mini">
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="Tên khách hàng *"
-                                        value={newCustomer.TenKH} 
+                                        value={newCustomer.TenKH}
                                         onChange={(e) => setNewCustomer({ ...newCustomer, TenKH: e.target.value })}
                                     />
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="SĐT *"
-                                        value={newCustomer.SDT} 
+                                        value={newCustomer.SDT}
                                         onChange={(e) => setNewCustomer({ ...newCustomer, SDT: e.target.value })}
                                     />
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="Email (tùy chọn)"
-                                        value={newCustomer.Email} 
+                                        value={newCustomer.Email}
                                         onChange={(e) => setNewCustomer({ ...newCustomer, Email: e.target.value })}
                                     />
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="Địa chỉ (tùy chọn)"
-                                        value={newCustomer.DiaChi} 
+                                        value={newCustomer.DiaChi}
                                         onChange={(e) => setNewCustomer({ ...newCustomer, DiaChi: e.target.value })}
                                     />
                                     <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
@@ -1034,23 +1104,23 @@ const POSPage = () => {
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
-                            <Dropdown 
-                                menu={{ 
+                            <Dropdown
+                                menu={{
                                     items: [
                                         {
                                             key: 'camera',
                                             label: 'Quét bằng Camera',
-                                            icon: <span className="material-icons" style={{fontSize: 16}}>camera_alt</span>,
+                                            icon: <span className="material-icons" style={{ fontSize: 16 }}>camera_alt</span>,
                                             onClick: toggleBarcodeScanner
                                         },
                                         {
                                             key: 'manual',
                                             label: 'Nhập mã thủ công',
-                                            icon: <span className="material-icons" style={{fontSize: 16}}>keyboard</span>,
+                                            icon: <span className="material-icons" style={{ fontSize: 16 }}>keyboard</span>,
                                             onClick: () => setShowManualModal(true)
                                         }
-                                    ] 
-                                }} 
+                                    ]
+                                }}
                                 placement="bottomRight"
                                 trigger={['click']}
                             >

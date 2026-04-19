@@ -32,7 +32,6 @@ const salesController = {
     closeSession: async (req, res) => {
         const { MaPhien, TienKetThuc } = req.body;
         try {
-            // Fetch current session totals
             const [session] = await pool.query('SELECT TienBanDau, TongTienMat FROM phien_ban_hang WHERE MaPhien = ?', [MaPhien]);
             if (!session.length) throw new Error('Phiên không tồn tại');
 
@@ -70,7 +69,6 @@ const salesController = {
         try {
             await conn.beginTransaction();
 
-            // ✅ BUG FIX 6: Validate tất cả sản phẩm tồn tại
             const productIds = ChiTiet.map(item => item.MaSP);
             const [products] = await conn.query(
                 'SELECT MaSP FROM sanpham WHERE MaSP IN (?) AND TinhTrang = 1',
@@ -82,16 +80,9 @@ const salesController = {
                     throw new Error(`Sản phẩm MaSP=${id} không tồn tại hoặc đã bị vô hiệu hóa`);
                 }
             }
-
-            // ✅ BUG FIX 1: Tính toán TongTien ĐÚNG (Kế toán)
-            // TongTien = Tổng gốc TRƯỚC tất cả giảm giá
-            // GiamChiTiet = Tổng chiết khấu từng sản phẩm
-            // GiamGia = Chiết khấu cấp hóa đơn
-            // DiemSuDung = Điểm khách hàng sử dụng
-            // ThanhToan = TongTien - GiamChiTiet - GiamGia - (DiemSuDung * 1000)
             
-            let TongTienGoc = 0;        // Tổng (giá × số lượng) trước tất cả giảm giá
-            let TongGiamChiTiet = 0;    // Tổng chiết khấu từng sản phẩm
+            let TongTienGoc = 0;
+            let TongGiamChiTiet = 0;
             
             for (const item of ChiTiet) {
                 const itemTotal = item.DonGia * item.SoLuong;
@@ -99,9 +90,7 @@ const salesController = {
                 TongGiamChiTiet += (item.GiamGia || 0);
             }
 
-            // ✅ BUG FIX 3: Validate giảm giá không vượt quá tổng tiền
-            // Tính tuần tự từng bậc
-            let remaining = TongTienGoc - TongGiamChiTiet;  // Sau discount từng item
+            let remaining = TongTienGoc - TongGiamChiTiet;
             
             if (GiamGia > remaining) {
                 throw new Error(
@@ -111,7 +100,6 @@ const salesController = {
             }
             remaining -= GiamGia;
             
-            // ✅ BUG FIX 4: Validate điểm khách hàng đủ trước khi trừ
             let pointDeduction = 0;
             if (MaKH && DiemSuDung && DiemSuDung > 0) {
                 const [customer] = await conn.query(
@@ -144,20 +132,19 @@ const salesController = {
             }
             
             const tongThanhToan = remaining;
-            const diemTichLuyMoi = Math.floor(TongTienGoc * 0.01); // 1% của TongTienGoc, không phải ThanhToan
+            const diemTichLuyMoi = Math.floor(TongTienGoc * 0.01);
 
-            // 2. Create hoadon record với đúng các cột
-            // Lưu ý: TongTien là tổng TRƯỚC tất cả giảm giá
+            // Dynamic status based on payment method
+            const initialStatus = ['VNPay', 'MoMo', 'ZaloPay'].includes(PhuongThucTT) ? 'Chua_thanh_toan' : 'Hoan_thanh';
+
             const [hdResult] = await conn.query(
                 `INSERT INTO hoadon (MaKH, MaNV, MaCH, TongTien, GiamGia, DiemSuDung, DiemTichLuy, ThanhToan, PhuongThucTT, TrangThai) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Hoan_thanh')`,
-                [MaKH || null, req.user.MaTK, MaCH, TongTienGoc, GiamGia || 0, DiemSuDung || 0, diemTichLuyMoi, tongThanhToan, PhuongThucTT]
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [MaKH || null, req.user.MaTK, MaCH, TongTienGoc, GiamGia || 0, DiemSuDung || 0, diemTichLuyMoi, tongThanhToan, PhuongThucTT, initialStatus]
             );
             const MaHD = hdResult.insertId;
 
-            // 3. Process items - Batch operations để tránh N+1 query
             if (ChiTiet.length > 0) {
-                // 3a. Batch INSERT chi tiết hóa đơn
                 const detailValues = ChiTiet.map(item => [
                     MaHD, 
                     item.MaSP, 
@@ -170,11 +157,6 @@ const salesController = {
                     [detailValues]
                 );
 
-                // 3b. ✅ TỰ ĐỘNG LẤY HÀNG TỪ NHIỀU KHO THEO PRIORITY
-                // - Ưu tiên lấy từ kho quầy (Priority=1) trước
-                // - Nếu quầy không đủ → tự động lấy từ kho phụ (Priority=2,3...)
-                // - Nếu toàn cửa hàng không đủ → báo lỗi
-                // ✅ FIX N+1: Query tất cả kho CHỈ MỘT LẦN, rồi dùng trong loop
                 const [allWarehouses] = await conn.query(`
                     SELECT kc.MaKho, kc.TenKho, kc.Priority,
                            COALESCE(tkct.SoLuongTon, 0) AS TonHienTai,
@@ -186,10 +168,7 @@ const salesController = {
                     FOR UPDATE
                 `, [MaCH]);
                 
-                const warehouseAllocations = [];
-                
                 for (const item of ChiTiet) {
-                    // Filter warehouses cho sản phẩm này từ allWarehouses (tránh N+1)
                     const warehouses = allWarehouses
                         .filter(w => w.MaSP === item.MaSP || w.MaSP === null)
                         .sort((a, b) => a.Priority - b.Priority);
@@ -198,48 +177,27 @@ const salesController = {
                         throw new Error(`Không tìm thấy kho hoạt động nào trong cửa hàng.`);
                     }
 
-                    // Tính tổng tồn kho toàn cửa hàng
                     const totalAvailable = warehouses.reduce((sum, wh) => sum + wh.TonHienTai, 0);
                     if (totalAvailable < item.SoLuong) {
                         throw new Error(
-                            `Sản phẩm MaSP=${item.MaSP} ` +
-                            `tồn: ${totalAvailable}, yêu cầu: ${item.SoLuong}.`
+                            `Sản phẩm MaSP=${item.MaSP} tồn: ${totalAvailable}, yêu cầu: ${item.SoLuong}.`
                         );
                     }
 
-                    // Phân bổ từ các kho theo Priority (nhỏ → lớn, nghĩa là quầy trước)
                     let remaining = item.SoLuong;
-                    const itemAllocations = [];
-
                     for (const wh of warehouses) {
                         if (remaining <= 0) break;
-
                         const toTake = Math.min(remaining, wh.TonHienTai);
                         if (toTake > 0) {
-                            // Trừ từ kho này
                             await conn.query(
                                 'UPDATE ton_kho_chi_tiet SET SoLuongTon = SoLuongTon - ? WHERE MaKho = ? AND MaSP = ?',
                                 [toTake, wh.MaKho, item.MaSP]
                             );
-
-                            itemAllocations.push({
-                                MaKho: wh.MaKho,
-                                TenKho: wh.TenKho,
-                                Priority: wh.Priority,
-                                SoLuong: toTake
-                            });
-
                             remaining -= toTake;
                         }
                     }
-
-                    warehouseAllocations.push({
-                        MaSP: item.MaSP,
-                        allocations: itemAllocations
-                    });
                 }
 
-                // 3c. Cập nhật tồn kho tổng quát (ton_kho) để tương thích với hệ thống cũ
                 const productIds = ChiTiet.map(item => item.MaSP);
                 const caseClauses = ChiTiet.map(item => 
                     `WHEN MaSP = ${conn.escape(item.MaSP)} THEN SoLuongTon - ${item.SoLuong}`
@@ -252,16 +210,12 @@ const salesController = {
                 `, [productIds, MaCH]);
             }
 
-            // 4. Update Customer Points & Loyalty
             if (MaKH) {
-                // Điểm trừ đã được validate ở trên, giờ chỉ cần UPDATE
                 await conn.query(
                     'UPDATE khachhang SET DiemTichLuy = DiemTichLuy - ? + ?, TongChiTieu = TongChiTieu + ? WHERE MaKH = ?',
                     [DiemSuDung || 0, diemTichLuyMoi, tongThanhToan, MaKH]
                 );
             }
-
-            // 5. (phien_ban_hang chưa có trong DB - bỏ qua)
 
             await logActivity({
                 MaTK: req.user.MaTK,
@@ -326,7 +280,6 @@ const salesController = {
     getInvoiceById: async (req, res) => {
         const { id } = req.params;
         try {
-            // Get invoice header
             const [hd] = await pool.query(`
                 SELECT hd.*, kh.HoTen as TenKH, kh.SDT as SDTKH, kh.Email as EmailKH, nv.HoTen as TenNV, ch.TenCH AS TenCH, ch.DiaChi as DiaChiCH, ch.SDT as SDTCH
                 FROM hoadon hd
@@ -340,7 +293,6 @@ const salesController = {
                 return res.status(404).json({ success: false, message: 'Không tìm thấy hóa đơn' });
             }
 
-            // Get invoice details
             const [details] = await pool.query(`
                 SELECT ct.*, sp.TenSP, sp.HinhAnh
                 FROM chitiethoadon ct
@@ -396,10 +348,8 @@ const salesController = {
             if (!hd.length) throw new Error('Hóa đơn không tồn tại');
             if (hd[0].TrangThai === 'Da_huy') throw new Error('Hóa đơn đã bị hủy');
 
-            // 1. Restore stock - ✅ FIX N+1: Batch update thay vì loop
             const [details] = await conn.query('SELECT MaSP, SoLuong, MaCH FROM chitiethoadon JOIN hoadon ON chitiethoadon.MaHD = hoadon.MaHD WHERE hoadon.MaHD = ?', [id]);
             if (details.length > 0) {
-                // Build CASE statement để cập nhật tất cả items cùng lúc
                 const caseClauses = details
                     .map(item => `WHEN MaSP = ${conn.escape(item.MaSP)} AND MaCH = ${conn.escape(item.MaCH)} THEN SoLuongTon + ${item.SoLuong}`)
                     .join(' ');
@@ -411,13 +361,11 @@ const salesController = {
                 `, details.flatMap(item => [item.MaSP, item.MaCH]));
             }
 
-            // 2. Update status
             await conn.query(
                 'UPDATE hoadon SET TrangThai = "Da_huy", GhiChu = ? WHERE MaHD = ?',
                 [lyDo || 'Hủy bởi quản trị viên', id]
             );
 
-            // 3. Revert loyalty
             if (hd[0].MaKH) {
                 await conn.query(
                     'UPDATE khachhang SET TongChiTieu = TongChiTieu - ? WHERE MaKH = ?',
@@ -427,7 +375,7 @@ const salesController = {
 
             await logActivity({
                 MaTK: req.user.MaTK,
-                HanhDong: 'Xoa', // or Cancel
+                HanhDong: 'Xoa',
                 BangDuLieu: 'hoadon',
                 MaBanGhi: id,
                 DuLieuCu: { TrangThai: hd[0].TrangThai },
@@ -444,8 +392,7 @@ const salesController = {
         } finally {
             conn.release();
         }
-    }
-,
+    },
 
     exportLatestInvoices: async (req, res) => {
         try {
@@ -465,7 +412,6 @@ const salesController = {
             workbook.created = new Date();
             const sheet = workbook.addWorksheet('Invoices');
 
-            // Define columns with headers and keys
             sheet.columns = [
                 { header: 'Mã HĐ', key: 'MaHD', width: 10 },
                 { header: 'Mã KH', key: 'MaKH', width: 10 },
@@ -481,11 +427,9 @@ const salesController = {
                 { header: 'Cửa hàng', key: 'TenCH', width: 25 }
             ];
 
-            // Header styling
             sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
             sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F75FE' } };
 
-            // Add rows
             rows.forEach(r => {
                 sheet.addRow({
                     MaHD: r.MaHD,
@@ -503,14 +447,12 @@ const salesController = {
                 });
             });
 
-            // Format columns: date and currency
             sheet.getColumn('NgayBan').numFmt = 'dd/mm/yyyy hh:mm';
             ['TongTien','GiamGia','ThanhToan'].forEach(key => {
                 sheet.getColumn(key).numFmt = '#,##0';
                 sheet.getColumn(key).alignment = { horizontal: 'right' };
             });
 
-            // Auto filter and freeze header
             sheet.autoFilter = { from: 'A1', to: 'L1' };
             sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
