@@ -2,7 +2,7 @@ import pool from '../config/connectDatabase.js';
 import { logActivity } from '../utils/auditLogger.js';
 
 const customerController = {
-    // ======================= GET ALL CUSTOMERS =======================
+    // =======================Chức năng khách hàng======================
     getAllCustomers: async (req, res) => {
         const { search, page = 1, pageSize = 20, hangTV, trangThai, minDiem, maxDiem } = req.query;
         const offset = (page - 1) * pageSize;
@@ -128,7 +128,7 @@ const customerController = {
                 `SELECT * FROM v_ThongTinHoiVien WHERE MaKH = ?`,
                 [id]
             );
-            
+
             if (rows.length === 0) {
                 return res.status(404).json({ success: false, message: 'Khách hàng không tồn tại' });
             }
@@ -143,8 +143,8 @@ const customerController = {
                 [id]
             );
 
-            res.json({ 
-                success: true, 
+            res.json({
+                success: true,
                 data: {
                     ...rows[0],
                     recentOrders: orders
@@ -172,9 +172,9 @@ const customerController = {
             );
 
             if (existing.length > 0) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'Số điện thoại đã tồn tại trong hệ thống' 
+                return res.status(400).json({
+                    success: false,
+                    message: 'Số điện thoại đã tồn tại trong hệ thống'
                 });
             }
 
@@ -232,9 +232,9 @@ const customerController = {
                 );
 
                 if (existing.length > 0) {
-                    return res.status(400).json({ 
-                        success: false, 
-                        message: 'Số điện thoại đã được sử dụng bởi khách hàng khác' 
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Số điện thoại đã được sử dụng bởi khách hàng khác'
                     });
                 }
             }
@@ -245,7 +245,7 @@ const customerController = {
                  SET HoTen = ?, SDT = ?, Email = ?, DiaChi = ?, TinhTrang = ?
                  WHERE MaKH = ?`,
                 [
-                    HoTen ?? oldData[0].HoTen, 
+                    HoTen ?? oldData[0].HoTen,
                     SDT ?? oldData[0].SDT,
                     Email ?? oldData[0].Email,
                     DiaChi ?? oldData[0].DiaChi,
@@ -270,10 +270,10 @@ const customerController = {
                 [id]
             );
 
-            res.json({ 
-                success: true, 
+            res.json({
+                success: true,
                 data: updated[0],
-                message: 'Cập nhật thông tin khách hàng thành công' 
+                message: 'Cập nhật thông tin khách hàng thành công'
             });
         } catch (error) {
             console.error('Error updating customer:', error);
@@ -337,7 +337,7 @@ const customerController = {
         const { id } = req.params;
         try {
             const [customer] = await pool.query('SELECT TinhTrang FROM khachhang WHERE MaKH = ?', [id]);
-            
+
             if (customer.length === 0) {
                 return res.status(404).json({ success: false, message: 'Khách hàng không tồn tại' });
             }
@@ -358,8 +358,8 @@ const customerController = {
                 DiaChi_IP: req.ip
             });
 
-            res.json({ 
-                success: true, 
+            res.json({
+                success: true,
                 message: newStatus === 1 ? 'Kích hoạt khách hàng thành công' : 'Vô hiệu hóa khách hàng thành công',
                 trangThai: newStatus
             });

@@ -1,4 +1,5 @@
 const chatController = {
+    // =======================Chức năng chat======================
     getUnreadCount: async (req, res) => {
         // Return 0 for now
         res.json({ success: true, count: 0 });

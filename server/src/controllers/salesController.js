@@ -3,6 +3,7 @@ import { logActivity } from '../utils/auditLogger.js';
 import ExcelJS from 'exceljs';
 
 const salesController = {
+    // =======================Chức năng bán hàng======================
     // ======================= 4.1 POS SESSIONS (Phiên bán hàng) =======================
 
     openSession: async (req, res) => {

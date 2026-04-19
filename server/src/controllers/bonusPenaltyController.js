@@ -2,6 +2,7 @@ import pool from '../config/connectDatabase.js';
 import { logActivity } from '../utils/auditLogger.js';
 
 const bonusPenaltyController = {
+    // =======================Chức năng khen thưởng & xử phạt======================
     // Helper để kiểm tra xem lương đã được TÍNH (tồn tại trong bảng luong) chưa
     _isSalaryLocked: async (MaNV, month, year) => {
         const [rows] = await pool.query(

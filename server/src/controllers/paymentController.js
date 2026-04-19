@@ -25,6 +25,7 @@ function sortObject(obj) {
 }
 
 const paymentController = {
+    // =======================Chức năng thanh toán======================
     // ======================= VNPAY INTEGRATION =======================
     createVNPayUrl: async (req, res) => {
         try {

@@ -97,6 +97,7 @@ function countWorkdaysInMonth(year, month, holidays) {
 }
 
 const hrController = {
+    // =======================Chức năng nhân sự======================
     // ======================= 2.1 EMPLOYEE SELF-SERVICE =======================
 
     getProfile: async (req, res) => {

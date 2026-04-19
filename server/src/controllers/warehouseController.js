@@ -106,7 +106,7 @@ async function smartAllocateFromWarehouses(conn, MaSP, MaCH, soLuong) {
 }
 
 const warehouseController = {
-
+    // =======================Chức năng quản lý kho======================
     // ========================= SẢN PHẨM (sanpham) =========================
 
     getAllProducts: async (req, res) => {

@@ -1,6 +1,7 @@
 import pool from '../config/connectDatabase.js';
 import { logActivity } from '../utils/auditLogger.js';
 
+// =======================Chức năng khách hàng thân thiết======================
 // =====================================================
 // THÔNG TIN HỘI VIÊN
 // =====================================================

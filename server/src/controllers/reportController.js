@@ -1,6 +1,7 @@
 import pool from '../config/connectDatabase.js';
 
 const reportController = {
+    // =======================Chức năng báo cáo======================
     // Lấy doanh thu theo năm
     getRevenueByYear: async (req, res) => {
         try {

@@ -2,6 +2,7 @@ import pool from '../config/connectDatabase.js';
 import { logActivity } from '../utils/auditLogger.js';
 
 const promotionController = {
+    // =======================Chức năng khuyến mãi======================
     // ======================= 1. QUẢN LÝ CHƯƠNG TRÌNH KHUYẾN MÃI =======================
 
     // 1.1 Lấy danh sách tất cả khuyến mãi

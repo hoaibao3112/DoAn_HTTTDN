@@ -2,6 +2,7 @@ import pool from '../config/connectDatabase.js';
 import { logActivity } from '../utils/auditLogger.js';
 
 const financeController = {
+    // =======================Chức năng tài chính======================
     // ======================= EXPENSE MANAGEMENT =======================
 
     getAllExpenses: async (req, res) => {

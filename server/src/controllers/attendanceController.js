@@ -34,6 +34,7 @@ const isHoliday = async (date) => {
 };
 
 const attendanceController = {
+    // =======================Chức năng điểm danh======================
     // ======================= GET ATTENDANCE RECORDS =======================
     getAllAttendance: async (req, res) => {
         const { page = 1, pageSize = 20, MaNV, startDate, endDate, TrangThai } = req.query;
