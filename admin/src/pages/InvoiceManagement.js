@@ -1,9 +1,11 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import '../styles/InvoiceManagement.css';
 import { Modal, Button, Select, message, Table, Tag, Space, Input, Divider } from 'antd';
 import { ExclamationCircleFilled, EyeOutlined, DeleteOutlined } from '@ant-design/icons';
 import { handleApiError } from '../utils/errorHandler';
+import { PermissionContext } from '../components/PermissionContext';
+import { FEATURES } from '../constants/permissions';
 
 const { confirm } = Modal;
 const { Search } = Input;
@@ -11,6 +13,7 @@ const { Search } = Input;
 const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNGNEY0RjQiLz48cGF0aCBkPSJNMjAgMTRDMjMuMzEzNyAxNCAyNiAxNi42ODYzIDI2IDIwQzI2IDIzLjMxMzcgMjMuMzEzNyAyNiAyMCAyNkMxNi42ODYzIDI2IDE0IDIzLjMxMzcgMTQgMjBDMTQgMTYuNjg2MyAxNi42ODYzIDE0IDIwIDE0WiIgZmlsbD0iI0NDQ0NDQyIvPjwvc3ZnPg==';
 
 const InvoiceManagement = () => {
+  const { hasPermissionById } = useContext(PermissionContext);
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -184,6 +187,7 @@ const InvoiceManagement = () => {
       key: 'TrangThai',
       render: (status, record) => (
         <Select
+          disabled={!hasPermissionById(FEATURES.INVOICES, 'Sua')}
           value={status}
           style={{ width: 140 }}
           onChange={(value) => onStatusSelect(record.MaHD, value, status)}
@@ -204,7 +208,7 @@ const InvoiceManagement = () => {
       render: (_, record) => (
         <Space size="small">
           <Button size="small" icon={<EyeOutlined />} onClick={() => handleViewInvoice(record.MaHD)} title="Xem chi tiết" />
-          {record.TrangThai !== 'Da_huy' && (
+          {record.TrangThai !== 'Da_huy' && hasPermissionById(FEATURES.INVOICES, 'Sua') && (
             <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleCancelInvoice(record.MaHD)} title="Hủy đơn" />
           )}
         </Space>
@@ -229,7 +233,9 @@ const InvoiceManagement = () => {
             allowClear
           />
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            <Button onClick={handleExportLatest}>Tải 100 HĐ gần nhất</Button>
+            {hasPermissionById(FEATURES.INVOICES, 'XuatFile') && (
+              <Button onClick={handleExportLatest}>Tải 100 HĐ gần nhất</Button>
+            )}
             <Button onClick={fetchInvoices} loading={loading}>Tải lại</Button>
           </div>
         </div>

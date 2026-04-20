@@ -1,14 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import axios from 'axios';
 import { Button, Input, message, Table, Modal, Space, Select, InputNumber, DatePicker } from 'antd';
 import dayjs from 'dayjs';
 import { handleApiError } from '../utils/errorHandler';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled, LockOutlined, UnlockOutlined } from '@ant-design/icons';
+import { PermissionContext } from '../components/PermissionContext';
+import { FEATURES } from '../constants/permissions';
 
 const { confirm } = Modal;
 const { Option } = Select;
 
 const UserManagement = () => {
+  const { hasPermissionById } = useContext(PermissionContext);
   const [state, setState] = useState({
     users: [],
     roles: [],
@@ -70,6 +73,12 @@ const UserManagement = () => {
   }, []);
 
   const handleInputChange = (field, value) => {
+    // Show immediate error for negative money values
+    if ((field === 'LuongCoBan' || field === 'PhuCap') && value < 0) {
+      message.error('Số tiền phải lớn hơn 0!');
+      // We don't return here to let the component handle it (likely snapping to 0 via min=0)
+    }
+
     if (editingUser) {
       setState(prev => ({
         ...prev,
@@ -152,6 +161,18 @@ const UserManagement = () => {
     if (userData.CCCD && userData.CCCD.length !== 12) {
       message.error('Số CCCD phải có đúng 12 chữ số.');
       return false;
+    }
+
+    // Salary and Allowance validation
+    if (userData.LuongCoBan === undefined || userData.LuongCoBan === null || isNaN(userData.LuongCoBan) || userData.LuongCoBan <= 0) {
+      message.error('Lương cơ bản phải là số và lớn hơn 0!');
+      return false;
+    }
+    if (userData.PhuCap !== undefined && userData.PhuCap !== null) {
+      if (isNaN(userData.PhuCap) || userData.PhuCap < 0) {
+        message.error('Số tiền phải là số và lớn hơn 0!');
+        return false;
+      }
     }
 
     return true;
@@ -319,28 +340,34 @@ const UserManagement = () => {
       key: 'action',
       render: (_, record) => (
         <Space size="small">
-          <Button
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => {
-              setState(prev => ({
-                ...prev,
-                editingUser: record,
-                isModalVisible: true,
-              }));
-            }}
-          />
-          <Button
-            size="small"
-            icon={Number(record.TinhTrang) === 1 ? <LockOutlined /> : <UnlockOutlined />}
-            onClick={() => handleToggleStatus(record)}
-          />
-          <Button
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDeleteUser(record.MaNV)}
-          />
+          {hasPermissionById(FEATURES.EMPLOYEES, 'Sua') && (
+            <>
+              <Button
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  setState(prev => ({
+                    ...prev,
+                    editingUser: record,
+                    isModalVisible: true,
+                  }));
+                }}
+              />
+              <Button
+                size="small"
+                icon={Number(record.TinhTrang) === 1 ? <LockOutlined /> : <UnlockOutlined />}
+                onClick={() => handleToggleStatus(record)}
+              />
+            </>
+          )}
+          {hasPermissionById(FEATURES.EMPLOYEES, 'Xoa') && (
+            <Button
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDeleteUser(record.MaNV)}
+            />
+          )}
         </Space>
       ),
       fixed: 'right',
@@ -354,34 +381,36 @@ const UserManagement = () => {
         <h1>
           <i className="fas fa-user-friends"></i> Quản lý Người dùng
         </h1>
-        <Button
-          type="primary"
-          size="small"
-          onClick={() => {
-            setState(prev => ({
-              ...prev,
-              editingUser: null,
-              newUser: {
-                HoTen: '',
-                SDT: '',
-                GioiTinh: '',
-                DiaChi: '',
-                Email: '',
-                CCCD: '',
-                NgaySinh: null,
-                NgayVaoLam: null,
-                ChucVu: '',
-                LuongCoBan: 0,
-                PhuCap: 0,
-                MaCH: null,
-                TinhTrang: 1,
-              },
-              isModalVisible: true,
-            }));
-          }}
-        >
-          Thêm người dùng
-        </Button>
+        {hasPermissionById(FEATURES.EMPLOYEES, 'Them') && (
+          <Button
+            type="primary"
+            size="small"
+            onClick={() => {
+              setState(prev => ({
+                ...prev,
+                editingUser: null,
+                newUser: {
+                  HoTen: '',
+                  SDT: '',
+                  GioiTinh: '',
+                  DiaChi: '',
+                  Email: '',
+                  CCCD: '',
+                  NgaySinh: null,
+                  NgayVaoLam: null,
+                  ChucVu: '',
+                  LuongCoBan: 0,
+                  PhuCap: 0,
+                  MaCH: null,
+                  TinhTrang: 1,
+                },
+                isModalVisible: true,
+              }));
+            }}
+          >
+            Thêm người dùng
+          </Button>
+        )}
       </div>
 
       <div className="thongke-content">
@@ -589,7 +618,6 @@ const UserManagement = () => {
                 style={{ width: '100%' }}
                 value={editingUser ? editingUser.LuongCoBan : newUser.LuongCoBan}
                 onChange={(value) => handleInputChange('LuongCoBan', value)}
-                min={0}
               />
             </div>
             <div className="info-item">

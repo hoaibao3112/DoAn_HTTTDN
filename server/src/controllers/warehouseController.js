@@ -240,8 +240,8 @@ const warehouseController = {
                 HanhDong: 'Them',
                 BangDuLieu: 'sanpham',
                 MaBanGhi: result.insertId,
-                DuLieuMoi: { 
-                    TenSP: data.TenSP, 
+                DuLieuMoi: {
+                    TenSP: data.TenSP,
                     DonGia: parseFloat(data.DonGia) || 0,
                     MaTL: data.MaTL,
                     MaTG: data.MaTG
@@ -274,13 +274,13 @@ const warehouseController = {
             const fields = [];
             const values = [];
 
-            const setField = (col, val) => { 
-                if (val !== undefined) { 
+            const setField = (col, val) => {
+                if (val !== undefined) {
                     // Sanitize: convert string "null" or "undefined" back to null
                     const sanitized = (val === 'null' || val === 'undefined') ? null : val;
-                    fields.push(`${col} = ?`); 
-                    values.push(sanitized); 
-                } 
+                    fields.push(`${col} = ?`);
+                    values.push(sanitized);
+                }
             };
 
             setField('TenSP', data.TenSP);
@@ -704,10 +704,10 @@ const warehouseController = {
                 ORDER BY SoLuongCanNhap DESC
             `);
 
-            res.json({ 
-                success: true, 
-                data: rows, 
-                count: rows.length 
+            res.json({
+                success: true,
+                data: rows,
+                count: rows.length
             });
         } catch (error) {
             console.error('getLowStockAlerts error:', error);
@@ -991,6 +991,19 @@ const warehouseController = {
             const [emp] = await conn.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
             const nguoiChuyen = emp[0]?.MaNV || null;
 
+            // KIỂM TRA SỨC CHỨA KHO ĐÍCH
+            const totalTransferAmount = items.reduce((sum, item) => sum + Number(item.SoLuong), 0);
+            const [[khoDichInfo]] = await conn.query('SELECT TenKho, Capacity FROM kho_con WHERE MaKho = ?', [MaKhoDich]);
+            if (!khoDichInfo) throw new Error('Kho đích không tồn tại');
+
+            const [[{ currentTotalDich }]] = await conn.query(
+                'SELECT COALESCE(SUM(SoLuongTon), 0) AS total FROM ton_kho_chi_tiet WHERE MaKho = ?', [MaKhoDich]
+            );
+
+            if (khoDichInfo.Capacity !== null && (currentTotalDich + totalTransferAmount > khoDichInfo.Capacity)) {
+                throw new Error(`Kho đích "${khoDichInfo.TenKho}" không đủ sức chứa. Hiện có: ${currentTotalDich}/${khoDichInfo.Capacity}, Yêu cầu chuyển: ${totalTransferAmount}`);
+            }
+
             // 1. Tạo Header Phiếu chuyển
             const [pcResult] = await conn.query(`
                 INSERT INTO phieu_chuyen_kho (MaKhoNguon, MaKhoDich, NguoiChuyen, TrangThai, GhiChu)
@@ -1050,7 +1063,18 @@ const warehouseController = {
 
             // Lấy chi tiết phiếu
             const [details] = await conn.query('SELECT * FROM chi_tiet_chuyen_kho WHERE MaPC = ?', [id]);
-            
+
+            // KIỂM TRA SỨC CHỨA KHO ĐÍCH KHI DUYỆT
+            const totalTransferAmount = details.reduce((sum, item) => sum + Number(item.SoLuong), 0);
+            const [[khoDichInfo]] = await conn.query('SELECT TenKho, Capacity FROM kho_con WHERE MaKho = ?', [MaKhoDich]);
+            const [[{ currentTotalDich }]] = await conn.query(
+                'SELECT COALESCE(SUM(SoLuongTon), 0) AS total FROM ton_kho_chi_tiet WHERE MaKho = ?', [MaKhoDich]
+            );
+
+            if (khoDichInfo && khoDichInfo.Capacity !== null && (currentTotalDich + totalTransferAmount > khoDichInfo.Capacity)) {
+                throw new Error(`Kho đích "${khoDichInfo.TenKho}" đã đầy. Hiện có: ${currentTotalDich}/${khoDichInfo.Capacity}, Cần nhận: ${totalTransferAmount}`);
+            }
+
             // Lấy MaCH của kho nguồn và kho đích
             const [[khoNguon]] = await conn.query('SELECT MaCH FROM kho_con WHERE MaKho = ?', [MaKhoNguon]);
             const [[khoDich]] = await conn.query('SELECT MaCH FROM kho_con WHERE MaKho = ?', [MaKhoDich]);
@@ -1106,7 +1130,7 @@ const warehouseController = {
             const params = [];
             let where = 'WHERE 1=1';
             if (MaKhoNguon) { where += ' AND pc.MaKhoNguon = ?'; params.push(MaKhoNguon); }
-            if (TrangThai)   { where += ' AND pc.TrangThai = ?';   params.push(TrangThai); }
+            if (TrangThai) { where += ' AND pc.TrangThai = ?'; params.push(TrangThai); }
 
             const [rows] = await pool.query(`
                 SELECT pc.*, 
@@ -1377,7 +1401,7 @@ const warehouseController = {
 
             if (apDungChenhLech) {
                 const targetMaKho = kk[0].MaCH; // Trong DB, cột MaCH của kiem_ke_kho thực chất chứa MaKho
-                
+
                 // Lấy MaCH (Store ID) thực sự của kho con này
                 const [[khoInfo]] = await conn.query('SELECT MaCH FROM kho_con WHERE MaKho = ?', [targetMaKho]);
                 const realMaCH = khoInfo?.MaCH;
@@ -1398,7 +1422,7 @@ const warehouseController = {
                             JOIN kho_con kc ON tkct.MaKho = kc.MaKho
                             WHERE tkct.MaSP = ? AND kc.MaCH = ?
                         `, [item.MaSP, realMaCH]);
-                        
+
                         const newTotal = newTotalRow?.total || 0;
 
                         await conn.query(`
@@ -1603,7 +1627,7 @@ const warehouseController = {
         try {
             const [dup] = await pool.query('SELECT MaTL FROM theloai WHERE TenTL = ?', [trimmedTen]);
             if (dup.length > 0) return res.status(400).json({ success: false, message: 'Thể loại này đã tồn tại' });
-            
+
             const [result] = await pool.query(
                 'INSERT INTO theloai (TenTL, MoTa, TinhTrang) VALUES (?, ?, 1)',
                 [trimmedTen, trimmedMoTa || null]
@@ -1646,7 +1670,7 @@ const warehouseController = {
         try {
             const [dup] = await pool.query('SELECT MaTL FROM theloai WHERE TenTL = ? AND MaTL != ?', [trimmedTen, id]);
             if (dup.length > 0) return res.status(400).json({ success: false, message: 'Tên thể loại đã tồn tại' });
-            
+
             const [oldTL] = await pool.query('SELECT * FROM theloai WHERE MaTL = ?', [id]);
             const [result] = await pool.query(
                 'UPDATE theloai SET TenTL = ?, MoTa = ?, TinhTrang = ? WHERE MaTL = ?',

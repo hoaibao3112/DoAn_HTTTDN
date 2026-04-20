@@ -1,8 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useContext } from 'react';
 import axios from 'axios';
 import { Button, Input, message, Table, Modal, Space, Select, AutoComplete } from 'antd';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
 import { handleApiError } from '../utils/errorHandler';
+import { PermissionContext } from '../components/PermissionContext';
+import { FEATURES } from '../constants/permissions';
 import '../styles/ProductManagement.css';
 
 const TRONG_LUONG_OPTIONS = [50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 1000, 1200, 1500].map(v => ({ value: String(v), label: `${v} g` }));
@@ -16,6 +18,7 @@ const { Option } = Select;
 const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNGNEY0RjQiLz48cGF0aCBkPSJNMjAgMTRDMjMuMzEzNyAxNCAyNiAxNi42ODYzIDI2IDIwQzI2IDIzLjMxMzcgMjMuMzEzNyAyNiAyMCAyNkMxNi42ODYzIDI2IDE0IDIzLjMxMzcgMTQgMjBDMTQgMTYuNjg2MyAxNi42ODYzIDE0IDIwIDE0WiIgZmlsbD0iI0NDQ0NDQyIvPjwvc3ZnPg==';
 
 const ProductManagement = () => {
+  const { hasPermissionById } = useContext(PermissionContext);
   const [products, setProducts] = useState([]);
   const [authors, setAuthors] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -245,13 +248,34 @@ const ProductManagement = () => {
 
   // Thêm sản phẩm - SỬA XỬ LÝ NAMXB
   const handleAddProduct = async () => {
+
     const maTL = newProduct.MaTL;
     const tenSP = newProduct.TenSP.trim();
     const maTG = newProduct.MaTG;
-    const namXB = newProduct.NamXB; // ✅ Bỏ .trim() vì có thể là số
+    const namXB = newProduct.NamXB;
+    const maNXB = newProduct.MaNXB;
+    const trongLuong = Number(newProduct.TrongLuong);
+    const soTrang = Number(newProduct.SoTrang);
+    const minSoLuong = Number(newProduct.MinSoLuong);
 
-    if (!maTL || !tenSP) {
-      message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Thể loại, Tên SP)!');
+    if (!maTL || !tenSP || !maNXB) {
+      message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Thể loại, Tên SP, Nhà xuất bản)!');
+      return;
+    }
+    if (namXB && (!/^[0-9]{4}$/.test(namXB) || Number(namXB) < 1900 || Number(namXB) > 2026)) {
+      message.error('Năm xuất bản phải từ 1900 đến 2026!');
+      return;
+    }
+    if (trongLuong < 0) {
+      message.error('Trọng lượng không được âm!');
+      return;
+    }
+    if (soTrang < 0) {
+      message.error('Số trang không được âm!');
+      return;
+    }
+    if (minSoLuong < 0) {
+      message.error('Ngưỡng tối thiểu không được âm!');
       return;
     }
 
@@ -320,13 +344,34 @@ const ProductManagement = () => {
 
   // Cập nhật sản phẩm - SỬA XỬ LÝ NAMXB
   const handleUpdateProduct = async () => {
+
     const maTL = editingProduct.MaTL;
     const tenSP = editingProduct.TenSP.trim();
     const maTG = editingProduct.MaTG;
-    const namXB = editingProduct.NamXB; // ✅ Bỏ .trim() vì có thể là số
+    const namXB = editingProduct.NamXB;
+    const maNXB = editingProduct.MaNXB;
+    const trongLuong = Number(editingProduct.TrongLuong);
+    const soTrang = Number(editingProduct.SoTrang);
+    const minSoLuong = Number(editingProduct.MinSoLuong);
 
-    if (!maTL || !tenSP) {
-      message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Thể loại, Tên SP)!');
+    if (!maTL || !tenSP || !maNXB) {
+      message.error('Vui lòng nhập đầy đủ thông tin bắt buộc (Thể loại, Tên SP, Nhà xuất bản)!');
+      return;
+    }
+    if (namXB && (!/^[0-9]{4}$/.test(namXB) || Number(namXB) < 1900 || Number(namXB) > 2026)) {
+      message.error('Năm xuất bản phải từ 1900 đến 2026!');
+      return;
+    }
+    if (trongLuong < 0) {
+      message.error('Trọng lượng không được âm!');
+      return;
+    }
+    if (soTrang < 0) {
+      message.error('Số trang không được âm!');
+      return;
+    }
+    if (minSoLuong < 0) {
+      message.error('Ngưỡng tối thiểu không được âm!');
       return;
     }
 
@@ -555,39 +600,44 @@ const ProductManagement = () => {
       align: 'center',
       render: (_, record) => (
         <Space size="small">
-          <Button
-            type="link"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={async () => {
-              // fetch full product details (including images) before opening modal
-              try {
-                const res = await axios.get(`${API_URL}/${record.MaSP}`);
-                const productData = res.data?.data || res.data;
-                setEditingProduct(productData);
-                setIsModalVisible(true);
-              } catch (err) {
-                console.error('Lỗi khi lấy chi tiết sản phẩm để sửa:', err);
-                message.error('Không thể tải chi tiết sản phẩm. Vui lòng thử lại.');
-              }
-            }}
-            style={{ padding: 0 }}
-          />
-          <Button
-            type="link"
-            size="small"
-            onClick={() => openEditMinModal(record)}
-            style={{ padding: 0, color: '#1890ff' }}
-          >
-            Sửa ngưỡng
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            icon={<DeleteOutlined />}
-            onClick={() => handleDeleteProduct(record.MaSP)}
-            style={{ padding: 0, color: '#ff4d4f' }}
-          />
+          {hasPermissionById(FEATURES.PRODUCTS, 'Sua') && (
+            <>
+              <Button
+                type="link"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={async () => {
+                  try {
+                    const res = await axios.get(`${API_URL}/${record.MaSP}`);
+                    const productData = res.data?.data || res.data;
+                    setEditingProduct(productData);
+                    setIsModalVisible(true);
+                  } catch (err) {
+                    console.error('Lỗi khi lấy chi tiết sản phẩm để sửa:', err);
+                    message.error('Không thể tải chi tiết sản phẩm. Vui lòng thử lại.');
+                  }
+                }}
+                style={{ padding: 0 }}
+              />
+              <Button
+                type="link"
+                size="small"
+                onClick={() => openEditMinModal(record)}
+                style={{ padding: 0, color: '#1890ff' }}
+              >
+                Sửa ngưỡng
+              </Button>
+            </>
+          )}
+          {hasPermissionById(FEATURES.PRODUCTS, 'Xoa') && (
+            <Button
+              type="link"
+              size="small"
+              icon={<DeleteOutlined />}
+              onClick={() => handleDeleteProduct(record.MaSP)}
+              style={{ padding: 0, color: '#ff4d4f' }}
+            />
+          )}
         </Space>
       ),
     },
@@ -629,27 +679,29 @@ const ProductManagement = () => {
               ))}
             </Select>
           </div>
-          <Button
-            type="primary"
-            size="small"
-            onClick={() => {
-              setEditingProduct(null);
-              setNewProduct({
-                MaTL: '',
-                TenSP: '',
-                HinhAnhPrimary: null,
-                HinhAnhPhu: [],
-                MaTG: '',
-                NamXB: '',
-                TinhTrang: 'Hết hàng',
-                DonGia: 0,
-                SoLuong: 0,
-              });
-              setIsModalVisible(true);
-            }}
-          >
-            Thêm sản phẩm
-          </Button>
+          {hasPermissionById(FEATURES.PRODUCTS, 'Them') && (
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => {
+                setEditingProduct(null);
+                setNewProduct({
+                  MaTL: '',
+                  TenSP: '',
+                  HinhAnhPrimary: null,
+                  HinhAnhPhu: [],
+                  MaTG: '',
+                  NamXB: '',
+                  TinhTrang: 'Hết hàng',
+                  DonGia: 0,
+                  SoLuong: 0,
+                });
+                setIsModalVisible(true);
+              }}
+            >
+              Thêm sản phẩm
+            </Button>
+          )}
         </div>
       </div>
 
@@ -748,11 +800,8 @@ const ProductManagement = () => {
                     : setNewProduct({ ...newProduct, MaTL: value })
                 }
                 style={{ width: '100%' }}
-                showSearch
-                optionFilterProp="children"
-                filterOption={(input, option) =>
-                  option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-                }
+                // Không cho nhập text, chỉ chọn
+                showSearch={false}
               >
                 {categories.map(category => (
                   <Option key={category.MaTL} value={category.MaTL}>
@@ -832,11 +881,7 @@ const ProductManagement = () => {
                 }
                 style={{ width: '100%' }}
                 allowClear
-                showSearch
-                optionFilterProp="children"
-                filterOption={(input, option) =>
-                  option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-                }
+                showSearch={false}
               >
                 {authors.map(author => (
                   <Option key={author.MaTG} value={author.MaTG}>
@@ -875,7 +920,7 @@ const ProductManagement = () => {
             </div>
 
             <div className="info-item">
-              <p className="info-label">Nhà xuất bản:</p>
+              <p className="info-label">Nhà xuất bản <span style={{ color: 'red' }}>*</span></p>
               <Select
                 size="small"
                 placeholder="Chọn nhà xuất bản"
@@ -886,9 +931,7 @@ const ProductManagement = () => {
                     : setNewProduct({ ...newProduct, MaNXB: value })
                 }
                 style={{ width: '100%' }}
-                allowClear
-                showSearch
-                optionFilterProp="children"
+                showSearch={false}
               >
                 {publishers.map(p => (
                   <Option key={p.MaNXB} value={p.MaNXB}>{p.TenNXB}</Option>

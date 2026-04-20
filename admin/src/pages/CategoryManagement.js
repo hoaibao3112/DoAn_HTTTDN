@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import axios from 'axios';
 import { Button, Input, message, Table, Modal, Space, Select } from 'antd';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled, LockOutlined, UnlockOutlined } from '@ant-design/icons';
 import { handleApiError } from '../utils/errorHandler';
+import { PermissionContext } from '../components/PermissionContext';
+import { FEATURES } from '../constants/permissions';
 const { confirm } = Modal;
 const { Option } = Select;
 
 const CategoryManagement = () => {
+  const { hasPermissionById } = useContext(PermissionContext);
   const [state, setState] = useState({
     categories: [],
     newCategory: { TenTL: '', TinhTrang: 1 },
@@ -198,31 +201,37 @@ const CategoryManagement = () => {
       key: 'action',
       render: (_, record) => (
         <Space size="small">
-          <Button
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => {
-              setState(prev => ({
-                ...prev,
-                editingCategory: {
-                  ...record,
-                  TinhTrang: record.TinhTrangValue,
-                },
-                isModalVisible: true,
-              }));
-            }}
-          />
-          <Button
-            size="small"
-            icon={record.TinhTrang === 'Hoạt động' ? <LockOutlined /> : <UnlockOutlined />}
-            onClick={() => handleToggleStatus(record)}
-          />
-          <Button
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDeleteCategory(record.MaTL)}
-          />
+          {hasPermissionById(FEATURES.CATEGORIES, 'Sua') && (
+            <>
+              <Button
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  setState(prev => ({
+                    ...prev,
+                    editingCategory: {
+                      ...record,
+                      TinhTrang: record.TinhTrangValue,
+                    },
+                    isModalVisible: true,
+                  }));
+                }}
+              />
+              <Button
+                size="small"
+                icon={record.TinhTrang === 'Hoạt động' ? <LockOutlined /> : <UnlockOutlined />}
+                onClick={() => handleToggleStatus(record)}
+              />
+            </>
+          )}
+          {hasPermissionById(FEATURES.CATEGORIES, 'Xoa') && (
+            <Button
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDeleteCategory(record.MaTL)}
+            />
+          )}
         </Space>
       ),
       fixed: 'right',
@@ -236,20 +245,22 @@ const CategoryManagement = () => {
         <h1>
           <i className="fas fa-tags"></i> Quản lý Thể loại
         </h1>
-        <Button
-          type="primary"
-          size="small"
-          onClick={() => {
-            setState(prev => ({
-              ...prev,
-              editingCategory: null,
-              newCategory: { TenTL: '', TinhTrang: 1 },
-              isModalVisible: true,
-            }));
-          }}
-        >
-          Thêm thể loại
-        </Button>
+        {hasPermissionById(FEATURES.CATEGORIES, 'Them') && (
+          <Button
+            type="primary"
+            size="small"
+            onClick={() => {
+              setState(prev => ({
+                ...prev,
+                editingCategory: null,
+                newCategory: { TenTL: '', TinhTrang: 1 },
+                isModalVisible: true,
+              }));
+            }}
+          >
+            Thêm thể loại
+          </Button>
+        )}
       </div>
 
       <div className="thongke-content">

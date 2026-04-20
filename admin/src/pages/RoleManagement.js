@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import axios from 'axios';
 import { Button, Input, message, Table, Modal, Space, Form, Tag, Checkbox, Card } from 'antd';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
 import { handleApiError } from '../utils/errorHandler';
+import { PermissionContext } from '../components/PermissionContext';
+import { FEATURES } from '../constants/permissions';
 
 const { Search } = Input;
 const { confirm } = Modal;
 
 const RoleManagement = () => {
+  const { hasPermissionById } = useContext(PermissionContext);
   const [roles, setRoles] = useState([]);
   const [functions, setFunctions] = useState([]);
   const [newRole, setNewRole] = useState({
@@ -252,31 +255,35 @@ const RoleManagement = () => {
       key: 'action',
       render: (_, record) => (
         <Space size="small">
-          <Button
-            size="small"
-            icon={<EditOutlined />}
-            onClick={async () => {
-              try {
-                const response = await axios.get(`${API_URL}/${record.MaNQ}/permissions`);
-                setEditingRole({
-                  MaNQ: record.MaNQ,
-                  TenNQ: record.TenNQ,
-                  MoTa: record.MoTa,
-                  TinhTrang: record.TinhTrang,
-                  permissions: response.data || [],
-                });
-                setIsModalVisible(true);
-              } catch (error) {
-                handleApiError(error, 'Lỗi khi tải thông tin nhóm quyền!');
-              }
-            }}
-          />
-          <Button
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDeleteRole(record.MaNQ)}
-          />
+          {hasPermissionById(FEATURES.ROLES, 'Sua') && (
+            <Button
+              size="small"
+              icon={<EditOutlined />}
+              onClick={async () => {
+                try {
+                  const response = await axios.get(`${API_URL}/${record.MaNQ}/permissions`);
+                  setEditingRole({
+                    MaNQ: record.MaNQ,
+                    TenNQ: record.TenNQ,
+                    MoTa: record.MoTa,
+                    TinhTrang: record.TinhTrang,
+                    permissions: response.data || [],
+                  });
+                  setIsModalVisible(true);
+                } catch (error) {
+                  handleApiError(error, 'Lỗi khi tải thông tin nhóm quyền!');
+                }
+              }}
+            />
+          )}
+          {hasPermissionById(FEATURES.ROLES, 'Xoa') && (
+            <Button
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDeleteRole(record.MaNQ)}
+            />
+          )}
         </Space>
       ),
       width: 150,
@@ -289,22 +296,24 @@ const RoleManagement = () => {
         <h1>
           <i className="fas fa-users"></i> Quản lý Nhóm Quyền
         </h1>
-        <Button
-          type="primary"
-          size="small"
-          onClick={() => {
-            setEditingRole(null);
-            setNewRole({
-              TenNQ: '',
-              MoTa: '',
-              TinhTrang: 1,
-              permissions: [],
-            });
-            setIsModalVisible(true);
-          }}
-        >
-          Thêm nhóm quyền
-        </Button>
+        {hasPermissionById(FEATURES.ROLES, 'Them') && (
+          <Button
+            type="primary"
+            size="small"
+            onClick={() => {
+              setEditingRole(null);
+              setNewRole({
+                TenNQ: '',
+                MoTa: '',
+                TinhTrang: 1,
+                permissions: [],
+              });
+              setIsModalVisible(true);
+            }}
+          >
+            Thêm nhóm quyền
+          </Button>
+        )}
       </div>
 
       <div className="thongke-content">

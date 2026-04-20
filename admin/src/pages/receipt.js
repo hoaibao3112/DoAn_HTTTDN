@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { Table, Button, Modal, Form, Select, Input, notification, DatePicker, Alert, Space, Tag } from 'antd';
 import { PlusOutlined, EyeOutlined, SyncOutlined, SearchOutlined } from '@ant-design/icons';
+import { PermissionContext } from '../components/PermissionContext';
+import { FEATURES } from '../constants/permissions';
 import '../styles/ReceiptManagement.css';
 
 const { Column } = Table;
@@ -9,6 +11,7 @@ const { Option } = Select;
 const { RangePicker } = DatePicker;
 
 const NhapHang = () => {
+  const { hasPermissionById } = useContext(PermissionContext);
   // ----- States -----
   const [phieuNhap, setPhieuNhap] = useState([]);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
@@ -367,15 +370,17 @@ const NhapHang = () => {
           </Button>
         </div>
 
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          size="large"
-          className="create-btn"
-          onClick={() => setModalVisible(true)}
-        >
-          Lập phiếu nhập mới
-        </Button>
+        {hasPermissionById(FEATURES.PURCHASE_ORDERS, 'Them') && (
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            size="large"
+            className="create-btn"
+            onClick={() => setModalVisible(true)}
+          >
+            Lập phiếu nhập mới
+          </Button>
+        )}
       </div>
 
       {showLowStockBanner && (
@@ -389,9 +394,11 @@ const NhapHang = () => {
               <Button size="small" onClick={() => setShowLowStockDetails(!showLowStockDetails)}>
                 {showLowStockDetails ? 'Ẩn bảng kê' : 'Xem bảng kê'}
               </Button>
-              <Button type="primary" size="small" onClick={() => createReceiptFromLowStock(lowStock)}>
-                Lập phiếu nhập hàng loạt
-              </Button>
+              {hasPermissionById(FEATURES.PURCHASE_ORDERS, 'Them') && (
+                <Button type="primary" size="small" onClick={() => createReceiptFromLowStock(lowStock)}>
+                  Lập phiếu nhập hàng loạt
+                </Button>
+              )}
             </div>
           }
           style={{ marginBottom: 16 }}

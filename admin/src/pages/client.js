@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import apiClient from '../services/api';
+import { PermissionContext } from '../components/PermissionContext';
+import { FEATURES } from '../constants/permissions';
 import { 
   Button, Input, message, Table, Modal, Space, Tag, Select, Card, Row, Col, 
   Descriptions, Slider, Statistic, Tabs, Tooltip, Progress 
@@ -18,6 +20,7 @@ const TIER_CONFIG = {
 };
 
 const CustomerManagement = () => {
+  const { hasPermissionById } = useContext(PermissionContext);
   // State management
   const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -276,14 +279,16 @@ const CustomerManagement = () => {
               Chi tiết
             </Button>
           </Tooltip>
-          <Button 
-            size="small" 
-            type={record.TinhTrang === 1 ? 'default' : 'primary'}
-            danger={record.TinhTrang === 1}
-            onClick={() => handleToggleStatus(record.MaKH)}
-          >
-            {record.TinhTrang === 1 ? 'Vô hiệu' : 'Kích hoạt'}
-          </Button>
+          {hasPermissionById(FEATURES.CUSTOMERS, 'Sua') && (
+            <Button 
+              size="small" 
+              type={record.TinhTrang === 1 ? 'default' : 'primary'}
+              danger={record.TinhTrang === 1}
+              onClick={() => handleToggleStatus(record.MaKH)}
+            >
+              {record.TinhTrang === 1 ? 'Vô hiệu' : 'Kích hoạt'}
+            </Button>
+          )}
         </Space>
       ),
     },

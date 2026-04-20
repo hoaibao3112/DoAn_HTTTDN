@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { message, DatePicker, Card, Row, Col, Statistic, Table, Tag } from 'antd';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -7,6 +7,8 @@ import * as XLSX from 'xlsx';
 // SỬA LẠI IMPORT NÀY
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { PermissionContext } from '../components/PermissionContext';
+import { FEATURES } from '../constants/permissions';
 
 import {
   Chart as ChartJS,
@@ -40,6 +42,7 @@ ChartJS.register(
 const { RangePicker } = DatePicker;
 
 const ThongKe = () => {
+  const { hasPermissionById } = useContext(PermissionContext);
   let unicodeFontName = null;
   // ==================== STATE ====================
   const [activeTab, setActiveTab] = useState('doanhthu');
@@ -1244,13 +1247,17 @@ const renderChart = () => {
             {showChart ? 'Ẩn biểu đồ' : 'Hiện biểu đồ'}
           </button>
 
-          <button className="btn-pdf" onClick={handleExportPDF}>
-            <i className="fas fa-file-pdf"></i> Xuất PDF
-          </button>
+          {hasPermissionById(FEATURES.REPORTS, 'XuatFile') && (
+            <button className="btn-pdf" onClick={handleExportPDF}>
+              <i className="fas fa-file-pdf"></i> Xuất PDF
+            </button>
+          )}
 
-          <button className="btn-excel" onClick={handleExportExcel}>
-            <i className="fas fa-file-excel"></i> Xuất Excel
-          </button>
+          {hasPermissionById(FEATURES.REPORTS, 'XuatFile') && (
+            <button className="btn-excel" onClick={handleExportExcel}>
+              <i className="fas fa-file-excel"></i> Xuất Excel
+            </button>
+          )}
         </div>
       </div>
 

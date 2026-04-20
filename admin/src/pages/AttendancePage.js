@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import Select from 'react-select';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { PermissionContext } from '../components/PermissionContext';
+import { FEATURES } from '../constants/permissions';
 import '../styles/AttendancePage.css';
 
 const API_BASE = 'http://localhost:5000/api/attendance_admin';
@@ -43,6 +45,7 @@ const getWeekday = (year, month, day) => {
 const isSunday = (year, month, day) => getWeekday(year, month, day) === 'CN';
 
 const AttendancePage = () => {
+  const { hasPermissionById } = useContext(PermissionContext);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [employees, setEmployees] = useState([]);
@@ -502,37 +505,41 @@ const AttendancePage = () => {
             </div>
             {activeTab === 'calendar' && (
               <>
-                <button
-                  onClick={handleManualMarkAbsent}
-                  style={{
-                    padding: '6px 12px',
-                    background: '#f44336',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  <i className="fas fa-user-times"></i> Đánh vắng hôm nay
-                </button>
-                <button
-                  onClick={handleAutoFillMonth}
-                  title={`Tự động điền chấm công cho tất cả ngày làm việc chưa có dữ liệu trong tháng ${month}/${year}`}
-                  style={{
-                    padding: '6px 12px',
-                    background: '#7b1fa2',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  <i className="fas fa-magic"></i> Tự động chấm cả tháng
-                </button>
+                {hasPermissionById(FEATURES.ATTENDANCE, 'Sua') && (
+                  <button
+                    onClick={handleManualMarkAbsent}
+                    style={{
+                      padding: '6px 12px',
+                      background: '#f44336',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <i className="fas fa-user-times"></i> Đánh vắng hôm nay
+                  </button>
+                )}
+                {hasPermissionById(FEATURES.ATTENDANCE, 'Sua') && (
+                  <button
+                    onClick={handleAutoFillMonth}
+                    title={`Tự động điền chấm công cho tất cả ngày làm việc chưa có dữ liệu trong tháng ${month}/${year}`}
+                    style={{
+                      padding: '6px 12px',
+                      background: '#7b1fa2',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <i className="fas fa-magic"></i> Tự động chấm cả tháng
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -811,22 +818,24 @@ const AttendancePage = () => {
                 />
               </div>
 
-              <button
-                onClick={handleSaveChanges}
-                style={{
-                  background: '#28a745',
-                  color: '#fff',
-                  fontWeight: 'bold',
-                  padding: '10px 24px',
-                  border: 'none',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                  fontSize: 16
-                }}
-                disabled={Object.keys(pendingChanges).length === 0}
-              >
-                <i className="fas fa-save"></i> Lưu thay đổi ({Object.keys(pendingChanges).length})
-              </button>
+              {hasPermissionById(FEATURES.ATTENDANCE, 'Sua') && (
+                <button
+                  onClick={handleSaveChanges}
+                  style={{
+                    background: '#28a745',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    padding: '10px 24px',
+                    border: 'none',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    fontSize: 16
+                  }}
+                  disabled={Object.keys(pendingChanges).length === 0}
+                >
+                  <i className="fas fa-save"></i> Lưu thay đổi ({Object.keys(pendingChanges).length})
+                </button>
+              )}
 
               <div style={{ marginTop: 16, fontSize: 14, color: '#666' }}>
                 <i className="fas fa-info-circle"></i> Nhấp đúp vào ngày đã chấm để xem lịch sử chỉnh sửa
@@ -897,30 +906,32 @@ const AttendancePage = () => {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h2>Quản lý ngày lễ</h2>
-              <button
-                onClick={() => {
-                  setEditingHoliday(null);
-                  setHolidayForm({
-                    TenNgayLe: '',
-                    Ngay: '',
-                    HeSoLuong: 2.0,
-                    LoaiNgayLe: 'Quoc_gia',
-                    GhiChu: ''
-                  });
-                  setShowHolidayModal(true);
-                }}
-                style={{
-                  background: '#1976d2',
-                  color: '#fff',
-                  fontWeight: 'bold',
-                  padding: '10px 20px',
-                  border: 'none',
-                  borderRadius: 4,
-                  cursor: 'pointer'
-                }}
-              >
-                <i className="fas fa-plus"></i> Thêm ngày lễ
-              </button>
+              {hasPermissionById(FEATURES.ATTENDANCE, 'Them') && (
+                <button
+                  onClick={() => {
+                    setEditingHoliday(null);
+                    setHolidayForm({
+                      TenNgayLe: '',
+                      Ngay: '',
+                      HeSoLuong: 2.0,
+                      LoaiNgayLe: 'Quoc_gia',
+                      GhiChu: ''
+                    });
+                    setShowHolidayModal(true);
+                  }}
+                  style={{
+                    background: '#1976d2',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    padding: '10px 20px',
+                    border: 'none',
+                    borderRadius: 4,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <i className="fas fa-plus"></i> Thêm ngày lễ
+                </button>
+              )}
             </div>
 
             {loadingHolidays ? (
@@ -951,35 +962,39 @@ const AttendancePage = () => {
                         <td>{holiday.LoaiNgayLe}</td>
                         <td>{holiday.GhiChu}</td>
                         <td>
-                          <button
-                            onClick={() => handleEditHoliday(holiday)}
-                            style={{
-                              background: '#4CAF50',
-                              color: '#fff',
-                              border: 'none',
-                              padding: '6px 12px',
-                              borderRadius: 4,
-                              cursor: 'pointer',
-                              marginRight: 8,
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            Sửa
-                          </button>
-                          <button
-                            onClick={() => handleDeleteHoliday(holiday.MaNgayLe)}
-                            style={{
-                              background: '#f44336',
-                              color: '#fff',
-                              border: 'none',
-                              padding: '6px 12px',
-                              borderRadius: 4,
-                              cursor: 'pointer',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            Xóa
-                          </button>
+                          {hasPermissionById(FEATURES.ATTENDANCE, 'Sua') && (
+                            <button
+                              onClick={() => handleEditHoliday(holiday)}
+                              style={{
+                                background: '#4CAF50',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: 4,
+                                cursor: 'pointer',
+                                marginRight: 8,
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              Sửa
+                            </button>
+                          )}
+                          {hasPermissionById(FEATURES.ATTENDANCE, 'Xoa') && (
+                            <button
+                              onClick={() => handleDeleteHoliday(holiday.MaNgayLe)}
+                              style={{
+                                background: '#f44336',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: 4,
+                                cursor: 'pointer',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              Xóa
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))

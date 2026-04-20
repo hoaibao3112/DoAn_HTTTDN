@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import axios from 'axios';
 import {
   Table, Button, Input, Modal, Form, Select, Switch, Tag, Space,
@@ -13,6 +13,8 @@ import {
   PercentageOutlined, DollarOutlined, ClockCircleOutlined, PrinterOutlined, DownloadOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { PermissionContext } from '../components/PermissionContext';
+import { FEATURES } from '../constants/permissions';
 import '../styles/DiscountManagement.css';
 
 const { Title, Text } = Typography;
@@ -86,6 +88,7 @@ const KhuyenMai = () => {
 
 // ==================== TAB 1: DANH SÁCH KHUYẾN MÃI ====================
 const PromotionList = () => {
+  const { hasPermissionById } = useContext(PermissionContext);
   const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -305,6 +308,7 @@ const PromotionList = () => {
       width: 120,
       render: (val, record) => (
         <Switch
+          disabled={!hasPermissionById(FEATURES.PROMOTIONS, 'Sua')}
           checked={val === 1}
           checkedChildren="Hoạt động"
           unCheckedChildren="Tạm dừng"
@@ -322,19 +326,23 @@ const PromotionList = () => {
           <Tooltip title="Xem chi tiết">
             <Button icon={<EyeOutlined />} size="small" onClick={() => handleViewDetail(record.MaKM)} />
           </Tooltip>
-          <Tooltip title="Chỉnh sửa">
-            <Button icon={<EditOutlined />} size="small" type="primary" ghost onClick={() => handleOpenForm(record)} />
-          </Tooltip>
-          <Tooltip title="Xóa">
-            <Popconfirm
-              title="Xóa khuyến mãi này?"
-              description="Chỉ xóa được nếu chưa có lần sử dụng nào."
-              onConfirm={() => handleDelete(record.MaKM)}
-              okText="Xóa" cancelText="Hủy" okButtonProps={{ danger: true }}
-            >
-              <Button icon={<DeleteOutlined />} size="small" danger />
-            </Popconfirm>
-          </Tooltip>
+          {hasPermissionById(FEATURES.PROMOTIONS, 'Sua') && (
+            <Tooltip title="Chỉnh sửa">
+              <Button icon={<EditOutlined />} size="small" type="primary" ghost onClick={() => handleOpenForm(record)} />
+            </Tooltip>
+          )}
+          {hasPermissionById(FEATURES.PROMOTIONS, 'Xoa') && (
+            <Tooltip title="Xóa">
+              <Popconfirm
+                title="Xóa khuyến mãi này?"
+                description="Chỉ xóa được nếu chưa có lần sử dụng nào."
+                onConfirm={() => handleDelete(record.MaKM)}
+                okText="Xóa" cancelText="Hủy" okButtonProps={{ danger: true }}
+              >
+                <Button icon={<DeleteOutlined />} size="small" danger />
+              </Popconfirm>
+            </Tooltip>
+          )}
         </Space>
       ),
     },
@@ -377,9 +385,11 @@ const PromotionList = () => {
           <Option value="0">Tạm dừng</Option>
         </Select>
         <Button icon={<ReloadOutlined />} onClick={fetchPromotions}>Làm mới</Button>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenForm()}>
-          Tạo khuyến mãi
-        </Button>
+        {hasPermissionById(FEATURES.PROMOTIONS, 'Them') && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => handleOpenForm()}>
+            Tạo khuyến mãi
+          </Button>
+        )}
       </div>
 
       {/* Table */}
@@ -975,6 +985,7 @@ const downloadVoucherPDF = async (voucher) => {
 
 // ==================== VOUCHER LIST ====================
 const VoucherList = () => {
+  const { hasPermissionById } = useContext(PermissionContext);
   const [vouchers, setVouchers] = useState([]);
   const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1138,13 +1149,15 @@ const VoucherList = () => {
               onClick={() => downloadVoucherPDF(record)}
             />
           </Tooltip>
-          <Popconfirm
-            title="Xóa mã giảm giá này?"
-            onConfirm={() => handleDelete(record.MaMGG)}
-            okText="Xóa" cancelText="Hủy" okButtonProps={{ danger: true }}
-          >
-            <Button icon={<DeleteOutlined />} size="small" danger />
-          </Popconfirm>
+          {hasPermissionById(FEATURES.PROMOTIONS, 'Xoa') && (
+            <Popconfirm
+              title="Xóa mã giảm giá này?"
+              onConfirm={() => handleDelete(record.MaMGG)}
+              okText="Xóa" cancelText="Hủy" okButtonProps={{ danger: true }}
+            >
+              <Button icon={<DeleteOutlined />} size="small" danger />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -1171,9 +1184,11 @@ const VoucherList = () => {
             In {selectedRowKeys.length} phiếu
           </Button>
         )}
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setIsFormOpen(true); }}>
-          Tạo mã giảm giá
-        </Button>
+        {hasPermissionById(FEATURES.PROMOTIONS, 'Them') && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setIsFormOpen(true); }}>
+            Tạo mã giảm giá
+          </Button>
+        )}
       </div>
 
       <Card className="table-card">

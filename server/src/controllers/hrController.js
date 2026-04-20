@@ -279,9 +279,11 @@ const hrController = {
                 }
             }
 
-            // 2. Lương cơ bản không được âm
-            if (data.LuongCoBan !== undefined && Number(data.LuongCoBan) < 0) {
-                return res.status(400).json({ success: false, message: 'Lương cơ bản không được âm.' });
+            if (data.LuongCoBan === undefined || data.LuongCoBan === null || isNaN(Number(data.LuongCoBan)) || Number(data.LuongCoBan) <= 0) {
+                return res.status(400).json({ success: false, message: 'Lương cơ bản phải là số và lớn hơn 0.' });
+            }
+            if (data.PhuCap !== undefined && data.PhuCap !== null && (isNaN(Number(data.PhuCap)) || Number(data.PhuCap) < 0)) {
+                return res.status(400).json({ success: false, message: 'Số tiền phải là số và lớn hơn 0.' });
             }
 
             // 3. Logic ngày tháng (Sử dụng Helper cho SQL Date)
@@ -395,8 +397,11 @@ const hrController = {
             }
 
             // 2. Kiểm tra lương
-            if (normalized.LuongCoBan !== undefined && Number(normalized.LuongCoBan) < 0) {
-                return res.status(400).json({ success: false, message: 'Lương cơ bản không được âm.' });
+            if (normalized.LuongCoBan === undefined || normalized.LuongCoBan === null || isNaN(Number(normalized.LuongCoBan)) || Number(normalized.LuongCoBan) <= 0) {
+                return res.status(400).json({ success: false, message: 'Lương cơ bản phải là số và lớn hơn 0.' });
+            }
+            if (normalized.PhuCap !== undefined && normalized.PhuCap !== null && (isNaN(Number(normalized.PhuCap)) || Number(normalized.PhuCap) < 0)) {
+                return res.status(400).json({ success: false, message: 'Số tiền phải là số và lớn hơn 0.' });
             }
 
             // 3. Logic ngày tháng
