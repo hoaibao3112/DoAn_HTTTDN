@@ -225,13 +225,13 @@ router.get('/my-salary/print/yearly',
         try {
             const [salaryData] = await pool.query(`
                 SELECT 
-                    MONTH(bl.NgayTinh) as Thang,
+                    bl.Thang,
                     bl.LuongCoBan, bl.PhuCap, bl.Thuong, bl.Phat, bl.TongLuong,
                     nv.HoTen, nv.ChucVu
                 FROM luong bl
                 JOIN nhanvien nv ON bl.MaNV = nv.MaNV
-                WHERE nv.MaTK = ? AND YEAR(bl.NgayTinh) = ?
-                ORDER BY Thang
+                WHERE nv.MaTK = ? AND bl.Nam = ?
+                ORDER BY bl.Thang
             `, [MaTK, year]);
 
             // Calculate yearly summary

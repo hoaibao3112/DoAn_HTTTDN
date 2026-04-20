@@ -142,7 +142,11 @@ const Profile = () => {
   }, []);
 
   useEffect(() => {
-    fetchMonthAtt(viewMonth, viewYear);
+    if (viewMonth === 13) {
+      setMonthAtt([]);
+    } else {
+      fetchMonthAtt(viewMonth, viewYear);
+    }
     fetchSalary(viewMonth, viewYear);
   }, [viewMonth, viewYear]);
 
@@ -377,6 +381,167 @@ const Profile = () => {
     }).from(el).save();
   };
 
+  const [annualLoading, setAnnualLoading] = useState(false);
+  const handlePrintAnnualPDF = async (year) => {
+    setAnnualLoading(true);
+    try {
+      const res = await axios.get(`${API}/my-salary/print/yearly`, {
+        headers,
+        params: { year }
+      });
+
+      if (!res.data.success || !res.data.data.length) {
+        toast.info(`Không tìm thấy dữ liệu lương cho năm ${year}`);
+        setAnnualLoading(false);
+        return;
+      }
+
+      const { data, summary, employee } = res.data;
+      if (data.length < 12) {
+        toast.warning(`Bạn chỉ mới có dữ liệu của ${data.length}/12 tháng trong năm ${year}. Báo cáo vẫn sẽ được xuất.`);
+      }
+
+      const hasT13 = data.some(d => d.Thang === 13);
+      const standardMonths = data.filter(d => d.Thang <= 12).length;
+
+      const el = document.createElement('div');
+      el.innerHTML = `
+        <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;padding:30px;width:700px;margin:0 auto;color:#333;line-height:1.4;">
+          <!-- Top Header with Brand Accent -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;border-bottom:4px solid #1565c0;padding-bottom:15px;">
+            <div style="text-align:left;">
+              <div style="font-size:20px;font-weight:900;color:#1565c0;letter-spacing:-1px;">HỆ THỐNG QUẢN LÝ NHÂN SỰ</div>
+              <div style="font-size:10px;color:#777;text-transform:uppercase;letter-spacing:1px;">Báo cáo thu nhập chính thức</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:18px;font-weight:800;color:#444;">NĂM ${year}</div>
+              <div style="font-size:9px;color:#999;">Mã tài liệu: AR-${year}-${userInfo.MaNV}</div>
+            </div>
+          </div>
+
+          <div style="text-align:center;margin-bottom:30px;">
+            <h1 style="font-size:26px;font-weight:900;margin:0;color:#1a237e;text-transform:uppercase;">Tổng Kết Thu Nhập Cá Nhân</h1>
+            <p style="color:#666;margin-top:5px;font-size:12px;">Ngày lập báo cáo: ${new Date().toLocaleDateString('vi-VN')}</p>
+          </div>
+
+          <!-- Employee Info Card -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:25px;background:#f1f5f9;padding:20px;border-radius:10px;border:1px solid #e2e8f0;">
+            <div>
+              <div style="font-size:11px;color:#64748b;margin-bottom:4px;text-transform:uppercase;font-weight:700;">Thông tin nhân viên</div>
+              <div style="font-size:16px;font-weight:800;color:#1e293b;margin-bottom:2px;">${employee?.HoTen || userInfo.HoTen}</div>
+              <div style="font-size:13px;color:#475569;">${employee?.ChucVu || userInfo.ChucVu || 'Nhân viên'}</div>
+              <div style="font-size:12px;color:#64748b;margin-top:6px;">Mã số: <b>${userInfo.MaNV}</b></div>
+            </div>
+            <div style="text-align:right;display:flex;flex-direction:column;justify-content:center;">
+              <div style="font-size:11px;color:#64748b;margin-bottom:4px;text-transform:uppercase;font-weight:700;">Tổng hợp thời gian</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;">${standardMonths}/12 Tháng làm việc</div>
+              ${hasT13 ? '<div style="font-size:11px;color:#059669;font-weight:700;margin-top:2px;">+ Đủ điều kiện nhận Thưởng T13</div>' : ''}
+              <div style="font-size:11px;color:#94a3b8;margin-top:3px;">Năm tài chính: ${year}</div>
+            </div>
+          </div>
+
+          <!-- Salary Table -->
+          <table style="width:100%;border-collapse:separate;border-spacing:0;margin-bottom:30px;border-radius:8px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);font-size:11px;">
+            <thead>
+              <tr style="background:#1e293b;color:#ffffff;text-align:center;">
+                <th style="padding:12px 8px;font-weight:700;border:none;">THÁNG</th>
+                <th style="padding:12px 8px;font-weight:700;border:none;">LƯƠNG CB</th>
+                <th style="padding:12px 8px;font-weight:700;border:none;">PHỤ CẤP</th>
+                <th style="padding:12px 8px;font-weight:700;border:none;">THƯỞNG</th>
+                <th style="padding:12px 8px;font-weight:700;border:none;">PHẠT/TRỪ</th>
+                <th style="padding:12px 8px;font-weight:700;border:none;background:#0f172a;">TỔNG NHẬN</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                const row = data.find(d => d.Thang === m);
+                const bg = m % 2 === 0 ? '#ffffff' : '#f8fafc';
+                if (!row) return `
+                  <tr style="text-align:center;color:#cbd5e1;background:${bg}">
+                    <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#94a3b8;">${m}</td>
+                    <td colspan="5" style="padding:10px 8px;border-bottom:1px solid #f1f5f9;font-style:italic;font-size:10px;">Không có dữ liệu phát sinh</td>
+                  </tr>
+                `;
+                return `
+                  <tr style="text-align:right;background:${bg};">
+                    <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;text-align:center;font-weight:700;color:#334155;">${m}</td>
+                    <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${fmt(row.LuongCoBan)}</td>
+                    <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;color:#475569;">${fmt(row.PhuCap)}</td>
+                    <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;color:#059669;font-weight:600;">${row.Thuong > 0 ? '+' + fmt(row.Thuong) : '0đ'}</td>
+                    <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;color:#dc2626;">${row.Phat > 0 ? '-' + fmt(row.Phat) : '0đ'}</td>
+                    <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;font-weight:800;color:#1e40af;background:${m % 2 === 0 ? '#f1f5f9' : '#eff6ff'}">${fmt(row.TongLuong)}</td>
+                  </tr>
+                `;
+              }).join('')}
+              
+              ${hasT13 ? (() => {
+                const row = data.find(d => d.Thang === 13);
+                return `
+                  <tr style="text-align:right;background:#ecfdf5;border-top:2px solid #059669;">
+                    <td style="padding:12px 10px;text-align:center;font-weight:900;color:#065f46;">THƯỞNG T13</td>
+                    <td style="padding:12px 10px;color:#065f46;">${fmt(row.LuongCoBan)}</td>
+                    <td style="padding:12px 10px;color:#065f46;">0đ</td>
+                    <td style="padding:12px 10px;color:#059669;font-weight:900;">+${fmt(row.Thuong)}</td>
+                    <td style="padding:12px 10px;color:#dc2626;">0đ</td>
+                    <td style="padding:12px 10px;font-weight:900;color:#065f46;background:#d1fae5;">${fmt(row.TongLuong)}</td>
+                  </tr>
+                `;
+              })() : ''}
+            </tbody>
+          </table>
+
+          <!-- Final Summary Card -->
+          <div style="margin-top:10px;background:linear-gradient(135deg, #1e293b 0%, #0f172a 100%);padding:25px;border-radius:12px;color:#fff;display:flex;justify-content:space-between;align-items:center;">
+            <div style="flex:1;">
+              <div style="font-size:12px;color:#94a3b8;margin-bottom:5px;text-transform:uppercase;font-weight:700;letter-spacing:1px;">Tổng thu nhập thực nhận cả năm</div>
+              <div style="font-size:32px;font-weight:900;color:#fff;">${fmt(summary.TongLuongNam)}</div>
+            </div>
+            <div style="text-align:right;border-left:1px solid rgba(255,255,255,0.1);padding-left:25px;">
+              <div style="margin-bottom:8px;">
+                <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;">Tổng Lương CB</div>
+                <div style="font-size:14px;font-weight:700;">${fmt(summary.TongLuongCoBan)}</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;">Tổng Tiền Thưởng</div>
+                <div style="font-size:14px;font-weight:700;color:#10b981;">${fmt(summary.TongThuong)}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Signatures -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:40px;font-size:12px;text-align:center;">
+            <div>
+              <div style="color:#64748b;margin-bottom:60px;font-weight:700;text-transform:uppercase;font-size:11px;">Nhân viên xác nhận</div>
+              <div style="border-top:1px solid #334155;padding-top:8px;font-weight:800;color:#0f172a;">${userInfo.HoTen}</div>
+            </div>
+            <div>
+              <div style="color:#64748b;margin-bottom:60px;font-weight:700;text-transform:uppercase;font-size:11px;">Đại diện Công ty</div>
+              <div style="border-top:1px solid #334155;padding-top:8px;font-weight:800;color:#0f172a;">Ký tên & Đóng dấu</div>
+            </div>
+          </div>
+
+          <div style="margin-top:50px;padding-top:15px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center;font-style:italic;">
+            Văn bản này được bảo mật và chỉ dành cho mục đích cá nhân của nhân viên. 
+          </div>
+        </div>
+      `;
+
+      html2pdf().set({
+        margin: 10,
+        filename: `BaoCaoLuongNam_${year}_${userInfo.HoTen.replace(/\s+/g, '_')}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).from(el).save();
+
+      toast.success(`Đã xuất báo cáo lương năm ${year} thành công!`);
+    } catch (e) {
+      toast.error('Lỗi khi xuất báo cáo năm: ' + (e.response?.data?.message || e.message));
+    }
+    setAnnualLoading(false);
+  };
+
+
   const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `Tháng ${i + 1}` }));
   const years = Array.from({ length: 5 }, (_, i) => ({ value: 2023 + i, label: `${2023 + i}` }));
 
@@ -553,6 +718,21 @@ const Profile = () => {
           >
             {years.map(y => <option key={y.value} value={y.value}>{y.label}</option>)}
           </select>
+
+          <button
+            onClick={() => handlePrintAnnualPDF(viewYear)}
+            disabled={annualLoading}
+            style={{
+              marginLeft: 'auto', background: '#2e7d32', color: '#fff',
+              border: 'none', borderRadius: 6, padding: '6px 16px',
+              cursor: 'pointer', fontSize: 13, fontWeight: 700,
+              display: 'flex', alignItems: 'center', gap: 8,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+          >
+            <i className={`fas ${annualLoading ? 'fa-spinner fa-spin' : 'fa-file-pdf'}`}></i>
+            {annualLoading ? 'Đang xử lý...' : `Xuất báo cáo lương năm ${viewYear}`}
+          </button>
         </div>
 
         {/* ====== ROW 2: LƯƠNG + CHẤM CÔNG THÁNG ====== */}

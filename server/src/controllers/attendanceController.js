@@ -93,6 +93,16 @@ const attendanceController = {
     // ======================= GET MY ATTENDANCE =======================
     getMyAttendance: async (req, res) => {
         const { startDate, endDate } = req.query;
+
+        // Basic date validation to prevent SQL errors or 500 on invalid months (like Month 13)
+        const isValidDate = (d) => d && !isNaN(Date.parse(d));
+        if ((startDate && !isValidDate(startDate)) || (endDate && !isValidDate(endDate))) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Định dạng ngày tháng không hợp lệ. Vui lòng kiểm tra lại (Tháng từ 1-12).' 
+            });
+        }
+
         try {
             let whereClause = 'WHERE n.MaTK = ?';
             const params = [req.user.MaTK];
