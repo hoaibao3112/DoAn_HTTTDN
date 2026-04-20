@@ -84,9 +84,17 @@
 .ic-stat strong.positive { color: #10b981; }
 
 .ic-check-table-wrap { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: auto; max-height: 520px; }
-.ic-check-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-.ic-check-table thead th { background: #f9fafb; padding: 10px 12px; text-align: left; font-size: 0.78rem; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; }
+.ic-check-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; table-layout: fixed; }
+.ic-check-table thead th { background: #f9fafb; padding: 10px 12px; text-align: left; font-size: 0.78rem; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 1; }
 .ic-check-table tbody td { padding: 9px 12px; border-top: 1px solid #f3f4f6; vertical-align: middle; }
+/* Fixed column widths for check table */
+.ic-check-table th:nth-child(1), .ic-check-table td:nth-child(1) { width: 50px; }
+.ic-check-table th:nth-child(2), .ic-check-table td:nth-child(2) { width: 70px; }
+.ic-check-table th:nth-child(3), .ic-check-table td:nth-child(3) { width: auto; }
+.ic-check-table th:nth-child(4), .ic-check-table td:nth-child(4) { width: 120px; text-align: center; }
+.ic-check-table th:nth-child(5), .ic-check-table td:nth-child(5) { width: 120px; text-align: center; }
+.ic-check-table th:nth-child(6), .ic-check-table td:nth-child(6) { width: 100px; text-align: center; }
+.ic-check-table th:nth-child(7), .ic-check-table td:nth-child(7) { width: 180px; }
 .ic-check-table tbody tr.has-diff td { background: #fff7ed; }
 .ic-check-table tbody tr.has-diff:hover td { background: #fef3c7; }
 

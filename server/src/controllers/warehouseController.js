@@ -496,7 +496,7 @@ const warehouseController = {
         // MaCH có thể là: 
         // - Store ID (cửa hàng) nếu autoDistribute=true → chia hàng đến tất cả kho của cửa hàng
         // - Warehouse ID (kho cụ thể) nếu autoDistribute=false → nhập vào kho cụ thể
-        const { MaNCC, MaCH, ChiTiet, DaThanhToan = 0, GhiChu, TyLeLoi, autoDistribute = true } = req.body;
+        const { MaNCC, MaCH, ChiTiet, DaThanhToan = 0, GhiChu, TyLeLoi, autoDistribute = false } = req.body;
 
         if (!MaNCC || !MaCH || !Array.isArray(ChiTiet) || !ChiTiet.length) {
             return res.status(400).json({ success: false, message: 'Thiếu MaNCC, MaCH hoặc danh sách sản phẩm' });

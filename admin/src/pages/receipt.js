@@ -167,12 +167,14 @@ const NhapHang = () => {
       bestWarehouse = [...branches].sort((a, b) => b.SucChuaConLai - a.SucChuaConLai)[0];
     }
 
-    form.setFieldsValue({ 
-      items: itemsPrefill,
-      MaCH: bestWarehouse ? bestWarehouse.MaCH : undefined 
-    });
-    setFormItems(itemsPrefill);
     setModalVisible(true);
+    setTimeout(() => {
+      form.setFieldsValue({ 
+        items: itemsPrefill,
+        MaCH: bestWarehouse ? bestWarehouse.MaCH : undefined 
+      });
+      setFormItems(itemsPrefill);
+    }, 0);
     setShowLowStockDetails(false);
   };
 
@@ -192,13 +194,27 @@ const NhapHang = () => {
         return;
       }
 
+      const selectedKho = branches.find(b => b.MaCH === values.MaCH);
+      const totalQuantity = validItems.reduce((sum, item) => sum + item.SoLuong, 0);
+
+      if (selectedKho && selectedKho.SucChuaConLai !== undefined) {
+         if (totalQuantity > selectedKho.SucChuaConLai) {
+            notification.error({
+               message: 'Vượt sức chứa của kho',
+               description: `Kho "${selectedKho.TenCH}" chỉ còn trống ${selectedKho.SucChuaConLai} chỗ, nhưng số sách nhập là ${totalQuantity} cuốn. Vui lòng giảm lượng nhập hoặc chọn kho khác.`
+            });
+            return;
+         }
+      }
+
       const payload = {
         MaNCC: values.MaNCC,
         MaCH: values.MaCH,
         DaThanhToan: Number(values.DaThanhToan || 0),
         GhiChu: values.GhiChu,
         TyLeLoi: tyLeLoi,
-        ChiTiet: validItems
+        ChiTiet: validItems,
+        autoDistribute: false
       };
 
       const response = await axios.post(`${API_BASE_URL}/purchase-orders`, payload, config);
