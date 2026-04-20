@@ -1283,7 +1283,7 @@ const warehouseController = {
 
             for (const item of items) {
                 const [[stockRow]] = await conn.query(
-                    'SELECT COALESCE(SoLuongTon, 0) AS SoLuong FROM ton_kho WHERE MaSP = ? AND MaCH = ?',
+                    'SELECT COALESCE(SoLuongTon, 0) AS SoLuong FROM ton_kho_chi_tiet WHERE MaSP = ? AND MaKho = ?',
                     [item.MaSP, MaCH]
                 );
                 const soLuongHeThong = stockRow?.SoLuong ?? 0;
