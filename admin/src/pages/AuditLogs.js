@@ -114,6 +114,8 @@ const AuditLogs = () => {
         module: 'all'
     });
 
+    const [pagination, setPagination] = useState({ page: 1, pageSize: 10, total: 0 });
+
     const [stats, setStats] = useState({
         total: 0,
         created: 0,
@@ -125,9 +127,10 @@ const AuditLogs = () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('authToken');
+            const params = { ...filters, page: pagination.page, limit: pagination.pageSize };
             const response = await axios.get('http://localhost:5000/api/reports/audit-logs', {
                 headers: { Authorization: `Bearer ${token}` },
-                params: filters
+                params
             });
 
             if (response.data.success && response.data.data) {
@@ -161,6 +164,7 @@ const AuditLogs = () => {
                         ...prev,
                         total: response.data.pagination.total || prev.total
                     }));
+                    setPagination(prev => ({ ...prev, total: response.data.pagination.total || prev.total }));
                 }
             } else {
                 setLogs([]);
@@ -171,7 +175,7 @@ const AuditLogs = () => {
         } finally {
             setLoading(false);
         }
-    }, [filters]);
+    }, [filters, pagination.page, pagination.pageSize]);
 
     const fetchMetadata = useCallback(async () => {
         try {
@@ -193,10 +197,11 @@ const AuditLogs = () => {
 
     useEffect(() => {
         fetchLogs();
-    }, [fetchLogs]);
+    }, [fetchLogs, filters, pagination.page, pagination.pageSize]);
 
     const applyFilters = () => {
-        fetchLogs();
+        // Reset to first page when applying filters
+        setPagination(prev => ({ ...prev, page: 1 }));
     };
 
     const exportCSV = () => {
@@ -389,13 +394,21 @@ const AuditLogs = () => {
                 </table>
 
                 <div className="table-footer">
-                    <div className="footer-info">Hiển thị 1-5 (trên 1,284 nhật ký)</div>
+                    <div className="footer-info">
+                        Hiển thị {Math.min((pagination.page - 1) * pagination.pageSize + 1, pagination.total)} - {Math.min(pagination.page * pagination.pageSize, pagination.total)} (trên {pagination.total.toLocaleString()} nhật ký)
+                    </div>
                     <div className="pagination">
-                        <button className="page-btn active">1</button>
-                        <button className="page-btn">2</button>
-                        <button className="page-btn">3</button>
-                        <span>...</span>
-                        <button className="page-btn">80</button>
+                        <button
+                            className="page-btn"
+                            onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                            disabled={pagination.page <= 1}
+                        >Prev</button>
+                        <button className="page-btn active">{pagination.page}</button>
+                        <button
+                            className="page-btn"
+                            onClick={() => setPagination(prev => ({ ...prev, page: Math.min(Math.ceil((prev.total || 0) / prev.pageSize) || 1, prev.page + 1) }))}
+                            disabled={pagination.page >= Math.ceil((pagination.total || 0) / pagination.pageSize)}
+                        >Next</button>
                     </div>
                 </div>
             </div>
