@@ -454,7 +454,7 @@ const NhapHang = () => {
             <Form.Item name="MaCH" label="Nhập vào kho" rules={[{ required: true }]}>
               <Select placeholder="Chọn kho" showSearch optionFilterProp="children">
                 {branches.map(b => (
-                  <Option key={b.MaCH} value={b.MaCH}>
+                  <Option key={b.MaCH} value={b.MaCH} disabled={b.SucChuaConLai <= 0}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span>{b.TenCH}</span>
                       <span style={{ color: b.SucChuaConLai > 0 ? '#52c41a' : '#ff4d4f', fontSize: '12px' }}>
@@ -513,11 +513,27 @@ const NhapHang = () => {
                       </Select>
                     </Form.Item>
 
-                    <Form.Item {...restField} name={[name, 'SoLuong']} rules={[{ required: true }]} style={{ margin: 0 }}>
+                    <Form.Item 
+                      {...restField} 
+                      name={[name, 'SoLuong']} 
+                      rules={[
+                        { required: true, message: 'Nhập số lượng' },
+                        { type: 'number', min: 1, message: 'SL >= 1', transform: (value) => Number(value) }
+                      ]} 
+                      style={{ margin: 0 }}
+                    >
                       <Input type="number" placeholder="SL" min={1} style={{ width: '100%' }} />
                     </Form.Item>
 
-                    <Form.Item {...restField} name={[name, 'DonGiaNhap']} rules={[{ required: true }]} style={{ margin: 0 }}>
+                    <Form.Item 
+                      {...restField} 
+                      name={[name, 'DonGiaNhap']} 
+                      rules={[
+                        { required: true, message: 'Nhập giá' },
+                        { type: 'number', min: 0, message: 'Giá >= 0', transform: (value) => Number(value) }
+                      ]} 
+                      style={{ margin: 0 }}
+                    >
                       <Input type="number" placeholder="Giá nhập" min={0} style={{ width: '100%' }} />
                     </Form.Item>
 
