@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Select from 'react-select';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 import '../styles/AttendancePage.css';
 
 const API_BASE = 'http://localhost:5000/api/attendance_admin';
@@ -220,12 +221,12 @@ const AttendancePage = () => {
     today.setHours(0, 0, 0, 0);
     const clickedDate = new Date(year, month - 1, day);
     if (clickedDate > today) {
-      alert('Không thể cập nhật chấm công cho ngày trong tương lai!');
+      toast.warning('Không thể cập nhật chấm công cho ngày trong tương lai!');
       return;
     }
 
     if (!selectedEmployee || !selectedStatus) {
-      alert('Vui lòng chọn trạng thái trước!');
+      toast.warning('Vui lòng chọn trạng thái trước khi đánh dấu!');
       return;
     }
     
@@ -249,12 +250,12 @@ const AttendancePage = () => {
   // Gửi toàn bộ thay đổi tạm thời lên server
   const handleSaveChanges = async () => {
     if (!selectedEmployee || Object.keys(pendingChanges).length === 0) {
-      alert('Không có thay đổi để lưu!');
+      toast.warning('Không có thay đổi nào để lưu!');
       return;
     }
 
     if (!editReason || editReason.trim() === '') {
-      alert('Vui lòng nhập lý do chỉnh sửa!');
+      toast.error('Vui lòng nhập lý do chỉnh sửa!');
       return;
     }
 
@@ -287,12 +288,12 @@ const AttendancePage = () => {
         })
       );
 
-      alert('Lưu chấm công thành công!');
+      toast.success('Đã cập nhật dữ liệu chấm công thành công!');
       setEditReason('');
       fetchAttendanceData();
     } catch (err) {
       console.error('Error saving attendance:', err);
-      alert('Lưu chấm công thất bại: ' + (err.response?.data?.message || err.message));
+      toast.error('Lưu chấm công thất bại: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -306,11 +307,11 @@ const AttendancePage = () => {
       await axios.post(`${API_BASE}/attendance/mark-absent`, { Ngay: ngay }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('Đã đánh vắng thành công!');
+      toast.success('Đã đánh vắng thành công!');
       fetchAttendanceData();
     } catch (err) {
       console.error('Error marking absent:', err);
-      alert('Đánh vắng thất bại: ' + (err.response?.data?.message || err.message));
+      toast.error('Đánh vắng thất bại: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -325,13 +326,13 @@ const AttendancePage = () => {
 
     // Tháng tương lai
     if (year > currentYear || (year === currentYear && month > currentMonth)) {
-      alert('Tháng chưa bắt đầu, không thể chấm công!');
+      toast.warning('Tháng này chưa bắt đầu, không thể thực hiện!');
       return;
     }
 
     // Tháng hiện tại chưa kết thúc
     if (!isMonthEnded) {
-      alert(`Tháng ${month}/${year} chưa kết thúc, không thể tự động chấm công!`);
+      toast.warning(`Tháng ${month}/${year} hiện tại chưa kết thúc!`);
       return;
     }
 
@@ -344,19 +345,18 @@ const AttendancePage = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const { inserted, skipped } = res.data.data;
-      alert(`✅ Hoàn thành tháng ${month}/${year}\n• Tạo mới: ${inserted} bản ghi\n• Đã có: ${skipped} bản ghi`);
+      toast.success(`Hoàn thành! Tạo mới: ${inserted}, Đã có: ${skipped}`);
       fetchAttendanceData();
     } catch (err) {
       console.error('Error auto-fill month:', err);
-      alert('Thất bại: ' + (err.response?.data?.message || err.message));
+      toast.error('Thất bại: ' + (err.response?.data?.message || err.message));
     }
   };
 
   // CRUD Ngày lễ
   const handleSaveHoliday = async () => {
-
     if (!holidayForm.TenNgayLe || !holidayForm.Ngay) {
-      alert('Vui lòng nhập đầy đủ thông tin!');
+      toast.warning('Vui lòng điền đầy đủ tên lễ và ngày lễ!');
       return;
     }
 
@@ -366,13 +366,13 @@ const AttendancePage = () => {
         await axios.put(`${API_BASE}/holidays/${editingHoliday.MaNgayLe}`, holidayForm, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        alert('Cập nhật ngày lễ thành công!');
+        toast.success('Cập nhật ngày lễ thành công!');
       } else {
         // Create
         await axios.post(`${API_BASE}/holidays`, holidayForm, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        alert('Thêm ngày lễ thành công!');
+        toast.success('Thêm ngày lễ thành công!');
       }
       setShowHolidayModal(false);
       setEditingHoliday(null);
@@ -386,7 +386,7 @@ const AttendancePage = () => {
       fetchHolidays();
     } catch (err) {
       console.error('Error saving holiday:', err);
-      alert('Lưu ngày lễ thất bại: ' + (err.response?.data?.message || err.message));
+      toast.error('Lưu ngày lễ thất bại: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -396,11 +396,11 @@ const AttendancePage = () => {
       await axios.delete(`${API_BASE}/holidays/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('Xóa ngày lễ thành công!');
+      toast.success('Đã xóa ngày lễ thành công!');
       fetchHolidays();
     } catch (err) {
       console.error('Error deleting holiday:', err);
-      alert('Xóa ngày lễ thất bại: ' + (err.response?.data?.message || err.message));
+      toast.error('Xóa ngày lễ thất bại: ' + (err.response?.data?.message || err.message));
     }
   };
 

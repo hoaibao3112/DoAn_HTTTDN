@@ -254,10 +254,11 @@ const SalaryPage = () => {
     try {
       const res = await axios.patch(`${API_SALARY_13}/${year}/${row.MaNV}/duyet`, {}, { headers });
       if (res.data.success) {
+        toast.success(`Đã chi trả thưởng T13 cho ${row.HoTen}`);
         fetchSalary13();
       }
     } catch (err) {
-      alert('Lỗi: ' + (err.response?.data?.message || err.message));
+      toast.error('Lỗi: ' + (err.response?.data?.message || err.message));
     }
     setPaying13(null);
   };
@@ -290,7 +291,7 @@ const SalaryPage = () => {
   };
 
   const handleExportExcel = () => {
-    if (salaryList.length === 0) { alert('Chưa có dữ liệu để xuất!'); return; }
+    if (salaryList.length === 0) { toast.warning('Chưa có dữ liệu để xuất!'); return; }
     const rows = salaryList.map((row, idx) => ({
       STT: idx + 1,
       MaNV: row.MaNV,
@@ -331,13 +332,13 @@ const SalaryPage = () => {
   };
 
   const handleExportPDF = async () => {
-    if (salaryList.length === 0) { alert('Chưa có dữ liệu để xuất!'); return; }
+    if (salaryList.length === 0) { toast.warning('Chưa có dữ liệu để xuất!'); return; }
     try {
       const hc = await import('html2canvas');
       const html2canvas = hc.default || hc;
       const el = document.getElementById('salary-export-area');
       if (!el) {
-        alert('Không tìm thấy vùng dữ liệu để xuất (salary-export-area)');
+        toast.error('Không tìm thấy vùng dữ liệu để xuất (salary-export-area)');
         return;
       }
       const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false });
@@ -351,10 +352,10 @@ const SalaryPage = () => {
       doc.addImage(imgData, 'PNG', margin, 10, usableWidth, imgHeight);
       const filename = `BangLuong_T${month}_${year}.pdf`;
       doc.save(filename);
-      alert('Xuất PDF Lương (ảnh) thành công!');
+      toast.success('Xuất PDF Bảng lương thành công!');
     } catch (err) {
       console.error('Lỗi html2canvas PDF export (luong):', err);
-      alert('Xuất PDF thất bại. Hãy cài `html2canvas` (npm i html2canvas) hoặc báo mình để mình hỗ trợ.');
+      toast.error('Xuất PDF thất bại. Hãy kiểm tra kết nối mạng hoặc thử lại sau.');
     }
   };
 
@@ -381,21 +382,26 @@ const SalaryPage = () => {
     setShowBPModal(true);
   };
   const handleBPSave = async () => {
-    if (!bpForm.MaNV || !bpForm.LyDo.trim() || !bpForm.SoTien) { alert('Vui lòng điền đủ NV, Lý do, Số tiền!'); return; }
+    if (!bpForm.MaNV || !bpForm.LyDo.trim() || !bpForm.SoTien) { toast.warning('Vui lòng điền đủ Nhân viên, Lý do và Số tiền!'); return; }
     setBpSaving(true);
     try {
       const body = { ...bpForm, Thang: month, Nam: year, SoTien: parseFloat(bpForm.SoTien) };
       if (editBPRecord) await axios.put(`${API_HR}/bonus-penalty/${editBPRecord.id}`, body, { headers });
       else await axios.post(`${API_HR}/bonus-penalty`, body, { headers });
+      toast.success(editBPRecord ? 'Cập nhật thành công!' : 'Thêm mới thành công!');
       setShowBPModal(false);
       fetchBPData();
-    } catch (err) { alert('Lỗi: ' + (err.response?.data?.message || err.message)); }
+    } catch (err) { toast.error('Lỗi: ' + (err.response?.data?.message || err.message)); }
     setBpSaving(false);
   };
   const handleBPDelete = async (rec) => {
     if (!window.confirm(`Xác nhận xóa?`)) return;
-    try { await axios.delete(`${API_HR}/bonus-penalty/${rec.id}`, { headers }); fetchBPData(); }
-    catch (err) { alert('Lỗi: ' + (err.response?.data?.message || err.message)); }
+    try { 
+      await axios.delete(`${API_HR}/bonus-penalty/${rec.id}`, { headers }); 
+      toast.success('Đã xóa bản ghi thưởng/phạt');
+      fetchBPData(); 
+    }
+    catch (err) { toast.error('Lỗi: ' + (err.response?.data?.message || err.message)); }
   };
 
   const bpSummaryData = bpSummary?.summary || {};

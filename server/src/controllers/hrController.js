@@ -197,7 +197,10 @@ const hrController = {
                 const maxPaidLeavePerYearRaw = await getHrSetting('maxPaidLeavePerYear');
                 const maxPaidLeavePerYear = maxPaidLeavePerYearRaw !== null ? Number(maxPaidLeavePerYearRaw) : 12;
                 if ((used + requestedDays) > maxPaidLeavePerYear) {
-                    return res.status(400).json({ success: false, message: `Vượt quá số ngày phép cho phép. Đã dùng: ${used} ngày, còn lại: ${maxPaidLeavePerYear - used} ngày.` });
+                    return res.status(400).json({ 
+                        success: false, 
+                        message: `Hệ thống ghi nhận bạn đã dùng ${used}/${maxPaidLeavePerYear} ngày phép có lương. Đơn này (${requestedDays} ngày) vượt quá hạn mức năm, những ngày vượt quá sẽ không được tính lương. Vui lòng điều chỉnh lại hoặc liên hệ nhân sự!` 
+                    });
                 }
             }
 

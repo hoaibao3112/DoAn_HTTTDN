@@ -224,12 +224,14 @@ const Profile = () => {
         headers: { ...headers, 'Content-Type': 'multipart/form-data' }
       });
       if (res.data.success) {
-        alert('Gửi đơn thành công!');
+        toast.success('Gửi đơn xin nghỉ phép thành công!');
         setShowLeave(false);
         setLeaveFileList([]);
         fetchLeave();
       }
-    } catch (e) { alert(e.response?.data?.message || 'Gửi đơn thất bại!'); }
+    } catch (e) { 
+      toast.error(e.response?.data?.message || 'Gửi đơn thất bại!'); 
+    }
     setLeaveSubmitting(false);
   };
 
@@ -242,10 +244,12 @@ const Profile = () => {
       await axios.put(`${API}/profile`, fd, {
         headers: { ...headers, 'Content-Type': 'multipart/form-data' }
       });
-      alert('Cập nhật ảnh thành công!');
+      toast.success('Cập nhật ảnh đại diện thành công!');
       setShowAvatar(false);
       fetchProfile();
-    } catch { alert('Lỗi tải ảnh!'); }
+    } catch { 
+      toast.error('Lỗi khi tải ảnh lên!'); 
+    }
     setAvatarUploading(false);
   };
 
