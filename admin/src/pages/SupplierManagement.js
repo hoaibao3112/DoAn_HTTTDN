@@ -1,13 +1,16 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useContext } from 'react';
 import axios from 'axios';
 import { Button, Input, message, Table, Modal, Space, Select } from 'antd';
 import { EditOutlined, DeleteOutlined, ExclamationCircleFilled, LockOutlined, UnlockOutlined } from '@ant-design/icons';
+import { PermissionContext } from '../components/PermissionContext';
+import { FEATURES } from '../constants/permissions';
 
 const { Search: SearchInput } = Input;
 const { confirm } = Modal;
 const { Option } = Select;
 
 const CompanyManagement = () => {
+  const { hasPermissionById } = useContext(PermissionContext);
   const [state, setState] = useState({
     companies: [],
     newCompany: {
@@ -303,31 +306,37 @@ const CompanyManagement = () => {
       key: 'action',
       render: (_, record) => (
         <Space size="small">
-          <Button
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => {
-              setState(prev => ({
-                ...prev,
-                editingCompany: {
-                  ...record,
-                  TinhTrang: record.TinhTrangValue, // Đảm bảo dùng value string
-                },
-                isModalVisible: true,
-              }));
-            }}
-          />
-          <Button
-            size="small"
-            icon={record.TinhTrang === 'Hoạt động' ? <LockOutlined /> : <UnlockOutlined />}
-            onClick={() => handleToggleStatus(record)}
-          />
-          <Button
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDeleteCompany(record.MaNCC)}
-          />
+          {hasPermissionById(FEATURES.SUPPLIERS, 'Sua') && (
+            <>
+              <Button
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  setState(prev => ({
+                    ...prev,
+                    editingCompany: {
+                      ...record,
+                      TinhTrang: record.TinhTrangValue, // Đảm bảo dùng value string
+                    },
+                    isModalVisible: true,
+                  }));
+                }}
+              />
+              <Button
+                size="small"
+                icon={record.TinhTrang === 'Hoạt động' ? <LockOutlined /> : <UnlockOutlined />}
+                onClick={() => handleToggleStatus(record)}
+              />
+            </>
+          )}
+          {hasPermissionById(FEATURES.SUPPLIERS, 'Xoa') && (
+            <Button
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDeleteCompany(record.MaNCC)}
+            />
+          )}
         </Space>
       ),
       fixed: 'right',
@@ -345,27 +354,29 @@ const CompanyManagement = () => {
         <h1>
           <i className="fas fa-building"></i> Quản lý Nhà Cung Cấp
         </h1>
-        <Button
-          type="primary"
-          size="small"
-          onClick={() => {
-            const suggestedId = suggestMaNCC();
-            setState(prev => ({
-              ...prev,
-              editingCompany: null,
-              newCompany: {
-                MaNCC: suggestedId, // Gợi ý MaNCC tự động
-                TenNCC: '',
-                SDT: '',
-                DiaChi: '',
-                TinhTrang: '1',
-              },
-              isModalVisible: true,
-            }));
-          }}
-        >
-          Thêm nhà cung cấp
-        </Button>
+        {hasPermissionById(FEATURES.SUPPLIERS, 'Them') && (
+          <Button
+            type="primary"
+            size="small"
+            onClick={() => {
+              const suggestedId = suggestMaNCC();
+              setState(prev => ({
+                ...prev,
+                editingCompany: null,
+                newCompany: {
+                  MaNCC: suggestedId, // Gợi ý MaNCC tự động
+                  TenNCC: '',
+                  SDT: '',
+                  DiaChi: '',
+                  TinhTrang: '1',
+                },
+                isModalVisible: true,
+              }));
+            }}
+          >
+            Thêm nhà cung cấp
+          </Button>
+        )}
       </div>
 
       <div className="thongke-content">

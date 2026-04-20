@@ -192,7 +192,7 @@ const hrController = {
                     AND TrangThai = 'Da_duyet'
                     AND YEAR(NgayBatDau) = ?
                 `, [emp[0].MaNV, year]);
-                const used = usedRows[0]?.used || 0;
+                const used = Number(usedRows[0]?.used) || 0;
                 const requestedDays = Math.floor((new Date(NgayKetThuc) - new Date(NgayBatDau)) / (24*3600*1000)) + 1;
                 const maxPaidLeavePerYearRaw = await getHrSetting('maxPaidLeavePerYear');
                 const maxPaidLeavePerYear = maxPaidLeavePerYearRaw !== null ? Number(maxPaidLeavePerYearRaw) : 12;

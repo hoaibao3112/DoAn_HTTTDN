@@ -679,9 +679,9 @@ const CustomerManagement = () => {
                           },
                           { 
                             title: 'Ngày mua', 
-                            dataIndex: 'NgayLap', 
-                            key: 'NgayLap',
-                            render: (date) => new Date(date).toLocaleDateString('vi-VN')
+                            dataIndex: 'NgayBan', 
+                            key: 'NgayBan',
+                            render: (date) => date ? new Date(date).toLocaleDateString('vi-VN') : 'N/A'
                           },
                           { 
                             title: 'Tổng tiền', 
