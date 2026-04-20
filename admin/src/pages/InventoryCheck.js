@@ -79,7 +79,7 @@ const InventoryCheck = () => {
         if (!MaCH) return;
         setStockLoading(true);
         try {
-            const r = await axios.get(`${API}/stock?MaCH=${MaCH}&pageSize=500`, { headers: getHeaders() });
+            const r = await axios.get(`${API}/stock-by-subwarehouse?MaKho=${MaCH}&pageSize=500`, { headers: getHeaders() });
             if (r.data.success) {
                 const items = (r.data.data || []).map(s => ({
                     MaSP: s.MaSP,

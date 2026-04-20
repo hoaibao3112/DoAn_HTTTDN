@@ -726,9 +726,9 @@ const warehouseController = {
 
             const [rows] = await pool.query(`
                 SELECT kc.*,
-                       COALESCE((SELECT SUM(SoLuongTon) FROM ton_kho_chi_tiet WHERE MaKho = kc.MaKho), 0) AS SoLuongHienTai,
+                       CAST(COALESCE((SELECT SUM(SoLuongTon) FROM ton_kho_chi_tiet WHERE MaKho = kc.MaKho), 0) AS SIGNED) AS SoLuongHienTai,
                        ROUND(
-                           COALESCE((SELECT SUM(SoLuongTon) FROM ton_kho_chi_tiet WHERE MaKho = kc.MaKho), 0)
+                           CAST(COALESCE((SELECT SUM(SoLuongTon) FROM ton_kho_chi_tiet WHERE MaKho = kc.MaKho), 0) AS SIGNED)
                            * 100.0 / NULLIF(kc.Capacity, 0), 1
                        ) AS PhanTramLapDay
                 FROM kho_con kc

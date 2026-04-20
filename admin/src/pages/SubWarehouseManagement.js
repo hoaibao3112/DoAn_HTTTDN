@@ -138,9 +138,14 @@ const SubWarehouseManagement = () => {
         );
     }
 
+    // Formatter cho tiền tệ và số lượng
+    const formatNumber = (num) => {
+        return new Intl.NumberFormat('vi-VN').format(num || 0);
+    };
+
     // Tổng quan
-    const totalCapacity = warehouses.reduce((s, w) => s + (w.Capacity || 0), 0);
-    const totalUsed = warehouses.reduce((s, w) => s + (w.SoLuongHienTai || 0), 0);
+    const totalCapacity = warehouses.reduce((s, w) => s + Number(w.Capacity || 0), 0);
+    const totalUsed = warehouses.reduce((s, w) => s + Number(w.SoLuongHienTai || 0), 0);
     const overallPct = totalCapacity > 0 ? Math.round(totalUsed * 100 / totalCapacity) : 0;
 
     return (
@@ -171,31 +176,39 @@ const SubWarehouseManagement = () => {
             {/* Summary Cards */}
             <div className="subwh-stats">
                 <div className="stat-card blue">
-                    <span className="material-icons">warehouse</span>
-                    <div>
+                    <div className="stat-icon-bg">
+                        <span className="material-icons">analytics</span>
+                    </div>
+                    <div className="stat-content">
                         <div className="stat-num">{warehouses.length}</div>
                         <div className="stat-label">Kho đang quản lý</div>
                     </div>
                 </div>
                 <div className="stat-card green">
-                    <span className="material-icons">inventory_2</span>
-                    <div>
-                        <div className="stat-num">{totalUsed.toLocaleString()}</div>
-                        <div className="stat-label">Tổng hàng tồn (cuốn)</div>
+                    <div className="stat-icon-bg">
+                        <span className="material-icons">inventory_2</span>
+                    </div>
+                    <div className="stat-content">
+                        <div className="stat-num">{formatNumber(totalUsed)}</div>
+                        <div className="stat-label">Tổng sản phẩm (cuốn)</div>
                     </div>
                 </div>
                 <div className="stat-card orange">
-                    <span className="material-icons">storage</span>
-                    <div>
-                        <div className="stat-num">{totalCapacity.toLocaleString()}</div>
-                        <div className="stat-label">Tổng sức chứa</div>
+                    <div className="stat-icon-bg">
+                        <span className="material-icons">storage</span>
+                    </div>
+                    <div className="stat-content">
+                        <div className="stat-num">{formatNumber(totalCapacity)}</div>
+                        <div className="stat-label">Sức chứa tối đa</div>
                     </div>
                 </div>
                 <div className={`stat-card ${overallPct >= 85 ? 'red' : 'purple'}`}>
-                    <span className="material-icons">donut_large</span>
-                    <div>
+                    <div className="stat-icon-bg">
+                        <span className="material-icons">pie_chart</span>
+                    </div>
+                    <div className="stat-content">
                         <div className="stat-num">{overallPct}%</div>
-                        <div className="stat-label">Tỉ lệ sử dụng</div>
+                        <div className="stat-label">Tỉ lệ lấp đầy</div>
                     </div>
                 </div>
             </div>

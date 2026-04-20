@@ -52,6 +52,37 @@ const POSPage = () => {
     const cashierName = userInfo.HoTen || 'Nguyễn Văn Bảo';
     const API_BASE_URL = 'http://localhost:5000';
 
+    const calculateSubtotal = () => {
+        return cart.reduce((sum, item) => sum + (item.DonGia * item.quantity), 0);
+    };
+
+    const calculateMembershipDiscount = () => {
+        if (!customer || !customer.PhanTramGiam) return 0;
+        const percent = parseFloat(customer.PhanTramGiam);
+        if (isNaN(percent) || percent <= 0) return 0;
+        return Math.round(calculateSubtotal() * (percent / 100));
+    };
+
+    const calculateDiscount = () => {
+        // Tổng giảm giá = Giảm giá hạng thành viên + Voucher/Khuyến mãi lẻ
+        return calculateMembershipDiscount() + Number(promotionDiscount || 0);
+    };
+
+    const calculateTax = () => {
+        return (calculateSubtotal() - calculateDiscount()) * 0; // Tạm thời 0% VAT
+    };
+
+    const calculateTotal = () => {
+        return calculateSubtotal() - calculateDiscount() + calculateTax();
+    };
+
+    const calculateChange = () => {
+        const given = parseFloat(customerGiven) || 0;
+        const total = calculateTotal();
+        return Math.max(0, given - total);
+    };
+
+
 
 
     const getImageUrl = (path) => {
@@ -582,29 +613,6 @@ const POSPage = () => {
         setCart(cart.filter(item => item.MaSP !== productId));
     };
 
-    const calculateSubtotal = () => {
-        return cart.reduce((sum, item) => sum + (item.DonGia * item.quantity), 0);
-    };
-
-    const calculateDiscount = () => {
-        // Tính giảm giá từ khuyến mãi
-        return promotionDiscount || 0;
-    };
-
-    const calculateTax = () => {
-        return (calculateSubtotal() - calculateDiscount()) * 0; // Tạm thời 0% VAT
-    };
-
-    const calculateTotal = () => {
-        return calculateSubtotal() - calculateDiscount() + calculateTax();
-    };
-
-    const calculateChange = () => {
-        const given = parseFloat(customerGiven) || 0;
-        const total = calculateTotal();
-        return Math.max(0, given - total);
-    };
-
     const handleCheckout = async () => {
         if (cart.length === 0) {
             alert('Giỏ hàng trống!');
@@ -959,6 +967,16 @@ const POSPage = () => {
                                 <span>Tổng cộng</span>
                                 <span className="total-value">{formatCurrencyVND(calculateSubtotal())}</span>
                             </div>
+
+                            {customer && customer.PhanTramGiam > 0 && (
+                                <div className="total-row discount-row membership-discount">
+                                    <span>
+                                        <span className="material-icons" style={{ fontSize: 16, verticalAlign: 'middle', marginRight: 4 }}>stars</span>
+                                        Ưu đãi {customer.HangTV} ({parseFloat(customer.PhanTramGiam)}%)
+                                    </span>
+                                    <span className="total-value">-{formatCurrencyVND(calculateMembershipDiscount())}</span>
+                                </div>
+                            )}
 
                             {/* Khuyến mãi Section */}
                             <div className="promotion-section">

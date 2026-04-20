@@ -92,14 +92,36 @@ const salesController = {
             }
 
             let remaining = TongTienGoc - TongGiamChiTiet;
+
+            // --- Membership Discount Logic ---
+            let membershipDiscount = 0;
+            if (MaKH) {
+                const [membership] = await conn.query(
+                    `SELECT ud.PhanTramGiam 
+                     FROM khachhang kh 
+                     LEFT JOIN uu_dai_hang_thanh_vien ud ON kh.HangTV COLLATE utf8mb4_unicode_ci = ud.HangTV
+                     WHERE kh.MaKH = ?`,
+                    [MaKH]
+                );
+                if (membership.length > 0 && Array.isArray(membership) && membership[0].PhanTramGiam > 0) {
+                    const percent = parseFloat(membership[0].PhanTramGiam);
+                    membershipDiscount = Math.round(remaining * (percent / 100));
+                    console.log(`[Sales] Applying membership discount: ${percent}% -> ${membershipDiscount}đ for MaKH=${MaKH}`);
+                }
+            }
+            remaining -= membershipDiscount;
             
+            // Note: The 'GiamGia' from request is now treated as additional Promotion/Voucher discount
             if (GiamGia > remaining) {
                 throw new Error(
-                    `Chiết khấu cửa hàng (${GiamGia.toLocaleString('vi-VN')}) ` +
+                    `Chiết khấu bổ sung (${GiamGia.toLocaleString('vi-VN')}) ` +
                     `vượt quá số tiền còn lại (${remaining.toLocaleString('vi-VN')})`
                 );
             }
             remaining -= GiamGia;
+
+            const totalGiamGiaFinal = (GiamGia || 0) + membershipDiscount;
+
             
             let pointDeduction = 0;
             if (MaKH && DiemSuDung && DiemSuDung > 0) {
@@ -141,7 +163,7 @@ const salesController = {
             const [hdResult] = await conn.query(
                 `INSERT INTO hoadon (MaKH, MaNV, MaCH, TongTien, GiamGia, DiemSuDung, DiemTichLuy, ThanhToan, PhuongThucTT, TrangThai) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [MaKH || null, req.user.MaTK, MaCH, TongTienGoc, GiamGia || 0, DiemSuDung || 0, diemTichLuyMoi, tongThanhToan, PhuongThucTT, initialStatus]
+                [MaKH || null, req.user.MaTK, MaCH, TongTienGoc, totalGiamGiaFinal, DiemSuDung || 0, diemTichLuyMoi, tongThanhToan, PhuongThucTT, initialStatus]
             );
             const MaHD = hdResult.insertId;
 
