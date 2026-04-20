@@ -152,16 +152,28 @@ const NhapHang = () => {
   };
 
   const createReceiptFromLowStock = (items) => {
+    if (!items || items.length === 0) return;
+
     const itemsPrefill = items.map(sp => ({
       MaSP: sp.MaSP,
       TenSP: sp.TenSP,
-      SoLuong: sp.SoLuongCanNhap || 10,
-      DonGiaNhap: Number(sp.DonGiaNhap || sp.DonGia || 0)
+      SoLuong: Number(sp.SoLuongCanNhap) > 0 ? sp.SoLuongCanNhap : 10,
+      DonGiaNhap: Number(sp.GiaNhap || sp.DonGia || 0)
     }));
 
-    form.setFieldsValue({ items: itemsPrefill });
+    // Tự động tìm kho còn trống nhiều nhất để gợi ý
+    let bestWarehouse = null;
+    if (branches && branches.length > 0) {
+      bestWarehouse = [...branches].sort((a, b) => b.SucChuaConLai - a.SucChuaConLai)[0];
+    }
+
+    form.setFieldsValue({ 
+      items: itemsPrefill,
+      MaCH: bestWarehouse ? bestWarehouse.MaCH : undefined 
+    });
     setFormItems(itemsPrefill);
     setModalVisible(true);
+    setShowLowStockDetails(false);
   };
 
   // ----- Actions -----
@@ -304,7 +316,9 @@ const NhapHang = () => {
             allowClear
           >
             {branches.map(b => (
-              <Option key={b.MaCH} value={b.MaCH}>{b.TenCH}</Option>
+              <Option key={b.MaCH} value={b.MaCH}>
+                {b.TenCH} {b.SucChuaConLai !== undefined && `(Trống: ${b.SucChuaConLai})`}
+              </Option>
             ))}
           </Select>
 
@@ -353,7 +367,7 @@ const NhapHang = () => {
           className="lowstock-alert"
           type="warning"
           showIcon
-          message={<b>Cảnh báo hàng sắp hết: Có {lowStock.length} sản phẩm cần nhập thêm!</b>}
+          message={<b>Cảnh báo tồn kho hệ thống: Có {lowStock.length} sản phẩm đang dưới ngưỡng tối thiểu!</b>}
           description={
             <div className="lowstock-actions">
               <Button size="small" onClick={() => setShowLowStockDetails(!showLowStockDetails)}>
@@ -378,9 +392,9 @@ const NhapHang = () => {
         >
           <Table.Column title="ID" dataIndex="MaSP" width={60} />
           <Table.Column title="Sản phẩm" dataIndex="TenSP" />
-          <Table.Column title="Hiện tại" dataIndex="SoLuongTon" align="center" />
-          <Table.Column title="Tối thiểu" dataIndex="SoLuongToiThieu" align="center" />
-          <Table.Column title="Cần nhập" align="center" render={(_, r) => <b>{r.SoLuongCanNhap}</b>} />
+          <Table.Column title="Tổng tồn" dataIndex="SoLuongTon" align="center" render={v => <Tag color="blue">{v}</Tag>} />
+          <Table.Column title="Ngưỡng tối thiểu" dataIndex="SoLuongToiThieu" align="center" />
+          <Table.Column title="Cần bù (để qua ngưỡng)" align="center" render={(_, r) => <b style={{ color: '#f5222d' }}>{r.SoLuongCanNhap}</b>} />
         </Table>
       )}
 
@@ -424,7 +438,14 @@ const NhapHang = () => {
             <Form.Item name="MaCH" label="Nhập vào kho" rules={[{ required: true }]}>
               <Select placeholder="Chọn kho" showSearch optionFilterProp="children">
                 {branches.map(b => (
-                  <Option key={b.MaCH} value={b.MaCH}>{b.TenCH}</Option>
+                  <Option key={b.MaCH} value={b.MaCH}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>{b.TenCH}</span>
+                      <span style={{ color: b.SucChuaConLai > 0 ? '#52c41a' : '#ff4d4f', fontSize: '12px' }}>
+                        {b.SucChuaConLai > 0 ? `Còn trống: ${b.SucChuaConLai}` : 'Hết chỗ'}
+                      </span>
+                    </div>
+                  </Option>
                 ))}
               </Select>
             </Form.Item>

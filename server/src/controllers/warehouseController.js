@@ -683,26 +683,34 @@ const warehouseController = {
     },
 
     getLowStockAlerts: async (req, res) => {
-        const { MaCH } = req.query;
         try {
-            const params = [];
-            let where = 'WHERE tk.SoLuongTon <= tk.SoLuongToiThieu AND sp.TinhTrang = 1';
-            if (MaCH) { where += ' AND tk.MaCH = ?'; params.push(MaCH); }
-
+            // Logic mới: Tính tổng tồn kho toàn bộ hệ thống (tổng MaCH/MaKho) 
+            // so với ngưỡng MinSoLuong được cấu hình trong bảng sanpham
             const [rows] = await pool.query(`
-                SELECT tk.MaSP, tk.MaCH, tk.SoLuongTon, tk.SoLuongToiThieu,
-                       (tk.SoLuongToiThieu - tk.SoLuongTon) AS SoLuongCanNhap,
-                       sp.TenSP, sp.DonGia, sp.HinhAnh,
-                       kc.TenKho AS TenCH
-                FROM ton_kho tk
-                JOIN sanpham sp ON tk.MaSP = sp.MaSP
-                LEFT JOIN kho_con kc ON tk.MaCH = kc.MaKho
-                ${where}
-                ORDER BY (tk.SoLuongToiThieu - tk.SoLuongTon) DESC
-            `, params);
+                SELECT 
+                    sp.MaSP, 
+                    sp.TenSP, 
+                    sp.DonGia, 
+                    sp.GiaNhap,
+                    sp.HinhAnh,
+                    sp.MinSoLuong AS SoLuongToiThieu,
+                    COALESCE(SUM(tk.SoLuongTon), 0) AS SoLuongTon,
+                    GREATEST(0, sp.MinSoLuong - COALESCE(SUM(tk.SoLuongTon), 0)) AS SoLuongCanNhap
+                FROM sanpham sp
+                LEFT JOIN ton_kho tk ON sp.MaSP = tk.MaSP
+                WHERE sp.TinhTrang = 1
+                GROUP BY sp.MaSP
+                HAVING SoLuongTon < sp.MinSoLuong AND sp.MinSoLuong > 0
+                ORDER BY SoLuongCanNhap DESC
+            `);
 
-            res.json({ success: true, data: rows, count: rows.length });
+            res.json({ 
+                success: true, 
+                data: rows, 
+                count: rows.length 
+            });
         } catch (error) {
+            console.error('getLowStockAlerts error:', error);
             res.status(500).json({ success: false, message: error.message });
         }
     },
@@ -768,6 +776,9 @@ const warehouseController = {
         const { id } = req.params;
         const { TenKho, Capacity, Priority, ViTri, GhiChu, TinhTrang } = req.body;
         try {
+            const [existing] = await pool.query('SELECT * FROM kho_con WHERE MaKho = ?', [id]);
+            if (!existing.length) return res.status(404).json({ success: false, message: 'Kho không tồn tại' });
+
             // Logic kiểm tra sức chứa (Capacity) khi cập nhật
             if (Capacity) {
                 const [[{ currentTotal }]] = await pool.query(
@@ -977,53 +988,46 @@ const warehouseController = {
         try {
             await conn.beginTransaction();
 
-            // Kiểm tra kho nguồn và kho đích tồn tại
-            const [[khoNguon]] = await conn.query('SELECT MaKho, TenKho FROM kho_con WHERE MaKho = ? AND TinhTrang = 1', [MaKhoNguon]);
-            const [[khoDich]] = await conn.query('SELECT MaKho, TenKho FROM kho_con WHERE MaKho = ? AND TinhTrang = 1', [MaKhoDich]);
-            if (!khoNguon) throw new Error('Kho nguồn không tồn tại hoặc đã ngưng hoạt động');
-            if (!khoDich) throw new Error('Kho đích không tồn tại hoặc đã ngưng hoạt động');
-
             const [emp] = await conn.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
             const nguoiChuyen = emp[0]?.MaNV || null;
 
-            const created = [];
+            // 1. Tạo Header Phiếu chuyển
+            const [pcResult] = await conn.query(`
+                INSERT INTO phieu_chuyen_kho (MaKhoNguon, MaKhoDich, NguoiChuyen, TrangThai, GhiChu)
+                VALUES (?, ?, ?, 'Cho_duyet', ?)
+            `, [MaKhoNguon, MaKhoDich, nguoiChuyen, GhiChu || null]);
+            const MaPC = pcResult.insertId;
+
+            // 2. Tạo Chi tiết
             for (const item of items) {
                 const { MaSP, SoLuong } = item;
                 if (!MaSP || !SoLuong || SoLuong <= 0) throw new Error('Sản phẩm hoặc số lượng không hợp lệ');
 
-                // Kiểm tra tồn kho tại kho nguồn (ton_kho_chi_tiet)
+                // Kiểm tra tồn kho tại kho nguồn
                 const [[stock]] = await conn.query(
                     'SELECT SoLuongTon FROM ton_kho_chi_tiet WHERE MaKho = ? AND MaSP = ?', [MaKhoNguon, MaSP]
                 );
                 if (!stock || stock.SoLuongTon < SoLuong) {
-                    throw new Error(`Kho "${khoNguon.TenKho}" không đủ hàng SP ${MaSP}. Tồn: ${stock?.SoLuongTon || 0}, yêu cầu: ${SoLuong}`);
+                    throw new Error(`Kho nguồn không đủ hàng cho SP #${MaSP}. Tồn: ${stock?.SoLuongTon || 0}`);
                 }
 
-                const [ck] = await conn.query(`
-                    INSERT INTO chuyen_kho (MaKhoNguon, MaKhoDich, MaSP, SoLuong, NguoiChuyen, TrangThai, GhiChu)
-                    VALUES (?, ?, ?, ?, ?, 'Cho_duyet', ?)
-                `, [MaKhoNguon, MaKhoDich, MaSP, SoLuong, nguoiChuyen, GhiChu || null]);
-
-                created.push(ck.insertId);
+                await conn.query(
+                    'INSERT INTO chi_tiet_chuyen_kho (MaPC, MaSP, SoLuong) VALUES (?, ?, ?)',
+                    [MaPC, MaSP, SoLuong]
+                );
             }
 
             await conn.commit();
 
             await logActivity({
-                MaTK: req.user.MaTK,
-                HanhDong: 'Them',
-                BangDuLieu: 'chuyen_kho',
-                MaBanGhi: created[0], // Log first ID as reference
-                DuLieuMoi: { MaKhoNguon, MaKhoDich, count: created.length, items },
+                MaTK: req.user.MaTK, HanhDong: 'Them',
+                BangDuLieu: 'phieu_chuyen_kho', MaBanGhi: MaPC,
+                DuLieuMoi: { MaPC, MaKhoNguon, MaKhoDich, itemsCount: items.length },
                 DiaChi_IP: req.ip,
-                GhiChu: `Tạo ${created.length} yêu cầu chuyển kho`
+                GhiChu: `Tạo phiếu chuyển kho #${MaPC} (${items.length} sản phẩm)`
             });
 
-            res.status(201).json({
-                success: true,
-                message: `Đã tạo ${created.length} yêu cầu chuyển kho (đang chờ duyệt)`,
-                MaCKList: created
-            });
+            res.status(201).json({ success: true, message: 'Tạo phiếu chuyển kho thành công', MaPC });
         } catch (error) {
             await conn.rollback();
             res.status(500).json({ success: false, message: error.message });
@@ -1033,80 +1037,60 @@ const warehouseController = {
     },
 
     approveTransfer: async (req, res) => {
-        const { id } = req.params;
+        const { id } = req.params; // ID là MaPC
         const conn = await pool.getConnection();
         try {
             await conn.beginTransaction();
 
-            const [rows] = await conn.query('SELECT * FROM chuyen_kho WHERE MaCK = ? FOR UPDATE', [id]);
-            if (!rows.length) throw new Error('Yêu cầu chuyển kho không tồn tại');
-            if (rows[0].TrangThai !== 'Cho_duyet') {
-                throw new Error(`Không thể duyệt — trạng thái hiện tại: ${rows[0].TrangThai}`);
-            }
+            const [rows] = await conn.query('SELECT * FROM phieu_chuyen_kho WHERE MaPC = ? FOR UPDATE', [id]);
+            if (!rows.length) throw new Error('Phiếu chuyển kho không tồn tại');
+            if (rows[0].TrangThai !== 'Cho_duyet') throw new Error('Phiếu đã được xử lý trước đó');
 
-            const { MaKhoNguon, MaKhoDich, MaSP, SoLuong } = rows[0];
+            const { MaKhoNguon, MaKhoDich } = rows[0];
 
-            // Kiểm tra tồn kho tại kho nguồn (ton_kho_chi_tiet)
-            const [[stockSrc]] = await conn.query(
-                'SELECT SoLuongTon FROM ton_kho_chi_tiet WHERE MaKho = ? AND MaSP = ? FOR UPDATE',
-                [MaKhoNguon, MaSP]
-            );
-            if (!stockSrc || stockSrc.SoLuongTon < SoLuong) {
-                throw new Error(`Không đủ hàng tại kho nguồn. Tồn: ${stockSrc?.SoLuongTon || 0}, yêu cầu: ${SoLuong}`);
-            }
-
-            const [emp] = await conn.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
-            const nguoiNhan = emp[0]?.MaNV || null;
-
-            // Lấy MaCH của kho nguồn và kho đích để cập nhật ton_kho (tổng)
+            // Lấy chi tiết phiếu
+            const [details] = await conn.query('SELECT * FROM chi_tiet_chuyen_kho WHERE MaPC = ?', [id]);
+            
+            // Lấy MaCH của kho nguồn và kho đích
             const [[khoNguon]] = await conn.query('SELECT MaCH FROM kho_con WHERE MaKho = ?', [MaKhoNguon]);
             const [[khoDich]] = await conn.query('SELECT MaCH FROM kho_con WHERE MaKho = ?', [MaKhoDich]);
 
-            // 1. Cập nhật ton_kho_chi_tiet (kho con cụ thể)
-            await conn.query(
-                'UPDATE ton_kho_chi_tiet SET SoLuongTon = SoLuongTon - ? WHERE MaKho = ? AND MaSP = ?',
-                [SoLuong, MaKhoNguon, MaSP]
-            );
-            await conn.query(`
-                INSERT INTO ton_kho_chi_tiet (MaKho, MaSP, SoLuongTon)
-                VALUES (?, ?, ?)
-                ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?
-            `, [MaKhoDich, MaSP, SoLuong, SoLuong]);
+            for (const item of details) {
+                const { MaSP, SoLuong } = item;
 
-            // 2. Cập nhật ton_kho (tổng chi nhánh) — chỉ cập nhật nếu khác chi nhánh
-            if (khoNguon && khoDich) {
-                if (String(khoNguon.MaCH) !== String(khoDich.MaCH)) {
-                    await conn.query(
-                        'UPDATE ton_kho SET SoLuongTon = SoLuongTon - ? WHERE MaSP = ? AND MaCH = ?',
-                        [SoLuong, MaSP, khoNguon.MaCH]
-                    );
+                // 1. Trừ kho nguồn
+                const [upSrc] = await conn.query(
+                    'UPDATE ton_kho_chi_tiet SET SoLuongTon = SoLuongTon - ? WHERE MaKho = ? AND MaSP = ? AND SoLuongTon >= ?',
+                    [SoLuong, MaKhoNguon, MaSP, SoLuong]
+                );
+                if (upSrc.affectedRows === 0) throw new Error(`Không đủ hàng SP #${MaSP} tại kho nguồn`);
+
+                // 2. Cộng kho đích
+                await conn.query(`
+                    INSERT INTO ton_kho_chi_tiet (MaKho, MaSP, SoLuongTon)
+                    VALUES (?, ?, ?)
+                    ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?
+                `, [MaKhoDich, MaSP, SoLuong, SoLuong]);
+
+                // 3. Cập nhật ton_kho (tổng chi nhánh) nếu khác chi nhánh
+                if (khoNguon && khoDich && String(khoNguon.MaCH) !== String(khoDich.MaCH)) {
+                    await conn.query('UPDATE ton_kho SET SoLuongTon = SoLuongTon - ? WHERE MaSP = ? AND MaCH = ?', [SoLuong, MaSP, khoNguon.MaCH]);
                     await conn.query(`
                         INSERT INTO ton_kho (MaSP, MaCH, SoLuongTon)
                         VALUES (?, ?, ?)
                         ON DUPLICATE KEY UPDATE SoLuongTon = SoLuongTon + ?
                     `, [MaSP, khoDich.MaCH, SoLuong, SoLuong]);
                 }
-                // Nếu cùng chi nhánh: ton_kho không đổi (chỉ di chuyển nội bộ giữa kho con)
             }
 
+            const [emp] = await conn.query('SELECT MaNV FROM nhanvien WHERE MaTK = ?', [req.user.MaTK]);
             await conn.query(
-                'UPDATE chuyen_kho SET TrangThai = ?, NguoiNhan = ?, NgayNhan = NOW() WHERE MaCK = ?',
-                ['Da_nhan', nguoiNhan, id]
+                'UPDATE phieu_chuyen_kho SET TrangThai = "Da_nhan", NguoiNhan = ?, NgayNhan = NOW() WHERE MaPC = ?',
+                [emp[0]?.MaNV || null, id]
             );
 
             await conn.commit();
-
-            await logActivity({
-                MaTK: req.user.MaTK,
-                HanhDong: 'Sua',
-                BangDuLieu: 'chuyen_kho',
-                MaBanGhi: id,
-                DuLieuMoi: { TrangThai: 'Da_nhan', NguoiNhan: nguoiNhan },
-                DiaChi_IP: req.ip,
-                GhiChu: `Duyệt hoàn tất chuyển kho ID=${id}`
-            });
-
-            res.json({ success: true, message: 'Đã duyệt và hoàn tất chuyển kho' });
+            res.json({ success: true, message: 'Đã duyệt phiếu chuyển kho' });
         } catch (error) {
             await conn.rollback();
             res.status(500).json({ success: false, message: error.message });
@@ -1115,32 +1099,94 @@ const warehouseController = {
         }
     },
 
+    getTransfers: async (req, res) => {
+        const { MaKhoNguon, TrangThai, page = 1, pageSize = 20 } = req.query;
+        const offset = (parseInt(page) - 1) * parseInt(pageSize);
+        try {
+            const params = [];
+            let where = 'WHERE 1=1';
+            if (MaKhoNguon) { where += ' AND pc.MaKhoNguon = ?'; params.push(MaKhoNguon); }
+            if (TrangThai)   { where += ' AND pc.TrangThai = ?';   params.push(TrangThai); }
+
+            const [rows] = await pool.query(`
+                SELECT pc.*, 
+                       kn.TenKho AS TenKhoNguon, 
+                       kd.TenKho AS TenKhoDich,
+                       nv1.HoTen AS TenNguoiChuyen,
+                       nv2.HoTen AS TenNguoiNhan,
+                       (SELECT COUNT(*) FROM chi_tiet_chuyen_kho ctc WHERE ctc.MaPC = pc.MaPC) AS SoLoaiSP,
+                       (SELECT SUM(SoLuong) FROM chi_tiet_chuyen_kho ctc WHERE ctc.MaPC = pc.MaPC) AS TongSL
+                FROM phieu_chuyen_kho pc
+                LEFT JOIN kho_con kn ON pc.MaKhoNguon = kn.MaKho
+                LEFT JOIN kho_con kd ON pc.MaKhoDich = kd.MaKho
+                LEFT JOIN nhanvien nv1 ON pc.NguoiChuyen = nv1.MaNV
+                LEFT JOIN nhanvien nv2 ON pc.NguoiNhan = nv2.MaNV
+                ${where}
+                ORDER BY pc.NgayChuyen DESC
+                LIMIT ? OFFSET ?
+            `, [...params, parseInt(pageSize), offset]);
+
+            const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM phieu_chuyen_kho pc ${where}`, params);
+            res.json({
+                success: true, data: rows,
+                pagination: { page: parseInt(page), pageSize: parseInt(pageSize), total }
+            });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    getTransferById: async (req, res) => {
+        const { id } = req.params;
+        try {
+            const [header] = await pool.query(`
+                SELECT pc.*, kn.TenKho AS TenKhoNguon, kd.TenKho AS TenKhoDich,
+                       nv1.HoTen AS TenNguoiChuyen, nv2.HoTen AS TenNguoiNhan
+                FROM phieu_chuyen_kho pc
+                LEFT JOIN kho_con kn ON pc.MaKhoNguon = kn.MaKho
+                LEFT JOIN kho_con kd ON pc.MaKhoDich = kd.MaKho
+                LEFT JOIN nhanvien nv1 ON pc.NguoiChuyen = nv1.MaNV
+                LEFT JOIN nhanvien nv2 ON pc.NguoiNhan = nv2.MaNV
+                WHERE pc.MaPC = ?
+            `, [id]);
+
+            if (!header.length) return res.status(404).json({ success: false, message: 'Phiếu chuyển không tồn tại' });
+
+            const [items] = await pool.query(`
+                SELECT ctc.*, sp.TenSP, sp.HinhAnh, sp.ISBN
+                FROM chi_tiet_chuyen_kho ctc
+                JOIN sanpham sp ON ctc.MaSP = sp.MaSP
+                WHERE ctc.MaPC = ?
+            `, [id]);
+
+            res.json({ success: true, data: { ...header[0], items } });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
     cancelTransfer: async (req, res) => {
         const { id } = req.params;
         const { LyDo } = req.body;
         try {
-            const [rows] = await pool.query('SELECT TrangThai FROM chuyen_kho WHERE MaCK = ?', [id]);
-            if (!rows.length) return res.status(404).json({ success: false, message: 'Không tìm thấy yêu cầu' });
-            if (rows[0].TrangThai !== 'Cho_duyet') {
-                return res.status(400).json({ success: false, message: 'Chỉ có thể hủy yêu cầu đang chờ duyệt' });
-            }
+            const [rows] = await pool.query('SELECT TrangThai FROM phieu_chuyen_kho WHERE MaPC = ?', [id]);
+            if (!rows.length) return res.status(404).json({ success: false, message: 'Không tìm thấy phiếu' });
+            if (rows[0].TrangThai !== 'Cho_duyet') return res.status(400).json({ success: false, message: 'Chỉ có thể hủy phiếu chờ duyệt' });
 
             await pool.query(
-                "UPDATE chuyen_kho SET TrangThai = 'Huy', GhiChu = CONCAT(COALESCE(GhiChu,''), ' | Hủy: ', ?) WHERE MaCK = ?",
+                "UPDATE phieu_chuyen_kho SET TrangThai = 'Huy', GhiChu = CONCAT(COALESCE(GhiChu,''), ' | Hủy: ', ?) WHERE MaPC = ?",
                 [LyDo || 'Không có lý do', id]
             );
 
             await logActivity({
-                MaTK: req.user.MaTK,
-                HanhDong: 'Sua',
-                BangDuLieu: 'chuyen_kho',
-                MaBanGhi: id,
+                MaTK: req.user.MaTK, HanhDong: 'Sua',
+                BangDuLieu: 'phieu_chuyen_kho', MaBanGhi: id,
                 DuLieuMoi: { TrangThai: 'Huy', LyDo },
                 DiaChi_IP: req.ip,
-                GhiChu: `Hủy yêu cầu chuyển kho ID=${id}`
+                GhiChu: `Hủy phiếu chuyển kho #${id}`
             });
 
-            res.json({ success: true, message: 'Đã hủy yêu cầu chuyển kho' });
+            res.json({ success: true, message: 'Đã hủy phiếu chuyển kho' });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }
@@ -1648,13 +1694,25 @@ const warehouseController = {
 
     getStores: async (req, res) => {
         try {
-            // Trả về danh sách kho (mỗi kho là độc lập, thay thế chi nhánh)
-            // Dùng alias MaCH/TenCH để tương thích với frontend cũ
-            const [rows] = await pool.query(
-                'SELECT MaKho AS MaCH, TenKho AS TenCH, ViTri AS DiaChi, TinhTrang FROM kho_con WHERE TinhTrang = 1 ORDER BY Priority ASC, TenKho'
-            );
+            // Trả về danh sách kho kèm thông tin sức chứa còn trống
+            // GROUP BY MaKho để tính tổng tồn từ ton_kho_chi_tiet
+            const [rows] = await pool.query(`
+                SELECT 
+                    kc.MaKho AS MaCH, 
+                    kc.TenKho AS TenCH, 
+                    kc.ViTri AS DiaChi, 
+                    kc.Capacity AS TongSucChua,
+                    COALESCE(SUM(tkct.SoLuongTon), 0) AS TongTonHienTai,
+                    GREATEST(0, kc.Capacity - COALESCE(SUM(tkct.SoLuongTon), 0)) AS SucChuaConLai
+                FROM kho_con kc
+                LEFT JOIN ton_kho_chi_tiet tkct ON kc.MaKho = tkct.MaKho
+                WHERE kc.TinhTrang = 1
+                GROUP BY kc.MaKho
+                ORDER BY kc.Priority ASC, kc.TenKho
+            `);
             res.json({ success: true, data: rows });
         } catch (error) {
+            console.error('getStores error:', error);
             res.status(500).json({ success: false, message: error.message });
         }
     },
